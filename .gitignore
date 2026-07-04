@@ -17,6 +17,13 @@ target/
 *.iml
 *.ipr
 
+# Python report generator build artifacts
+python-reports/dist/
+python-reports/build/
+python-reports/*.spec
+python-reports/__pycache__/
+python-reports/reports/__pycache__/
+
 # Logs applicatifs
 logs/
 *.log

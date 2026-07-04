@@ -1,22 +1,21 @@
-feat: implement complete Banque Annuelle module (TICKET-011, TICKET-012, TICKET-013)
+feat: implement Reports module (TICKET-015 Java bridge + TICKET-016 Python generator)
 
-TICKET-011 — Domain + Infrastructure:
-- Create value object: LoanStatus (active, repaid, overdue)
-- Create domain models: Saving, Loan (with factory createNew, business methods), LoanRepayment
-- Create repository ports: SavingRepository, LoanRepository, LoanRepaymentRepository
-- Create JPA entities matching V1 schema (saving, loan, loan_repayment)
-- Create mappers (SavingMapper, LoanMapper, LoanRepaymentMapper)
-- Create JPA adapters with Spring Data inner interfaces (sum queries via @Query)
+TICKET-015 — Java side:
+- ReportService: bridges to Python executable via ProcessBuilder, reads output path
+  from stdout, 60-second timeout, proper error handling with exit code check
+- ReportController: GET /reports (page), POST /reports/generate (PDF download)
+  via ResponseEntity with Content-Disposition: attachment
+- reports/index.html: 3 report type cards (session/monthly/quarterly) with
+  date picker modals, info banner, auto-download message
 
-TICKET-012 — Use cases:
-- RecordSavingUseCase: validates amount > 0, member active, creates saving + bank cashbox credit
-- CreateLoanUseCase: validates member active, has savings > 0, max 2 active loans; calculates totalDue (10% interest) and dueDate (2 months); creates bank cashbox debit
-- RecordLoanRepaymentUseCase: validates loan active, records repayment, auto-closes loan when fully paid, creates bank cashbox credit
-- CheckOverdueLoansUseCase: @Scheduled daily at 02:00, marks overdue loans
-- GetMemberBankSummaryUseCase: returns totalSavings, activeLoans, loanHistory, eligibility
+TICKET-016 — Python report generator:
+- main.py: entry point dispatching by type, prints output path to stdout
+- db_config.py: PostgreSQL connection via read-only role (asvosonk_reports)
+- reports/session_report.py: attendance, tontine, cashbox movements PDF
+- reports/monthly_report.py: sessions, cashbox summary, sanctions, revolving fund
+- reports/quarterly_report.py: aggregated quarterly overview per cashbox
+- requirements.txt: psycopg2-binary, weasyprint, jinja2
+- build.bat: PyInstaller one-file build script
 
-TICKET-013 — Controller + Templates:
-- Forms: SavingForm (amount, operationDate), LoanForm (amount), RepaymentForm (amount)
-- BankController: 5 routes (overview, member detail, save, loan, repay)
-- overview.html: total savings card, active loans table with member names/remaining balance/status, member list
-- member-account.html: savings total, eligibility badge, saving/loan/repay modals, active loans with repayment progress, loan/savings history
+Config: application.properties already has asvosonk.reports.exe-path and output-dir
+Nav: layout.html already has Reports link with REPORT_SESSION permission
