@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html th:replace="~{layout :: layout(
+    pageTitle,
+    ~{::content},
+    ~{::extraHead},
+    ~{::extraScripts}
+)}">
+<head>
+    <th:block th:ref="extraHead"></th:block>
+</head>
+<body>
+<th:block th:ref="content">
+
+<h1 class="h3 mb-3">
+    <i class="bi bi-plus-circle me-2"></i>Nouveau tour de grande tontine
+</h1>
+
+<form th:action="@{/tontine/new}" method="post" th:object="${form}" class="needs-validation">
+    <!-- Date de début -->
+    <div class="mb-3">
+        <label class="form-label" for="startDate">Date de début</label>
+        <input type="date" class="form-control" th:field="*{startDate}" id="startDate" required>
+        <div class="invalid-feedback" th:if="${#fields.hasErrors('startDate')}"
+             th:errors="*{startDate}"></div>
+    </div>
+
+    <!-- Sélecteur de participants -->
+    <div class="mb-3">
+        <label class="form-label">Participants</label>
+        <div class="alert alert-info small py-2">
+            <i class="bi bi-info-circle me-1"></i>
+            Sélectionnez les membres participants et indiquez leur ordre de passage
+            (selon le tirage au sort effectué en assemblée).
+        </div>
+        <table class="table table-sm">
+            <thead>
+                <tr>
+                    <th>Sélectionné</th>
+                    <th>Membre</th>
+                    <th>Ordre de passage</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="member, iter : ${members}">
+                    <td>
+                        <input type="checkbox" class="form-check-input"
+                               th:field="*{participantIds}" th:value="${member.id}">
+                    </td>
+                    <td th:text="${member.fullName}"></td>
+                    <td>
+                        <input type="number" class="form-control form-control-sm"
+                               th:field="*{drawOrders}" style="width:80px" min="1">
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+        <div class="invalid-feedback" th:if="${#fields.hasErrors('participantIds')}"
+             th:errors="*{participantIds}"></div>
+    </div>
+
+    <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary">
+            <i class="bi bi-save me-1"></i>Créer le tour
+        </button>
+        <a th:href="@{/tontine}" class="btn btn-secondary">
+            <i class="bi bi-x me-1"></i>Annuler
+        </a>
+    </div>
+</form>
+
+</th:block>
+
+<th:block th:ref="extraScripts"></th:block>
+</body>
+</html>

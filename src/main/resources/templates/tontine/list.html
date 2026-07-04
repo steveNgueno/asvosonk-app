@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html th:replace="~{layout :: layout(
+    pageTitle,
+    ~{::content},
+    ~{::extraHead},
+    ~{::extraScripts}
+)}">
+<head>
+    <th:block th:ref="extraHead"></th:block>
+</head>
+<body>
+<th:block th:ref="content">
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3 mb-0">
+        <i class="bi bi-cash-stack me-2"></i>Grande Tontine
+    </h1>
+    <div sec:authorize="hasAuthority('TONTINE_TOUR_CREATE')">
+        <a th:if="${openTour == null}" class="btn btn-primary" th:href="@{/tontine/new}">
+            <i class="bi bi-plus-circle me-1"></i>Nouveau tour
+        </a>
+        <span th:if="${openTour != null}" class="text-muted small">
+            <i class="bi bi-info-circle me-1"></i>Un tour est déjà en cours
+        </span>
+    </div>
+</div>
+
+<!-- ── Open tour card ──────────────────────────────────── -->
+<div th:if="${openTour != null}" class="card border-success mb-4">
+    <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-play-circle me-1"></i>Tour en cours</span>
+        <span class="badge bg-light text-dark">Démarré le ${openTour.startDate}</span>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <h6 class="card-subtitle mb-2 text-muted">Participants</h6>
+                <table class="table table-sm table-borderless mb-0">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Membre</th>
+                            <th>Bénéficié</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="p : ${openParticipants}">
+                            <td th:text="${p.drawOrder}"></td>
+                            <td th:text="${p.memberId}"></td>
+                            <td>
+                                <span th:if="${p.hasBenefited}" class="badge bg-success">
+                                    <i class="bi bi-check"></i> Oui
+                                </span>
+                                <span th:unless="${p.hasBenefited}" class="badge bg-secondary">
+                                    <i class="bi bi-x"></i> Non
+                                </span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="col-md-6">
+                <p class="mb-1"><strong>Total collecté :</strong>
+                    <span class="text-success fw-bold" th:text="${openTotalCollected} + ' FCFA'"></span>
+                </p>
+                <a class="btn btn-outline-success btn-sm mt-2" th:href="@{/tontine/{id}(id=${openTour.id})}">
+                    <i class="bi bi-eye me-1"></i>Détails du tour
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Tour history ────────────────────────────────────── -->
+<h5 class="mb-2">Historique des tours</h5>
+<div th:if="${#lists.isEmpty(tours)}" class="alert alert-info">
+    <i class="bi bi-info-circle me-1"></i>Aucun tour de grande tontine pour le moment.
+</div>
+
+<div th:unless="${#lists.isEmpty(tours)}" class="table-responsive">
+    <table class="table table-striped table-hover align-middle">
+        <thead class="table-dark">
+            <tr>
+                <th>#</th>
+                <th>Date début</th>
+                <th>Date fin</th>
+                <th>Statut</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr th:each="tour : ${tours}">
+                <td th:text="${tour.id}"></td>
+                <td th:text="${tour.startDate}"></td>
+                <td th:text="${tour.endDate} != null ? ${tour.endDate} : '—'"></td>
+                <td>
+                    <span th:if="${tour.isOpen()}" class="badge bg-success">
+                        <i class="bi bi-play-fill"></i> En cours
+                    </span>
+                    <span th:unless="${tour.isOpen()}" class="badge bg-secondary">
+                        <i class="bi bi-check-circle"></i> Terminé
+                    </span>
+                </td>
+                <td>
+                    <a class="btn btn-sm btn-outline-primary" th:href="@{/tontine/{id}(id=${tour.id})}">
+                        <i class="bi bi-eye"></i> Détails
+                    </a>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+</th:block>
+
+<th:block th:ref="extraScripts"></th:block>
+</body>
+</html>

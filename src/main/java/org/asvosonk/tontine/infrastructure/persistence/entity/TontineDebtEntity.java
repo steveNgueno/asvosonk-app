@@ -1,0 +1,58 @@
+package org.asvosonk.tontine.infrastructure.persistence.entity;
+
+import jakarta.persistence.*;
+import lombok.*;
+import org.asvosonk.tontine.domain.valueobject.DebtStatus;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
+@Entity
+@Table(name = "tontine_debt",
+       uniqueConstraints = @UniqueConstraint(columnNames = {"tour_id", "debtor_id", "creditor_id"}))
+@Getter @Setter
+@NoArgsConstructor
+@EqualsAndHashCode(of = "id")
+public class TontineDebtEntity {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = "tour_id", nullable = false)
+    private Long tourId;
+
+    @Column(name = "debtor_id", nullable = false)
+    private Long debtorId;
+
+    @Column(name = "creditor_id", nullable = false)
+    private Long creditorId;
+
+    @Column(nullable = false, precision = 10, scale = 2)
+    private BigDecimal amount;
+
+    @Column(name = "origin_session_id", nullable = false)
+    private Long originSessionId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, columnDefinition = "debt_status")
+    private DebtStatus status = DebtStatus.owed;
+
+    @Column(name = "repayment_session_id")
+    private Long repaymentSessionId;
+
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt = LocalDateTime.now();
+
+    @Column(name = "updated_at", nullable = false)
+    private LocalDateTime updatedAt = LocalDateTime.now();
+
+    @PrePersist
+    public void prePersist() {
+        this.createdAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    public void preUpdate() { this.updatedAt = LocalDateTime.now(); }
+}
