@@ -1,22 +1,22 @@
-feat: implement complete Grande Tontine module (TICKET-008, TICKET-009, TICKET-010)
+feat: implement complete Banque Annuelle module (TICKET-011, TICKET-012, TICKET-013)
 
-TICKET-008 — Domain + Infrastructure:
-- Create value objects: TontineTourStatus, PaymentStatus, DebtStatus
-- Create domain models: TontineTour, TontineParticipant, TontineContribution, TontineDebt
-- Create domain repository ports (4 interfaces)
-- Create JPA entities matching V1 schema with proper constraints
-- Create mappers implementing EntityMapper<D, E> pattern
-- Create JPA adapters with inner Spring Data interfaces (port/adapter pattern)
+TICKET-011 — Domain + Infrastructure:
+- Create value object: LoanStatus (active, repaid, overdue)
+- Create domain models: Saving, Loan (with factory createNew, business methods), LoanRepayment
+- Create repository ports: SavingRepository, LoanRepository, LoanRepaymentRepository
+- Create JPA entities matching V1 schema (saving, loan, loan_repayment)
+- Create mappers (SavingMapper, LoanMapper, LoanRepaymentMapper)
+- Create JPA adapters with Spring Data inner interfaces (sum queries via @Query)
 
-TICKET-009 — Use cases:
-- CreateTourUseCase: validates no open tour exists, min 2 participants, creates tour + participants
-- RecordTontineContributionUseCase: handles 3 cases (normal contribution with debt creation, repayment with existing debt, default with sanction + possible reclassification)
-- MarkBenefitedUseCase: marks a participant as having benefited
-- CloseTourUseCase: closes tour only when all participants have benefited
-- GetTourDebtsUseCase: fetches debts for a tour, optionally filtered by member
+TICKET-012 — Use cases:
+- RecordSavingUseCase: validates amount > 0, member active, creates saving + bank cashbox credit
+- CreateLoanUseCase: validates member active, has savings > 0, max 2 active loans; calculates totalDue (10% interest) and dueDate (2 months); creates bank cashbox debit
+- RecordLoanRepaymentUseCase: validates loan active, records repayment, auto-closes loan when fully paid, creates bank cashbox credit
+- CheckOverdueLoansUseCase: @Scheduled daily at 02:00, marks overdue loans
+- GetMemberBankSummaryUseCase: returns totalSavings, activeLoans, loanHistory, eligibility
 
-TICKET-010 — Controller + Templates:
-- CreateTourForm: startDate, participantIds, drawOrders
-- ContributionForm: contributorId, beneficiaryId, amount, sessionId
-- TontineController: 6 routes (list, create GET/POST, detail, contribute GET/POST, close)
-- Templates: list.html (open tour card + history), form.html (member selection + draw order), tour-detail.html (participants/debts/contributions), contribution-form.html (beneficiary selection, per-contributor amount with JS syncing)
+TICKET-013 — Controller + Templates:
+- Forms: SavingForm (amount, operationDate), LoanForm (amount), RepaymentForm (amount)
+- BankController: 5 routes (overview, member detail, save, loan, repay)
+- overview.html: total savings card, active loans table with member names/remaining balance/status, member list
+- member-account.html: savings total, eligibility badge, saving/loan/repay modals, active loans with repayment progress, loan/savings history
