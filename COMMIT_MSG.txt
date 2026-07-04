@@ -1,17 +1,16 @@
-fix: add missing Flyway V3 migration and AttendanceStatus converter (TICKET-017)
+feat: add global exception handler and loan overdue scheduler (TICKET-018, TICKET-019)
 
-Audited all 19 JPA entities against V1 schema. Found two mismatches:
+TICKET-018 — Global exception handler:
+- GlobalExceptionHandler with @ControllerAdvice handling:
+  - ResourceNotFoundException → custom 404 page with error detail
+  - AccessDeniedException → custom 403 page with message
+  - BusinessRuleException → redirect to referer with flash error
+  - DuplicateResourceException → redirect to referer with flash error
+  - IllegalArgumentException/IllegalStateException → redirect with flash
+  - Exception → custom 500 page (safety net)
+- Error templates: 404.html, 403.html, 500.html (all using layout pattern)
 
-1. SanctionStatus Java enum has 'cancelled' but PostgreSQL sanction_status
-   ENUM only had ('unpaid', 'paid'). Created V3 migration to add it:
-   ALTER TYPE sanction_status ADD VALUE IF NOT EXISTS 'cancelled';
-
-2. AttendanceStatus Java enum uses 'default_status' (Java reserved word)
-   while DB ENUM uses 'default'. Created JPA AttributeConverter to
-   map default_status <-> 'default' for seamless persistence.
-
-All other entities match V1 schema correctly:
-- tontine_debt UNIQUE(tour_id, debtor_id, creditor_id) confirmed
-- global_movement_view confirmed present
-- asvosonk_reports role confirmed present
-- All column definitions, enum mappings, and constraints verified
+TICKET-019 — Loan overdue scheduler:
+- LoanOverdueScheduler: @Scheduled daily at 08:00
+- Delegates to existing CheckOverdueLoansUseCase
+- @EnableScheduling already active on AsvosonkApplication
