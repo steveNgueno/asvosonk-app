@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      th:replace="~{layout :: layout(pageTitle=${pageTitle}, content=~{::main-content}, extraHead=~{}, extraScripts=~{})}">
+<body><th:block th:fragment="main-content">
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="page-header">
+        <h2><i class="bi bi-exclamation-triangle me-2"></i>Gestion des sanctions</h2>
+        <p>Liste de toutes les sanctions</p>
+    </div>
+    <a sec:authorize="hasAuthority('SANCTION_CREATE_MANUAL')"
+       th:href="@{/sanctions/new}" class="btn btn-primary btn-sm">
+        <i class="bi bi-plus-circle me-1"></i>Nouvelle sanction
+    </a>
+</div>
+
+<!-- Unpaid total card -->
+<div class="row g-3 mb-3">
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm text-center p-3">
+            <div class="text-muted small">Total des impayés</div>
+            <div class="fs-3 fw-bold text-danger"
+                 th:text="${#numbers.formatDecimal(unpaidTotal, 1, 'COMMA', 0, 'POINT')} + ' FCFA'"></div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm text-center p-3">
+            <div class="text-muted small">Total sanctions</div>
+            <div class="fs-3 fw-bold" th:text="${#lists.size(sanctions)}"></div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm text-center p-3">
+            <div class="text-muted small">Impayées</div>                <div class="fs-3 fw-bold text-warning"
+                 th:text="${unpaidCount}"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card border-0 shadow-sm mb-3">
+    <div class="card-body">
+        <form method="get" class="row g-2 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label">Statut</label>
+                <select name="status" class="form-select form-select-sm">
+                    <option value="">Tous</option>
+                    <option th:each="s : ${statuses}" th:value="${s.name()}"
+                            th:text="${s.name() == 'unpaid' ? 'Impayé' : (s.name() == 'paid' ? 'Payé' : 'Annulé')}"
+                            th:selected="${param.status != null && param.status[0] == s.name()}"></option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Membre</label>
+                <select name="memberId" class="form-select form-select-sm">
+                    <option value="">Tous les membres</option>
+                    <option th:each="m : ${members}" th:value="${m.id}"
+                            th:text="${m.fullName}"
+                            th:selected="${param.memberId != null && param.memberId[0] == m.id.toString()}"></option>
+                </select>
+            </div>
+            <div class="col-md-4 d-flex gap-1">
+                <button type="submit" class="btn btn-primary btn-sm">
+                    <i class="bi bi-search me-1"></i>Filtrer
+                </button>
+                <a th:href="@{/sanctions}" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-x-circle me-1"></i>Réinitialiser
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Sanctions table -->
+<div class="card border-0 shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-sm mb-0">
+            <thead>
+                <tr>
+                    <th>Membre</th>
+                    <th>Date</th>
+                    <th>Motif</th>
+                    <th>Origine</th>
+                    <th class="text-end">Montant</th>
+                    <th class="text-center">Statut</th>
+                    <th class="text-center">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="s : ${sanctions}">
+                    <td th:text="${s.member.fullName}"></td>
+                    <td th:text="${#temporals.format(s.sanctionDate, 'dd/MM/yyyy')}"></td>
+                    <td th:text="${s.reason}"></td>
+                    <td>
+                        <span class="badge"
+                              th:classappend="${s.origin.name() == 'presence_fund' ? 'bg-warning text-dark' :
+                                              (s.origin.name() == 'presence_default' ? 'bg-danger' :
+                                              (s.origin.name() == 'tontine_default' ? 'bg-info text-dark' : 'bg-secondary'))}"
+                              th:text="${s.origin.name() == 'presence_fund' ? 'Fond' :
+                                       (s.origin.name() == 'presence_default' ? 'Échec présence' :
+                                       (s.origin.name() == 'tontine_default' ? 'Tontine' : 'Manuel'))}"></span>
+                    </td>
+                    <td class="amount text-end"
+                        th:text="${#numbers.formatDecimal(s.amount, 1, 'COMMA', 0, 'POINT')} + ' FCFA'"></td>
+                    <td class="text-center">
+                        <span class="badge"
+                              th:classappend="${s.status.name() == 'unpaid' ? 'bg-danger' :
+                                              (s.status.name() == 'paid' ? 'bg-success' : 'bg-secondary')}"
+                              th:text="${s.status.name() == 'unpaid' ? 'Impayé' :
+                                       (s.status.name() == 'paid' ? 'Payé' : 'Annulé')}"></span>
+                    </td>
+                    <td class="text-center">
+                        <div class="d-flex justify-content-center gap-1">
+                            <form th:if="${s.status.name() == 'unpaid'}"
+                                  th:action="@{/sanctions/{id}/pay(id=${s.id})}" method="post"
+                                  sec:authorize="hasAuthority('SANCTION_RECORD_PAYMENT')">
+                                <button type="submit" class="btn btn-sm btn-outline-success"
+                                        title="Enregistrer le paiement">
+                                    <i class="bi bi-cash"></i>
+                                </button>
+                            </form>
+                            <form th:if="${s.status.name() == 'unpaid'}"
+                                  th:action="@{/sanctions/{id}/cancel(id=${s.id})}" method="post"
+                                  sec:authorize="hasAuthority('SANCTION_CANCEL')">
+                                <button type="submit" class="btn btn-sm btn-outline-danger"
+                                        title="Annuler la sanction"
+                                        onclick="return confirm('Annuler cette sanction ?')">
+                                    <i class="bi bi-x-circle"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                <tr th:if="${#lists.isEmpty(sanctions)}">
+                    <td colspan="7" class="text-center text-muted py-3">Aucune sanction trouvée</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+</th:block></body></html>

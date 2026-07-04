@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout :: layout(pageTitle=${pageTitle}, content=~{::main-content}, extraHead=~{}, extraScripts=~{})}">
+<body><th:block th:fragment="main-content">
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="page-header">
+        <h2><i class="bi bi-file-earmark-bar-graph me-2"></i>Rapport de séance</h2>
+        <p th:text="'Séance du ' + ${#temporals.format(session.sessionDate,'EEEE dd MMMM yyyy')}"></p>
+    </div>
+    <a th:href="@{/sessions}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left me-1"></i>Retour aux séances
+    </a>
+</div>
+
+<!-- Summary cards (shown if closeResult available, else compute from session) -->
+<div th:if="${closeResult != null}">
+
+    <!-- Stats row -->
+    <div class="row g-3 mb-3">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm text-center p-3">
+                <div class="fs-1 fw-bold text-primary" th:text="${closeResult.totalCotisants}"></div>
+                <div class="text-muted small">Cotisants</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm text-center p-3">
+                <div class="fs-1 fw-bold text-success" th:text="${closeResult.presentCount}"></div>
+                <div class="text-muted small">Présents</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm text-center p-3">
+                <div class="fs-1 fw-bold text-warning" th:text="${closeResult.fundCoveredCount}"></div>
+                <div class="text-muted small">Cotisés par fond</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm text-center p-3">
+                <div class="fs-1 fw-bold text-danger" th:text="${closeResult.defaultCount}"></div>
+                <div class="text-muted small">Échecs</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Financial summary -->
+    <div class="row g-3 mb-3">
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-dark text-white fw-semibold">Entrées du jour</div>
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0">
+                        <tr>
+                            <td>Tontine brute collectée</td>
+                            <td class="amount amount-in text-end"
+                                th:text="${#numbers.formatDecimal(closeResult.grossTontine,1,'COMMA',0,'POINT')} + ' FCFA'"></td>
+                        </tr>
+                        <tr th:if="${closeResult.sanctionDeductions.compareTo(T(java.math.BigDecimal).ZERO) > 0}">
+                            <td class="text-muted">— Sanctions déduites (bénéficiaire)</td>
+                            <td class="amount amount-out text-end"
+                                th:text="'− ' + ${#numbers.formatDecimal(closeResult.sanctionDeductions,1,'COMMA',0,'POINT')} + ' FCFA'"></td>
+                        </tr>
+                        <tr class="fw-bold">
+                            <td>Tontine nette → bénéficiaire</td>
+                            <td class="amount amount-in text-end"
+                                th:text="${#numbers.formatDecimal(closeResult.netTontine,1,'COMMA',0,'POINT')} + ' FCFA'"></td>
+                        </tr>
+                        <tr>
+                            <td>Caisse Développement</td>
+                            <td class="amount amount-in text-end"
+                                th:text="${#numbers.formatDecimal(closeResult.totalDevelopment,1,'COMMA',0,'POINT')} + ' FCFA'"></td>
+                        </tr>
+                        <tr>
+                            <td>Reliquat Boisson</td>
+                            <td class="amount amount-in text-end"
+                                th:text="${#numbers.formatDecimal(closeResult.beverageReliquat,1,'COMMA',0,'POINT')} + ' FCFA'"></td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-success text-white fw-semibold">
+                    <i class="bi bi-cash me-1"></i>Montant net à remettre au trésorier
+                </div>
+                <div class="card-body text-center">
+                    <div class="display-5 fw-bold text-success"
+                         th:text="${#numbers.formatDecimal(closeResult.netAmountToTreasurer,1,'COMMA',0,'POINT')} + ' FCFA'"></div>
+                    <p class="text-muted small mt-1">Tontine nette + Caisse Développement</p>
+                </div>
+            </div>
+
+            <div class="card border-0 shadow-sm mt-3">
+                <div class="card-header bg-warning text-dark fw-semibold">
+                    <i class="bi bi-trophy me-1"></i>Bénéficiaire du jour
+                </div>
+                <div class="card-body text-center">
+                    <div class="fs-4 fw-bold"
+                         th:text="${closeResult.beneficiary.fullName}"></div>
+                    <div class="text-muted"
+                         th:text="'Reçoit : ' + ${#numbers.formatDecimal(closeResult.netTontine,1,'COMMA',0,'POINT')} + ' FCFA'"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Per-member detail table -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-dark text-white fw-semibold">Détail par membre</div>
+        <div class="table-responsive">
+            <table class="table table-sm mb-0">
+                <thead>
+                    <tr>
+                        <th>Membre</th>
+                        <th class="text-center">Statut</th>
+                        <th class="text-end">→ Tontine</th>
+                        <th class="text-end">→ Boisson</th>
+                        <th class="text-end">→ Dév.</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="r : ${closeResult.attendanceResults}">
+                        <td th:text="${r.member.fullName}"></td>
+                        <td class="text-center">
+                            <span class="badge"
+                                  th:classappend="${r.upToDate ? 'bg-success' :
+                                                  (r.coveredByFund ? 'bg-warning text-dark' : 'bg-danger')}"
+                                  th:text="${r.upToDate ? 'À jour' :
+                                            (r.coveredByFund ? 'Fond' : 'Échec')}"></span>
+                        </td>
+                        <td class="amount text-end"
+                            th:text="${#numbers.formatDecimal(r.contributionToTontine,1,'COMMA',0,'POINT')}"></td>
+                        <td class="amount text-end"
+                            th:text="${#numbers.formatDecimal(r.contributionToBeverage,1,'COMMA',0,'POINT')}"></td>
+                        <td class="amount text-end"
+                            th:text="${#numbers.formatDecimal(r.contributionToDevelopment,1,'COMMA',0,'POINT')}"></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div><!-- /closeResult -->
+
+<!-- Fallback: session already closed, show attendance list only -->
+<div th:if="${closeResult == null}">
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle me-1"></i>
+        Séance clôturée le
+        <span th:text="${session.closedAt != null ? #temporals.format(session.closedAt,'dd/MM/yyyy HH:mm') : '—'}"></span>.
+    </div>
+    <div class="card border-0 shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-sm mb-0">
+                <thead><tr><th>Membre</th><th>Présent</th><th>Montant</th><th>Statut</th></tr></thead>
+                <tbody>
+                    <tr th:each="a : ${attendances}">
+                        <td th:text="${a.member.fullName}"></td>
+                        <td th:text="${a.present ? 'Oui' : 'Non'}"></td>
+                        <td class="amount" th:text="${#numbers.formatDecimal(a.amountPaid,1,'COMMA',0,'POINT')} + ' FCFA'"></td>
+                        <td>
+                            <span class="badge"
+                                  th:classappend="${a.attendanceStatus.name()=='up_to_date'?'bg-success':
+                                                  (a.attendanceStatus.name()=='covered_by_fund'?'bg-warning text-dark':
+                                                  (a.attendanceStatus.name()=='default_status'?'bg-danger':'bg-secondary'))}"
+                                  th:text="${a.attendanceStatus.name()=='up_to_date'?'À jour':
+                                            (a.attendanceStatus.name()=='covered_by_fund'?'Fond':
+                                            (a.attendanceStatus.name()=='default_status'?'Échec':'Recouvré'))}"></span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+</th:block></body></html>

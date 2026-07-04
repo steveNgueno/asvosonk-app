@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      th:replace="~{layout :: layout(pageTitle=${pageTitle}, content=~{::main-content}, extraHead=~{}, extraScripts=~{})}">
+<body><th:block th:fragment="main-content">
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="page-header">
+        <h2><i class="bi bi-clock-history me-2"></i>Historique des mouvements</h2>
+        <p>Tous les mouvements toutes caisses confondues</p>
+    </div>
+    <a th:href="@{/cashboxes}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left me-1"></i>Retour aux caisses
+    </a>
+</div>
+
+<!-- Summary row -->
+<div class="row g-3 mb-3" th:if="${totalEntries != null}">
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm text-center p-3">
+            <div class="text-muted small">Total entrées</div>
+            <div class="fs-4 fw-bold text-success"
+                 th:text="${#numbers.formatDecimal(totalEntries, 1, 'COMMA', 0, 'POINT')} + ' FCFA'"></div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm text-center p-3">
+            <div class="text-muted small">Total sorties</div>
+            <div class="fs-4 fw-bold text-danger"
+                 th:text="${#numbers.formatDecimal(totalExits, 1, 'COMMA', 0, 'POINT')} + ' FCFA'"></div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm text-center p-3">
+            <div class="text-muted small">Solde courant</div>
+            <div class="fs-4 fw-bold"
+                 th:classappend="${currentBalance >= 0 ? 'text-success' : 'text-danger'}"
+                 th:text="${#numbers.formatDecimal(currentBalance, 1, 'COMMA', 0, 'POINT')} + ' FCFA'"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Filter form -->
+<div class="card border-0 shadow-sm mb-3">
+    <div class="card-body">
+        <form method="get" class="row g-2 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label">Date début</label>
+                <input type="date" name="dateFrom" class="form-control form-control-sm"
+                       th:value="${param.dateFrom}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Date fin</label>
+                <input type="date" name="dateTo" class="form-control form-control-sm"
+                       th:value="${param.dateTo}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Caisse</label>
+                <select name="type" class="form-select form-select-sm">
+                    <option value="">Toutes les caisses</option>
+                    <option th:each="t : ${cashboxTypes}" th:value="${t.name()}"
+                            th:text="${t.label()}"
+                            th:selected="${param.type != null && param.type[0] == t.name()}"></option>
+                </select>
+            </div>
+            <div class="col-md-3 d-flex gap-1">
+                <button type="submit" class="btn btn-primary btn-sm">
+                    <i class="bi bi-search me-1"></i>Filtrer
+                </button>
+                <a th:href="@{/cashboxes/movements}" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-x-circle me-1"></i>Réinitialiser
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Movements table -->
+<div class="card border-0 shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-sm mb-0">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Caisse</th>
+                    <th class="text-center">Sens</th>
+                    <th class="text-end">Montant</th>
+                    <th>Motif</th>
+                    <th>Module</th>
+                    <th>Membre</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="m : ${movements}">
+                    <td th:text="${#temporals.format(m.movementDate, 'dd/MM/yyyy HH:mm')}"></td>
+                    <td th:text="${m.cashbox.type.label()}"></td>
+                    <td class="text-center">
+                        <span th:if="${m.direction.name() == 'in'}" class="text-success"><i class="bi bi-arrow-down-circle"></i> Entrée</span>
+                        <span th:unless="${m.direction.name() == 'in'}" class="text-danger"><i class="bi bi-arrow-up-circle"></i> Sortie</span>
+                    </td>
+                    <td class="amount text-end"
+                        th:classappend="${m.direction.name() == 'in' ? 'amount-in' : 'amount-out'}"
+                        th:text="${#numbers.formatDecimal(m.amount, 1, 'COMMA', 0, 'POINT')} + ' FCFA'"></td>
+                    <td th:text="${m.reason ?: '—'}"></td>
+                    <td th:text="${m.origin.name() == 'manual' ? 'Manuel' : (m.origin.name() == 'presence' ? 'Présence' : (m.origin.name() == 'sanction' ? 'Sanction' : (m.origin.name() == 'grand_tontine' ? 'Gde Tontine' : 'Banque')))}"></td>
+                    <td th:text="${m.memberId != null ? '#' + m.memberId : '—'}"></td>
+                </tr>
+                <tr th:if="${#lists.isEmpty(movements)}">
+                    <td colspan="7" class="text-center text-muted py-3">Aucun mouvement trouvé</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+</th:block></body></html>

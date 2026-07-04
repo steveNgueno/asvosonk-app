@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org"
+               xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      th:replace="~{layout :: layout(pageTitle=${pageTitle}, content=~{::main-content}, extraHead=~{}, extraScripts=~{::extraScripts})}">
+<body>
+<th:block th:fragment="extraScripts">
+<script>
+function setAll(present) {
+    document.querySelectorAll('.present-check').forEach(cb => cb.checked = present);
+}
+</script>
+</th:block>
+
+<th:block th:fragment="main-content">
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="page-header">
+        <h2><i class="bi bi-clipboard-check me-2"></i>Saisie de présence</h2>
+        <p th:text="'Séance du ' + ${#temporals.format(session.sessionDate,'EEEE dd MMMM yyyy')}"></p>
+    </div>
+    <a th:href="@{/sessions}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left me-1"></i>Retour
+    </a>
+</div>
+
+<!-- Beneficiary selector -->
+<div class="card border-0 shadow-sm mb-3">
+    <div class="card-header fw-semibold bg-warning text-dark">
+        <i class="bi bi-trophy me-1"></i>Bénéficiaire de la tontine de présence
+    </div>
+    <div class="card-body">
+        <form th:action="@{/sessions/{id}/beneficiary(id=${session.id})}" method="post"
+              class="d-flex gap-2 align-items-center">
+            <select name="memberId" class="form-select w-auto">
+                <option value="" disabled th:selected="${session.beneficiary == null}">-- Choisir --</option>
+                <option th:each="m : ${members}" th:value="${m.id}" th:text="${m.fullName}"
+                        th:selected="${session.beneficiary?.id == m.id}"></option>
+            </select>
+            <button type="submit" class="btn btn-warning">
+                <i class="bi bi-person-check me-1"></i>Désigner
+            </button>
+            <span th:if="${session.beneficiary != null}" class="text-success fw-semibold">
+                <i class="bi bi-check-circle me-1"></i>
+                <span th:text="${session.beneficiary.fullName}"></span>
+            </span>
+        </form>
+    </div>
+</div>
+
+<!-- Attendance table -->
+<div class="card border-0 shadow-sm mb-3">
+    <div class="card-header fw-semibold bg-dark text-white d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-people me-1"></i>Présences &amp; cotisations</span>
+        <div class="d-flex gap-1">
+            <button class="btn btn-sm btn-outline-light" onclick="setAll(true)">Tous présents</button>
+            <button class="btn btn-sm btn-outline-light" onclick="setAll(false)">Tous absents</button>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Membre</th>
+                    <th class="text-center">Présent</th>
+                    <th>Montant cotisé (FCFA)</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="att : ${attendances}">
+                    <td class="fw-semibold" th:text="${att.member.fullName}"></td>
+                    <td class="text-center">
+                        <form th:id="'form-' + ${att.member.id}"
+                              th:action="@{/sessions/{id}/attendance(id=${session.id})}"
+                              method="post" class="d-inline">
+                            <input type="hidden" name="memberId" th:value="${att.member.id}">
+                            <input type="checkbox" class="form-check-input present-check"
+                                   name="present" value="true"
+                                   th:checked="${att.present}"
+                                   th:form="'form-' + ${att.member.id}">
+                        </form>
+                    </td>
+                    <td>
+                        <form th:action="@{/sessions/{id}/attendance(id=${session.id})}" method="post"
+                              class="d-flex gap-1 align-items-center">
+                            <input type="hidden" name="memberId" th:value="${att.member.id}">
+                            <input type="hidden" name="present" th:value="${att.present}">
+                            <input type="number" name="amountPaid" class="form-control form-control-sm"
+                                   style="width:130px"
+                                   th:value="${att.amountPaid}" min="0" step="500">
+                            <button type="submit" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-check"></i>
+                            </button>
+                        </form>
+                    </td>
+                    <td>
+                        <span class="badge"
+                              th:classappend="${att.amountPaid > 0 ? 'bg-success' : 'bg-light text-dark'}"
+                              th:text="${att.amountPaid > 0 ? att.amountPaid + ' FCFA' : '—'}"></span>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Close session button -->
+<div class="card border-danger border-0 shadow-sm" sec:authorize="hasAuthority('SESSION_CLOSE')">
+    <div class="card-body d-flex align-items-center justify-content-between">
+        <div>
+            <strong>Clôturer la séance</strong>
+            <p class="mb-0 text-muted small">
+                Cette action est irréversible. Tous les calculs seront effectués automatiquement.
+            </p>
+        </div>
+        <form th:action="@{/sessions/{id}/close(id=${session.id})}" method="post"
+              onsubmit="return confirm('Confirmer la clôture de la séance ?')">
+            <button type="submit" class="btn btn-danger"
+                    th:disabled="${session.beneficiary == null}">
+                <i class="bi bi-lock me-1"></i>Clôturer la séance
+            </button>
+        </form>
+    </div>
+</div>
+
+</th:block></body></html>

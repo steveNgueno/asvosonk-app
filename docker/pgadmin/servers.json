@@ -1,0 +1,16 @@
+{
+  "Servers": {
+    "1": {
+      "Name":            "ASVOSONK — PostgreSQL local",
+      "Group":           "Servers",
+      "Host":            "postgres",
+      "Port":            5432,
+      "MaintenanceDB":   "asvosonk",
+      "Username":        "asvosonk_app",
+      "Password":        "AsvosonkDb@2024",
+      "SSLMode":         "prefer",
+      "SavePassword":    true,
+      "ConnectNow":      true
+    }
+  }
+}

@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org"
+               xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      th:replace="~{layout :: layout(pageTitle=${pageTitle}, content=~{::main-content}, extraHead=~{}, extraScripts=~{})}">
+<body><th:block th:fragment="main-content">
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="page-header">
+        <h2 th:text="${member.fullName}"></h2>
+        <p>
+            <span class="badge"
+                  th:classappend="${member.status.name()=='active'?'bg-success':'bg-secondary'}"
+                  th:text="${member.statusLabel}"></span>
+            &nbsp;·&nbsp; Membre depuis <span th:text="${#temporals.format(member.joinDate,'dd/MM/yyyy')}"></span>
+        </p>
+    </div>
+    <div class="d-flex gap-2">
+        <a th:href="@{/members/{id}/edit(id=${member.id})}" class="btn btn-outline-primary btn-sm"
+           sec:authorize="hasAuthority('MEMBER_EDIT')">
+            <i class="bi bi-pencil me-1"></i>Modifier
+        </a>
+        <a th:href="@{/members}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left me-1"></i>Liste
+        </a>
+    </div>
+</div>
+
+<div class="row g-3">
+
+    <!-- Member info -->
+    <div class="col-md-5">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-dark text-white fw-semibold">Informations</div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-5">Téléphone</dt>
+                    <dd class="col-7" th:text="${member.phone ?: '—'}"></dd>
+                    <dt class="col-5">Résident</dt>
+                    <dd class="col-7" th:text="${member.resident ? 'Oui' : 'Non'}"></dd>
+                    <dt class="col-5">Adhésion</dt>
+                    <dd class="col-7" th:text="${#temporals.format(member.joinDate,'dd/MM/yyyy')}"></dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+
+    <!-- Membership fees -->
+    <div class="col-md-7">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-dark text-white fw-semibold">Frais d'adhésion</div>
+            <div class="table-responsive">
+                <table class="table table-sm mb-0">
+                    <thead>
+                        <tr><th>Type</th><th>Dû</th><th>Payé</th><th>Reste</th><th>Statut</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="fee : ${fees}">
+                            <td th:text="${fee.feeType.label()}"></td>
+                            <td class="amount" th:text="${#numbers.formatDecimal(fee.amountDue,1,'COMMA',0,'POINT')} + ' FCFA'"></td>
+                            <td class="amount amount-in" th:text="${#numbers.formatDecimal(fee.amountPaid,1,'COMMA',0,'POINT')} + ' FCFA'"></td>
+                            <td class="amount" th:classappend="${fee.balance.compareTo(T(java.math.BigDecimal).ZERO) > 0 ? 'amount-out' : 'amount-in'}"
+                                th:text="${#numbers.formatDecimal(fee.balance,1,'COMMA',0,'POINT')} + ' FCFA'"></td>
+                            <td>
+                                <span th:if="${fee.fullyPaid}" class="badge bg-success">Payé</span>
+                                <span th:unless="${fee.fullyPaid}" class="badge bg-warning text-dark">En cours</span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Record fee payment -->
+        <div class="card border-0 shadow-sm mt-3" sec:authorize="hasAuthority('MEMBERSHIP_FEE_RECORD')">
+            <div class="card-header bg-secondary text-white fw-semibold">Enregistrer un paiement</div>
+            <div class="card-body">
+                <form th:action="@{/members/{id}/fees(id=${member.id})}"
+                      th:object="${feePaymentForm}" method="post" class="row g-2 align-items-end">
+                    <div class="col-md-5">
+                        <label class="form-label fw-semibold small">Type de frais</label>
+                        <select class="form-select form-select-sm" th:field="*{feeType}">
+                            <option th:each="t : ${feeTypes}" th:value="${t}" th:text="${t.label()}"></option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold small">Montant (FCFA)</label>
+                        <input type="number" class="form-control form-control-sm"
+                               th:field="*{amount}" min="1" placeholder="ex: 5000">
+                    </div>
+                    <div class="col-md-3">
+                        <button type="submit" class="btn btn-success btn-sm w-100">
+                            <i class="bi bi-plus-circle me-1"></i>Enregistrer
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status change -->
+    <div class="col-12" sec:authorize="hasAuthority('MEMBER_CHANGE_STATUS')">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-secondary text-white fw-semibold">Changer le statut</div>
+            <div class="card-body">
+                <form th:action="@{/members/{id}/status(id=${member.id})}" method="post"
+                      class="d-flex gap-2 align-items-center">
+                    <select name="newStatus" class="form-select w-auto">
+                        <option th:each="s : ${T(org.asvosonk.member.entity.MemberStatus).values()}"
+                                th:value="${s}" th:text="${s.name()}"
+                                th:selected="${s == member.status}"></option>
+                    </select>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="bi bi-arrow-repeat me-1"></i>Appliquer
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+</div><!-- /row -->
+</th:block></body></html>

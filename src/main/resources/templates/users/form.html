@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      th:replace="~{layout :: layout(pageTitle=${pageTitle}, content=~{::main-content}, extraHead=~{}, extraScripts=~{})}">
+<body><th:block th:fragment="main-content">
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="page-header">
+        <h2><i class="bi bi-person-gear me-2"></i>
+            <span th:text="${editMode ? 'Modifier' : 'Nouvel'}">Nouvel</span> utilisateur
+        </h2>
+    </div>
+    <a th:href="@{/users}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left me-1"></i>Retour
+    </a>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <form th:action="@{${editMode} ? '/users/' + ${userId} + '/edit' : '/users/new'}"
+                      th:object="${form}" method="post">
+                    <div class="mb-3">
+                        <label class="form-label">Login</label>
+                        <input type="text" th:field="*{login}" class="form-control"
+                               th:disabled="${editMode}"
+                               th:classappend="${#fields.hasErrors('login') ? 'is-invalid' : ''}">
+                        <div class="invalid-feedback" th:if="${#fields.hasErrors('login')}"
+                             th:errors="*{login}">Erreur</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Rôle</label>
+                        <select th:field="*{roleName}" class="form-select"
+                                th:classappend="${#fields.hasErrors('roleName') ? 'is-invalid' : ''}">
+                            <option value="">— Sélectionner un rôle —</option>
+                            <option th:each="r : ${roles}" th:value="${r.name}"
+                                    th:text="${r.name}"></option>
+                        </select>
+                        <div class="invalid-feedback" th:if="${#fields.hasErrors('roleName')}"
+                             th:errors="*{roleName}">Erreur</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Membre lié <span class="text-muted">(optionnel)</span></label>
+                        <select th:field="*{memberId}" class="form-select">
+                            <option value="">— Aucun membre —</option>
+                            <option th:each="m : ${members}" th:value="${m.id}"
+                                    th:text="${m.fullName}"></option>
+                        </select>
+                    </div>
+
+                    <div th:unless="${editMode}" class="mb-3">
+                        <label class="form-label">Mot de passe</label>
+                        <input type="password" th:field="*{password}" class="form-control"
+                               th:classappend="${#fields.hasErrors('password') ? 'is-invalid' : ''}">
+                        <div class="invalid-feedback" th:if="${#fields.hasErrors('password')}"
+                             th:errors="*{password}">Erreur</div>
+                    </div>
+
+                    <div th:unless="${editMode}" class="mb-3">
+                        <label class="form-label">Confirmer le mot de passe</label>
+                        <input type="password" th:field="*{confirmPassword}" class="form-control"
+                               th:classappend="${#fields.hasErrors('confirmPassword') ? 'is-invalid' : ''}">
+                        <div class="invalid-feedback" th:if="${#fields.hasErrors('confirmPassword')}"
+                             th:errors="*{confirmPassword}">Erreur</div>
+                    </div>
+
+                    <div th:if="${editMode}" class="alert alert-info py-2 small">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Pour changer le mot de passe, utilisez le formulaire dédié.
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle me-1"></i>
+                            <span th:text="${editMode ? 'Enregistrer' : 'Créer l\'utilisateur'}">Créer</span>
+                        </button>
+                        <a th:href="@{/users}" class="btn btn-outline-secondary">Annuler</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Password change form (edit mode only) -->
+        <div th:if="${editMode}" class="card border-0 shadow-sm mt-3">
+            <div class="card-header bg-warning text-dark fw-semibold">
+                <i class="bi bi-key me-1"></i>Changer le mot de passe
+            </div>
+            <div class="card-body">
+                <form th:action="@{/users/{id}/password(id=${userId})}" method="post">
+                    <div class="mb-3">
+                        <label class="form-label">Nouveau mot de passe</label>
+                        <input type="password" name="password" class="form-control"
+                               minlength="8" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Confirmer</label>
+                        <input type="password" name="confirmPassword" class="form-control"
+                               minlength="8" required>
+                    </div>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="bi bi-key me-1"></i>Mettre à jour
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+</th:block></body></html>

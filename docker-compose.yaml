@@ -1,0 +1,74 @@
+version: '3.9'
+
+# =============================================================
+# ASVOSONK — Docker Compose (Lot 1)
+# Services : PostgreSQL 16 + pgAdmin 4
+#
+# Utilisation :
+#   Démarrer  : docker-compose up -d
+#   Arrêter   : docker-compose down
+#   Logs      : docker-compose logs -f
+#   Reset BDD : docker-compose down -v   (⚠️ supprime les données)
+# =============================================================
+
+services:
+
+  # ── PostgreSQL 16 ─────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: asvosonk_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       asvosonk
+      POSTGRES_USER:     asvosonk_app
+      POSTGRES_PASSWORD: AsvosonkDb@2024       # ← changer en production
+      PGDATA:            /var/lib/postgresql/data/pgdata
+    ports:
+      # Exposé uniquement sur localhost — pas accessible depuis l'extérieur
+      - "127.0.0.1:5433:5432"
+    volumes:
+      # Données persistantes — survivent aux redémarrages du conteneur
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U asvosonk_app -d asvosonk"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - asvosonk_network
+
+  # ── pgAdmin 4 (interface graphique PostgreSQL) ────────────
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: asvosonk_pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL:    admin@asvosonk.local
+      PGADMIN_DEFAULT_PASSWORD: PgAdmin@2024        # ← changer en production
+      PGADMIN_CONFIG_SERVER_MODE: 'False'           # mode desktop (pas de multi-user)
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: 'False'
+    ports:
+      # Accessible sur http://localhost:5050
+      - "127.0.0.1:5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+      # Pré-configure la connexion au serveur PostgreSQL au premier démarrage
+      - ./docker/pgadmin/servers.json:/pgadmin4/servers.json:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - asvosonk_network
+
+# ── Volumes persistants ────────────────────────────────────
+volumes:
+  postgres_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+
+# ── Réseau interne ─────────────────────────────────────────
+networks:
+  asvosonk_network:
+    driver: bridge

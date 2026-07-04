@@ -1,0 +1,54 @@
+package org.asvosonk.sanction.infrastructure.persistence.repository;
+
+import lombok.RequiredArgsConstructor;
+import org.asvosonk.sanction.domain.model.Sanction;
+import org.asvosonk.sanction.domain.repository.SanctionRepository;
+import org.asvosonk.sanction.domain.valueobject.SanctionStatus;
+import org.asvosonk.sanction.infrastructure.persistence.entity.SanctionEntity;
+import org.asvosonk.sanction.infrastructure.persistence.mapper.SanctionMapper;
+import org.springframework.context.annotation.Primary;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
+@Primary
+@Repository
+@RequiredArgsConstructor
+public class JpaSanctionRepository implements SanctionRepository {
+
+    private final SanctionJpaRepository springData;
+
+    @Override
+    public Optional<Sanction> findById(Long id) {
+        return springData.findById(id).map(SanctionMapper::toDomain);
+    }
+
+    @Override
+    public List<Sanction> findByMemberIdOrderBySanctionDateDesc(Long memberId) {
+        return springData.findByMemberIdOrderBySanctionDateDesc(memberId).stream()
+            .map(SanctionMapper::toDomain)
+            .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Sanction> findByStatusOrderBySanctionDateDesc(SanctionStatus status) {
+        return springData.findByStatusOrderBySanctionDateDesc(status).stream()
+            .map(SanctionMapper::toDomain)
+            .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Sanction> findByMemberIdAndStatusOrderBySanctionDateDesc(Long memberId, SanctionStatus status) {
+        return springData.findByMemberIdAndStatusOrderBySanctionDateDesc(memberId, status).stream()
+            .map(SanctionMapper::toDomain)
+            .collect(Collectors.toList());
+    }
+
+    @Override
+    public Sanction save(Sanction sanction) {
+        SanctionEntity entity = SanctionMapper.toEntity(sanction);
+        return SanctionMapper.toDomain(springData.save(entity));
+    }
+}

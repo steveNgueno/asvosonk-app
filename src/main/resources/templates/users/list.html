@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      th:replace="~{layout :: layout(pageTitle=${pageTitle}, content=~{::main-content}, extraHead=~{}, extraScripts=~{})}">
+<body><th:block th:fragment="main-content">
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="page-header">
+        <h2><i class="bi bi-person-gear me-2"></i>Gestion des utilisateurs</h2>
+        <p>Comptes utilisateurs de l'application</p>
+    </div>
+    <a sec:authorize="hasAuthority('USER_CREATE')"
+       th:href="@{/users/new}" class="btn btn-primary btn-sm">
+        <i class="bi bi-plus-circle me-1"></i>Nouvel utilisateur
+    </a>
+</div>
+
+<div class="card border-0 shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-sm mb-0">
+            <thead>
+                <tr>
+                    <th>Login</th>
+                    <th>Rôle</th>
+                    <th>Membre lié</th>
+                    <th class="text-center">Statut</th>
+                    <th>Dernière connexion</th>
+                    <th class="text-center">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="u : ${users}">
+                    <td th:text="${u.login}"></td>
+                    <td>
+                        <span class="badge bg-dark"
+                              th:text="${u.role.name}"></span>
+                    </td>
+                    <td th:text="${u.member != null ? u.member.fullName : '—'}"></td>
+                    <td class="text-center">
+                        <span class="badge"
+                              th:classappend="${u.active ? 'bg-success' : 'bg-secondary'}"
+                              th:text="${u.active ? 'Actif' : 'Désactivé'}"></span>
+                    </td>
+                    <td th:text="${u.lastLogin != null ? #temporals.format(u.lastLogin, 'dd/MM/yyyy HH:mm') : 'Jamais'}"></td>
+                    <td class="text-center">
+                        <div class="d-flex justify-content-center gap-1">
+                            <a sec:authorize="hasAuthority('USER_EDIT')"
+                               th:href="@{/users/{id}/edit(id=${u.id})}"
+                               class="btn btn-sm btn-outline-primary" title="Modifier">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            <form th:if="${u.active}"
+                                  th:action="@{/users/{id}/deactivate(id=${u.id})}" method="post"
+                                  sec:authorize="hasAuthority('USER_DEACTIVATE')">
+                                <button type="submit" class="btn btn-sm btn-outline-danger"
+                                        title="Désactiver"
+                                        onclick="return confirm('Désactiver cet utilisateur ?')">
+                                    <i class="bi bi-person-x"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                <tr th:if="${#lists.isEmpty(users)}">
+                    <td colspan="6" class="text-center text-muted py-3">Aucun utilisateur</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+</th:block></body></html>

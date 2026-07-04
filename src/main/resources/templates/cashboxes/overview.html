@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      th:replace="~{layout :: layout(pageTitle=${pageTitle}, content=~{::main-content}, extraHead=~{}, extraScripts=~{})}">
+<body><th:block th:fragment="main-content">
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="page-header">
+        <h2><i class="bi bi-safe me-2"></i>Gestion des caisses</h2>
+        <p>Consultez les soldes et enregistrez des mouvements manuels</p>
+    </div>
+</div>
+
+<!-- Balance cards row -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3" th:each="type : ${cashboxTypes}">
+        <div class="card border-0 shadow-sm cashbox-card"
+             th:classappend="'cashbox-card ' + ${type.name()}">
+            <div class="card-body text-center">
+                <div class="text-muted small mb-1" th:text="${type.label()}">Caisse</div>
+                <div class="balance" th:text="${#numbers.formatDecimal(balances[type], 1, 'COMMA', 0, 'POINT')} + ' FCFA'">0</div>
+                <div class="mt-2 d-flex justify-content-center gap-1">
+                    <button type="button" class="btn btn-sm btn-outline-success"
+                            data-bs-toggle="modal"
+                            th:attr="data-bs-target='#depositModal' + ${type.name()}"
+                            sec:authorize="hasAuthority('CASHBOX_MANUAL_MOVEMENT')">
+                        <i class="bi bi-plus-circle me-1"></i>Entrée
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-danger"
+                            data-bs-toggle="modal"
+                            th:attr="data-bs-target='#withdrawModal' + ${type.name()}"
+                            sec:authorize="hasAuthority('CASHBOX_MANUAL_MOVEMENT')">
+                        <i class="bi bi-dash-circle me-1"></i>Sortie
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent movements table -->
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-dark text-white fw-semibold d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-clock-history me-1"></i>Derniers mouvements</span>
+        <a th:href="@{/cashboxes/movements}" class="btn btn-sm btn-outline-light">
+            <i class="bi bi-filter me-1"></i>Historique complet
+        </a>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm mb-0">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Caisse</th>
+                    <th class="text-center">Sens</th>
+                    <th class="text-end">Montant</th>
+                    <th>Motif</th>
+                    <th>Module</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="m : ${recentMovements}">
+                    <td th:text="${#temporals.format(m.movementDate, 'dd/MM/yyyy HH:mm')}"></td>
+                    <td th:text="${m.cashbox.type.label()}"></td>
+                    <td class="text-center">
+                        <span th:if="${m.direction.name() == 'in'}" class="text-success"><i class="bi bi-arrow-down-circle"></i> Entrée</span>
+                        <span th:unless="${m.direction.name() == 'in'}" class="text-danger"><i class="bi bi-arrow-up-circle"></i> Sortie</span>
+                    </td>
+                    <td class="amount text-end"
+                        th:classappend="${m.direction.name() == 'in' ? 'amount-in' : 'amount-out'}"
+                        th:text="${#numbers.formatDecimal(m.amount, 1, 'COMMA', 0, 'POINT')} + ' FCFA'"></td>
+                    <td th:text="${m.reason ?: '—'}"></td>
+                    <td th:text="${m.origin.name() == 'manual' ? 'Manuel' : (m.origin.name() == 'presence' ? 'Présence' : (m.origin.name() == 'sanction' ? 'Sanction' : (m.origin.name() == 'grand_tontine' ? 'Gde Tontine' : 'Banque')))}"></td>
+                </tr>
+                <tr th:if="${#lists.isEmpty(recentMovements)}">
+                    <td colspan="6" class="text-center text-muted py-3">Aucun mouvement enregistré</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Deposit Modals -->
+<th:block th:each="type : ${cashboxTypes}">
+    <div class="modal fade" th:id="'depositModal' + ${type.name()}" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form th:action="@{/cashboxes/{type}/deposit(type=${type.name()})}" method="post">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="bi bi-plus-circle text-success me-1"></i>
+                            Entrée — <span th:text="${type.label()}"></span>
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Montant (FCFA)</label>
+                            <input type="number" name="amount" class="form-control"
+                                   min="1" step="1" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Motif</label>
+                            <textarea name="reason" class="form-control" rows="2" required></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                        <button type="submit" class="btn btn-success">Enregistrer l'entrée</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</th:block>
+
+<!-- Withdraw Modals -->
+<th:block th:each="type : ${cashboxTypes}">
+    <div class="modal fade" th:id="'withdrawModal' + ${type.name()}" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form th:action="@{/cashboxes/{type}/withdraw(type=${type.name()})}" method="post">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="bi bi-dash-circle text-danger me-1"></i>
+                            Sortie — <span th:text="${type.label()}"></span>
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Montant (FCFA)</label>
+                            <input type="number" name="amount" class="form-control"
+                                   min="1" step="1" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Motif</label>
+                            <textarea name="reason" class="form-control" rows="2" required></textarea>
+                        </div>
+                        <div class="alert alert-warning mb-0 py-2 small">
+                            <i class="bi bi-exclamation-triangle me-1"></i>
+                            Sortie manuelle justifiée — un motif est obligatoire.
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                        <button type="submit" class="btn btn-danger">Enregistrer la sortie</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</th:block>
+
+</th:block></body></html>
