@@ -89,7 +89,7 @@
             </thead>
             <tbody>
                 <tr th:each="s : ${sanctions}">
-                    <td th:text="${s.member.fullName}"></td>
+                    <td th:text="${memberNames[s.memberId]}"></td>
                     <td th:text="${#temporals.format(s.sanctionDate, 'dd/MM/yyyy')}"></td>
                     <td th:text="${s.reason}"></td>
                     <td>

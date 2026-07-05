@@ -10,7 +10,8 @@ import org.asvosonk.member.infrastructure.persistence.entity.MemberEntity;
 import org.asvosonk.member.infrastructure.persistence.entity.MembershipFee;
 import org.asvosonk.member.infrastructure.persistence.repository.MembershipFeeRepository;
 import org.asvosonk.member.presentation.request.MemberRequest;
-import org.asvosonk.session.infrastructure.persistence.entity.RevolvingFundEntity;
+import org.asvosonk.session.domain.model.RevolvingFund;
+import org.asvosonk.session.domain.repository.RevolvingFundRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,6 +26,7 @@ public class CreateMemberUseCase {
 
     private final MemberRepository        memberRepository;
     private final MembershipFeeRepository feeRepository;
+    private final RevolvingFundRepository revolvingFundRepository;
     private final EntityManager           entityManager;
 
     @Transactional
@@ -55,11 +57,9 @@ public class CreateMemberUseCase {
             feeRepository.save(fee);
         }
 
-        // ── Initialize revolving fund ────────────────────────────────────
-        RevolvingFundEntity fund = new RevolvingFundEntity();
-        fund.setMember(memberEntity);
-        fund.setBalance(REVOLVING_FUND_INITIAL);
-        entityManager.persist(fund);
+        // ── Initialize revolving fund via domain repository ─────────────
+        RevolvingFund fund = new RevolvingFund(null, created.getId(), REVOLVING_FUND_INITIAL, LocalDateTime.now());
+        revolvingFundRepository.save(fund);
 
         return created;
     }

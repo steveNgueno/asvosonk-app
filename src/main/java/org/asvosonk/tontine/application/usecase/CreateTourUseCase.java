@@ -47,6 +47,13 @@ public class CreateTourUseCase {
             throw new BusinessRuleException("L'ordre de tirage doit être fourni pour chaque participant.");
         }
 
+        // Precondition: draw orders must be unique
+        long distinctOrders = drawOrders.stream().distinct().count();
+        if (distinctOrders != memberIds.size()) {
+            throw new BusinessRuleException(
+                "Deux participants ne peuvent pas avoir le même ordre de passage.");
+        }
+
         // Create tour
         TontineTour tour = new TontineTour(null, startDate, null, TontineTourStatus.open, LocalDateTime.now());
         TontineTour savedTour = tourRepository.save(tour);

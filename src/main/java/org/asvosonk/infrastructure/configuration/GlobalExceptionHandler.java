@@ -6,6 +6,7 @@ import org.asvosonk.common.domain.exception.BusinessRuleException;
 import org.asvosonk.common.domain.exception.DuplicateResourceException;
 import org.asvosonk.common.domain.exception.ResourceNotFoundException;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.ControllerAdvice;
@@ -38,9 +39,9 @@ public class GlobalExceptionHandler {
     // ── Silently ignore missing static resources ─────────────
 
     @ExceptionHandler(NoResourceFoundException.class)
-    @ResponseStatus(HttpStatus.NOT_FOUND)
-    public void handleNoResourceFound(NoResourceFoundException ex) {
-        log.debug("Static resource not found: {}", ex.getMessage());
+    public ResponseEntity<Void> handleNoResourceFound(NoResourceFoundException ex) {
+        log.debug("Static resource not found (ignored): {}", ex.getResourcePath());
+        return ResponseEntity.notFound().build();
     }
 
     // ── 403: Access denied ───────────────────────────────────

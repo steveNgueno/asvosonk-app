@@ -4,11 +4,14 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.asvosonk.member.application.usecase.SearchMemberUseCase;
 import org.asvosonk.security.application.service.UserDetailsImpl;
-import org.asvosonk.session.presentation.request.AttendanceEntryForm;
-import org.asvosonk.session.presentation.response.SessionCloseResult;
-import org.asvosonk.session.presentation.request.SessionForm;
+import org.asvosonk.session.domain.valueobject.SessionStatus;
 import org.asvosonk.session.infrastructure.persistence.entity.MeetingSessionEntity;
+import org.asvosonk.session.infrastructure.persistence.entity.SessionReportEntity;
+import org.asvosonk.session.infrastructure.persistence.repository.SessionReportRepository;
 import org.asvosonk.session.application.service.SessionService;
+import org.asvosonk.session.presentation.request.AttendanceEntryForm;
+import org.asvosonk.session.presentation.request.SessionForm;
+import org.asvosonk.session.presentation.response.SessionCloseResult;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
@@ -17,13 +20,16 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.math.BigDecimal;
+
 @Controller
 @RequestMapping("/sessions")
 @RequiredArgsConstructor
 public class SessionController {
 
-    private final SessionService     sessionService;
-    private final SearchMemberUseCase searchMemberUseCase;
+    private final SessionService           sessionService;
+    private final SearchMemberUseCase      searchMemberUseCase;
+    private final SessionReportRepository  sessionReportRepository;
 
     // ── List ─────────────────────────────────────────────────
 
@@ -150,7 +156,35 @@ public class SessionController {
         model.addAttribute("session",     session);
         model.addAttribute("attendances", sessionService.findAttendances(id));
         model.addAttribute("pageTitle",   "Rapport — " + session.getSessionDate());
-        // closeResult is injected from flash attributes if coming right after close
+
+        // Try to load from database if no flash attribute (e.g. revisiting the page later)
+        if (session.getStatus() == SessionStatus.closed) {
+            sessionReportRepository.findBySessionId(id).ifPresent(report -> {
+                SessionCloseResult closeResult = buildResultFromReport(report, session);
+                model.addAttribute("closeResult", closeResult);
+            });
+        }
+
+        // closeResult is also injected from flash attributes if coming right after close
         return "sessions/report";
+    }
+
+    private SessionCloseResult buildResultFromReport(SessionReportEntity report, MeetingSessionEntity session) {
+        return SessionCloseResult.builder()
+            .session(session)
+            .beneficiary(null) // Not persisted; will show fallback in template
+            .totalCotisants(report.getTotalCotisants())
+            .presentCount(report.getPresentCount())
+            .fundCoveredCount(report.getFundCoveredCount())
+            .defaultCount(report.getDefaultCount())
+            .grossTontine(report.getGrossTontine())
+            .sanctionDeductions(report.getSanctionDeductions())
+            .netTontine(report.getNetTontine())
+            .totalDevelopment(report.getTotalDevelopment())
+            .totalBeveragePool(report.getTotalBeveragePool())
+            .actualBeverageCost(report.getActualBeverageCost())
+            .beverageReliquat(report.getBeverageReliquat())
+            .attendanceResults(null) // Not persisted; will show simple list fallback
+            .build();
     }
 }

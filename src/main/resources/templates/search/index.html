@@ -20,33 +20,73 @@
     </div>
 </div>
 
-<th:block th:if="${query != null}">
-    <div class="mb-3">
-        <span class="text-muted">
-            Résultats pour « <strong th:text="${query}"></strong> »
-            — <span th:text="${#lists.size(results)}"></span> trouvé(s)
-        </span>
+<!-- Module filter tabs -->
+<div class="card border-0 shadow-sm mb-3" th:if="${query != null}">
+    <div class="card-body">
+        <div class="mb-3">
+            <span class="text-muted">
+                Résultats pour « <strong th:text="${query}"></strong> »
+                — <span th:text="${#lists.size(memberResults)}"></span> membre(s)
+            </span>
+        </div>
+
+        <th:block th:if="${!#lists.isEmpty(memberResults)}">
+            <h6 class="text-muted mb-2"><i class="bi bi-person-fill me-1"></i>Membres</h6>
+            <div class="list-group shadow-sm mb-3">
+                <a th:each="m : ${memberResults}"
+                   th:href="@{'/members/' + ${m.id}}"
+                   class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                    <span>
+                        <i class="bi bi-person-fill me-2 text-primary"></i>
+                        <span th:text="${m.fullName}">Nom</span>
+                    </span>
+                    <small class="text-muted" th:text="${m.phone}">Tél</small>
+                </a>
+            </div>
+        </th:block>
+
+        <th:block th:if="${!#lists.isEmpty(movements)}">
+            <h6 class="text-muted mb-2 mt-3"><i class="bi bi-arrow-left-right me-1"></i>Mouvements</h6>
+            <div class="table-responsive">
+                <table class="table table-sm table-hover">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Module</th>
+                            <th>Membre</th>
+                            <th class="text-end">Montant</th>
+                            <th>Statut</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="mv : ${movements}">
+                            <td th:text="${mv.eventDate}"></td>
+                            <td>
+                                <span class="badge"
+                                      th:classappend="${mv.module.startsWith('cashbox') ? 'bg-info text-dark' :
+                                                      (mv.module == 'presence' ? 'bg-success' :
+                                                      (mv.module == 'sanction' ? 'bg-danger' :
+                                                      (mv.module == 'grand_tontine' ? 'bg-warning text-dark' : 'bg-secondary')))}"
+                                      th:text="${mv.module.startsWith('cashbox') ? 'Caisse' :
+                                               (mv.module == 'presence' ? 'Présence' :
+                                               (mv.module == 'sanction' ? 'Sanction' :
+                                               (mv.module == 'grand_tontine' ? 'Tontine' : mv.module)))}"></span>
+                            </td>
+                            <td th:text="${mv.memberId}"></td>
+                            <td class="amount text-end" th:text="${#numbers.formatDecimal(mv.amount, 1, 'COMMA', 0, 'POINT')} + ' FCFA'"></td>
+                            <td th:text="${mv.status}"></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </th:block>
+
+        <th:block th:if="${#lists.isEmpty(memberResults) and #lists.isEmpty(movements)}">
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle me-1"></i>Aucun résultat ne correspond à votre recherche.
+            </div>
+        </th:block>
     </div>
-
-    <th:block th:if="${#lists.isEmpty(results)}">
-        <div class="alert alert-info">
-            <i class="bi bi-info-circle me-1"></i>Aucun membre ne correspond à votre recherche.
-        </div>
-    </th:block>
-
-    <th:block th:unless="${#lists.isEmpty(results)}">
-        <div class="list-group shadow-sm">
-            <a th:each="m : ${results}"
-               th:href="@{'/members/' + ${m.id}}"
-               class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
-                <span>
-                    <i class="bi bi-person-fill me-2 text-primary"></i>
-                    <span th:text="${m.fullName}">Nom</span>
-                </span>
-                <small class="text-muted" th:text="${m.phone}">Tél</small>
-            </a>
-        </div>
-    </th:block>
-</th:block>
+</div>
 
 </th:block></body></html>

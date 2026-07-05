@@ -10,6 +10,8 @@ public interface SanctionRepository {
 
     Optional<Sanction> findById(Long id);
 
+    List<Sanction> findAll();
+
     List<Sanction> findByMemberIdOrderBySanctionDateDesc(Long memberId);
 
     List<Sanction> findByStatusOrderBySanctionDateDesc(SanctionStatus status);

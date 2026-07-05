@@ -61,42 +61,36 @@ function setAll(present) {
             <thead>
                 <tr>
                     <th>Membre</th>
-                    <th class="text-center">Présent</th>
-                    <th>Montant cotisé (FCFA)</th>
-                    <th></th>
+                    <th colspan="3">Présence &amp; cotisation</th>
                 </tr>
             </thead>
             <tbody>
                 <tr th:each="att : ${attendances}">
                     <td class="fw-semibold" th:text="${att.member.fullName}"></td>
-                    <td class="text-center">
-                        <form th:id="'form-' + ${att.member.id}"
-                              th:action="@{/sessions/{id}/attendance(id=${session.id})}"
-                              method="post" class="d-inline">
+                    <td colspan="3">
+                        <form th:action="@{/sessions/{id}/attendance(id=${session.id})}"
+                              method="post" class="d-flex gap-2 align-items-center">
                             <input type="hidden" name="memberId" th:value="${att.member.id}">
-                            <input type="checkbox" class="form-check-input present-check"
-                                   name="present" value="true"
-                                   th:checked="${att.present}"
-                                   th:form="'form-' + ${att.member.id}">
-                        </form>
-                    </td>
-                    <td>
-                        <form th:action="@{/sessions/{id}/attendance(id=${session.id})}" method="post"
-                              class="d-flex gap-1 align-items-center">
-                            <input type="hidden" name="memberId" th:value="${att.member.id}">
-                            <input type="hidden" name="present" th:value="${att.present}">
+                            <input type="hidden" name="present" value="false">
+                            <div class="d-flex align-items-center gap-1" style="min-width:95px">
+                                <input type="checkbox" name="present" value="true"
+                                       class="form-check-input present-check"
+                                       th:checked="${att.present}"
+                                       th:id="'present-' + ${att.member.id}">
+                                <label class="small text-nowrap" th:for="'present-' + ${att.member.id}">
+                                    Présent
+                                </label>
+                            </div>
                             <input type="number" name="amountPaid" class="form-control form-control-sm"
-                                   style="width:130px"
+                                   style="width:130px" placeholder="Montant"
                                    th:value="${att.amountPaid}" min="0" step="500">
                             <button type="submit" class="btn btn-sm btn-outline-primary">
                                 <i class="bi bi-check"></i>
                             </button>
+                            <span class="badge"
+                                  th:classappend="${att.amountPaid > 0 ? 'bg-success' : 'bg-light text-dark'}"
+                                  th:text="${att.amountPaid > 0 ? att.amountPaid + ' FCFA' : '—'}"></span>
                         </form>
-                    </td>
-                    <td>
-                        <span class="badge"
-                              th:classappend="${att.amountPaid > 0 ? 'bg-success' : 'bg-light text-dark'}"
-                              th:text="${att.amountPaid > 0 ? att.amountPaid + ' FCFA' : '—'}"></span>
                     </td>
                 </tr>
             </tbody>

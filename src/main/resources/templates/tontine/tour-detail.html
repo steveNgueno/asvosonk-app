@@ -1,15 +1,9 @@
 <!DOCTYPE html>
-<html th:replace="~{layout :: layout(
-    pageTitle,
-    ~{::content},
-    ~{::extraHead},
-    ~{::extraScripts}
-)}">
-<head>
-    <th:block th:ref="extraHead"></th:block>
-</head>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      th:replace="~{layout :: layout(pageTitle=${pageTitle}, content=~{::main-content}, extraHead=~{}, extraScripts=~{})}">
 <body>
-<th:block th:ref="content">
+<th:block th:fragment="main-content">
 
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h3 mb-0">
@@ -63,7 +57,7 @@
         <tbody>
             <tr th:each="p : ${participants}">
                 <td th:text="${p.drawOrder}"></td>
-                <td th:text="${p.memberId}"></td>
+                <td th:text="${memberNames[p.memberId]}"></td>
                 <td>
                     <span th:if="${p.hasBenefited}" class="badge bg-success">
                         <i class="bi bi-check"></i> Oui
@@ -94,8 +88,8 @@
         </thead>
         <tbody>
             <tr th:each="d : ${owedDebts}">
-                <td th:text="${d.debtorId}"></td>
-                <td th:text="${d.creditorId}"></td>
+                <td th:text="${memberNames[d.debtorId]}"></td>
+                <td th:text="${memberNames[d.creditorId]}"></td>
                 <td class="fw-bold" th:text="${d.amount} + ' FCFA'"></td>
                 <td>
                     <span class="badge bg-warning text-dark">À rembourser</span>
@@ -124,8 +118,8 @@
         <tbody>
             <tr th:each="c : ${contributions}">
                 <td th:text="${c.createdAt.toLocalDate()}"></td>
-                <td th:text="${c.contributorId}"></td>
-                <td th:text="${c.beneficiaryId}"></td>
+                <td th:text="${memberNames[c.contributorId]}"></td>
+                <td th:text="${memberNames[c.beneficiaryId]}"></td>
                 <td th:text="${c.amount} + ' FCFA'"></td>
                 <td>
                     <span th:if="${c.isPaid()}" class="badge bg-success">Payé</span>
@@ -151,8 +145,4 @@
     </form>
 </div>
 
-</th:block>
-
-<th:block th:ref="extraScripts"></th:block>
-</body>
-</html>
+</th:block></body></html>

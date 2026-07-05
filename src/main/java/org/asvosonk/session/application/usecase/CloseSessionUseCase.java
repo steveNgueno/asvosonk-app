@@ -20,6 +20,8 @@ import org.asvosonk.session.infrastructure.persistence.entity.MeetingSessionEnti
 import org.asvosonk.session.infrastructure.persistence.entity.RevolvingFundEntity;
 import org.asvosonk.session.infrastructure.persistence.entity.RevolvingFundMovementEntity;
 import org.asvosonk.session.infrastructure.persistence.entity.SessionAttendanceEntity;
+import org.asvosonk.session.infrastructure.persistence.entity.SessionReportEntity;
+import org.asvosonk.session.infrastructure.persistence.repository.SessionReportRepository;
 import org.asvosonk.session.presentation.response.SessionCloseResult;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.TypedQuery;
@@ -45,10 +47,11 @@ public class CloseSessionUseCase {
     private static final BigDecimal PRESENCE_FEE            = new BigDecimal("2000");
     private static final BigDecimal BEVERAGE_COST_PER_PERSON = new BigDecimal("500");
 
-    private final CashboxService       cashboxService;
-    private final RevolvingFundService revolvingFundService;
-    private final MemberRepository     memberRepository;
-    private final EntityManager        entityManager;
+    private final CashboxService            cashboxService;
+    private final RevolvingFundService      revolvingFundService;
+    private final MemberRepository          memberRepository;
+    private final SessionReportRepository   sessionReportRepository;
+    private final EntityManager             entityManager;
 
     @Transactional
     public SessionCloseResult execute(Long sessionId, AppUser user) {
@@ -127,6 +130,22 @@ public class CloseSessionUseCase {
         }
 
         BigDecimal netTontine = totalTontine.subtract(totalSanctionDeductions).max(BigDecimal.ZERO);
+
+        // ── Persist session report for future reference ─────────────────
+        SessionReportEntity report = new SessionReportEntity();
+        report.setSessionId(sessionId);
+        report.setGrossTontine(totalTontine);
+        report.setSanctionDeductions(totalSanctionDeductions);
+        report.setNetTontine(netTontine);
+        report.setTotalDevelopment(totalDevelopment);
+        report.setTotalBeveragePool(totalBeveragePool);
+        report.setActualBeverageCost(actualBeverageCost);
+        report.setBeverageReliquat(beverageReliquat);
+        report.setTotalCotisants(attendances.size());
+        report.setPresentCount(presentCount);
+        report.setFundCoveredCount(fundCoveredCount);
+        report.setDefaultCount(defaultCount);
+        sessionReportRepository.save(report);
 
         session.setStatus(SessionStatus.closed);
         session.setClosedAt(LocalDateTime.now());

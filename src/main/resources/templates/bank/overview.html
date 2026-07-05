@@ -1,15 +1,9 @@
 <!DOCTYPE html>
-<html th:replace="~{layout :: layout(
-    pageTitle,
-    ~{::content},
-    ~{::extraHead},
-    ~{::extraScripts}
-)}">
-<head>
-    <th:block th:ref="extraHead"></th:block>
-</head>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      th:replace="~{layout :: layout(pageTitle=${pageTitle}, content=~{::main-content}, extraHead=~{}, extraScripts=~{})}">
 <body>
-<th:block th:ref="content">
+<th:block th:fragment="main-content">
 
 <h1 class="h3 mb-3">
     <i class="bi bi-bank me-2"></i>Banque Annuelle
@@ -120,8 +114,4 @@
     </table>
 </div>
 
-</th:block>
-
-<th:block th:ref="extraScripts"></th:block>
-</body>
-</html>
+</th:block></body></html>

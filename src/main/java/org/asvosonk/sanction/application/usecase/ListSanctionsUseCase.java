@@ -1,10 +1,9 @@
 package org.asvosonk.sanction.application.usecase;
 
 import lombok.RequiredArgsConstructor;
+import org.asvosonk.sanction.domain.model.Sanction;
+import org.asvosonk.sanction.domain.repository.SanctionRepository;
 import org.asvosonk.sanction.domain.valueobject.SanctionStatus;
-import org.asvosonk.sanction.infrastructure.persistence.entity.SanctionEntity;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.TypedQuery;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,30 +16,20 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ListSanctionsUseCase {
 
-    private final EntityManager entityManager;
+    private final SanctionRepository sanctionRepository;
 
     @Transactional(readOnly = true)
-    public List<SanctionEntity> findByMember(Long memberId) {
-        TypedQuery<SanctionEntity> query = entityManager.createQuery(
-            "SELECT s FROM SanctionEntity s WHERE s.member.id = :memberId ORDER BY s.sanctionDate DESC",
-            SanctionEntity.class);
-        query.setParameter("memberId", memberId);
-        return query.getResultList();
+    public List<Sanction> findByMember(Long memberId) {
+        return sanctionRepository.findByMemberIdOrderBySanctionDateDesc(memberId);
     }
 
     @Transactional(readOnly = true)
-    public List<SanctionEntity> findByStatus(SanctionStatus status) {
-        TypedQuery<SanctionEntity> query = entityManager.createQuery(
-            "SELECT s FROM SanctionEntity s WHERE s.status = :status ORDER BY s.sanctionDate DESC",
-            SanctionEntity.class);
-        query.setParameter("status", status);
-        return query.getResultList();
+    public List<Sanction> findByStatus(SanctionStatus status) {
+        return sanctionRepository.findByStatusOrderBySanctionDateDesc(status);
     }
 
     @Transactional(readOnly = true)
-    public List<SanctionEntity> findAll() {
-        return entityManager.createQuery(
-            "SELECT s FROM SanctionEntity s ORDER BY s.sanctionDate DESC",
-            SanctionEntity.class).getResultList();
+    public List<Sanction> findAll() {
+        return sanctionRepository.findAll();
     }
 }

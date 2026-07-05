@@ -26,6 +26,13 @@ public class JpaSanctionRepository implements SanctionRepository {
     }
 
     @Override
+    public List<Sanction> findAll() {
+        return springData.findAll().stream()
+            .map(SanctionMapper::toDomain)
+            .collect(Collectors.toList());
+    }
+
+    @Override
     public List<Sanction> findByMemberIdOrderBySanctionDateDesc(Long memberId) {
         return springData.findByMemberIdOrderBySanctionDateDesc(memberId).stream()
             .map(SanctionMapper::toDomain)

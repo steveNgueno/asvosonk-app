@@ -1,15 +1,9 @@
 <!DOCTYPE html>
-<html th:replace="~{layout :: layout(
-    pageTitle,
-    ~{::content},
-    ~{::extraHead},
-    ~{::extraScripts}
-)}">
-<head>
-    <th:block th:ref="extraHead"></th:block>
-</head>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      th:replace="~{layout :: layout(pageTitle=${pageTitle}, content=~{::main-content}, extraHead=~{}, extraScripts=~{})}">
 <body>
-<th:block th:ref="content">
+<th:block th:fragment="main-content">
 
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h3 mb-0">
@@ -29,7 +23,8 @@
 <div th:if="${openTour != null}" class="card border-success mb-4">
     <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
         <span><i class="bi bi-play-circle me-1"></i>Tour en cours</span>
-        <span class="badge bg-light text-dark">Démarré le ${openTour.startDate}</span>
+        <span class="badge bg-light text-dark"
+              th:text="'Démarré le ' + ${#temporals.format(openTour.startDate, 'dd/MM/yyyy')}">Démarré le</span>
     </div>
     <div class="card-body">
         <div class="row">
@@ -46,7 +41,7 @@
                     <tbody>
                         <tr th:each="p : ${openParticipants}">
                             <td th:text="${p.drawOrder}"></td>
-                            <td th:text="${p.memberId}"></td>
+                            <td th:text="${memberNames[p.memberId]}"></td>
                             <td>
                                 <span th:if="${p.hasBenefited}" class="badge bg-success">
                                     <i class="bi bi-check"></i> Oui
@@ -111,8 +106,4 @@
     </table>
 </div>
 
-</th:block>
-
-<th:block th:ref="extraScripts"></th:block>
-</body>
-</html>
+</th:block></body></html>

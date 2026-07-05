@@ -1,15 +1,9 @@
 <!DOCTYPE html>
-<html th:replace="~{layout :: layout(
-    pageTitle,
-    ~{::content},
-    ~{::extraHead},
-    ~{::extraScripts}
-)}">
-<head>
-    <th:block th:ref="extraHead"></th:block>
-</head>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      th:replace="~{layout :: layout(pageTitle=${pageTitle}, content=~{::main-content}, extraHead=~{}, extraScripts=~{::extraScripts})}">
 <body>
-<th:block th:ref="content">
+<th:block th:fragment="main-content">
 
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h3 mb-0">
@@ -34,7 +28,7 @@
             <button th:each="p : ${notBenefitedYet}" type="button"
                     class="btn btn-outline-primary beneficiary-btn"
                     th:data-member-id="${p.memberId}"
-                    th:text="${p.memberId} + ' (Ordre ' + ${p.drawOrder} + ')'">
+                    th:text="${memberNames[p.memberId]} + ' (Ordre ' + ${p.drawOrder} + ')'">
             </button>
         </div>
         <p th:if="${#lists.isEmpty(notBenefitedYet)}" class="text-warning mb-0">
@@ -71,7 +65,7 @@
                                    th:checked="${iter.index == 0}">
                             <label class="form-check-label fw-medium"
                                    th:for="'contributor_' + ${p.memberId}"
-                                   th:text="${p.memberId}"></label>
+                                   th:text="${memberNames[p.memberId]}"></label>
                         </div>
                     </td>
                     <td>
@@ -102,7 +96,7 @@
 
 </th:block>
 
-<th:block th:ref="extraScripts">
+<th:block th:fragment="extraScripts">
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const beneficiaryInput = document.getElementById('beneficiaryId');

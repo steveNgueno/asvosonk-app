@@ -10,9 +10,9 @@ import org.asvosonk.sanction.application.usecase.CancelSanctionUseCase;
 import org.asvosonk.sanction.application.usecase.CreateSanctionUseCase;
 import org.asvosonk.sanction.application.usecase.ListSanctionsUseCase;
 import org.asvosonk.sanction.application.usecase.PaySanctionUseCase;
+import org.asvosonk.sanction.domain.model.Sanction;
 import org.asvosonk.sanction.domain.valueobject.SanctionOrigin;
 import org.asvosonk.sanction.domain.valueobject.SanctionStatus;
-import org.asvosonk.sanction.infrastructure.persistence.entity.SanctionEntity;
 import org.asvosonk.sanction.presentation.request.ManualSanctionForm;
 import org.asvosonk.security.application.service.UserDetailsImpl;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -26,6 +26,8 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Controller
 @RequestMapping("/sanctions")
@@ -44,7 +46,7 @@ public class SanctionController {
     public String list(@RequestParam(required = false) SanctionStatus status,
                        @RequestParam(required = false) Long memberId,
                        Model model) {
-        List<SanctionEntity> sanctions;
+        List<Sanction> sanctions;
         if (memberId != null) {
             sanctions = listSanctionsUseCase.findByMember(memberId);
         } else if (status != null) {
@@ -55,14 +57,24 @@ public class SanctionController {
 
         BigDecimal unpaidTotal = BigDecimal.ZERO;
         long unpaidCount = 0;
-        for (SanctionEntity s : sanctions) {
+        for (Sanction s : sanctions) {
             if (s.getStatus() == SanctionStatus.unpaid) {
                 unpaidTotal = unpaidTotal.add(s.getAmount());
                 unpaidCount++;
             }
         }
 
+        // Build member name lookup
+        Map<Long, String> memberNames = sanctions.stream()
+            .map(Sanction::getMemberId)
+            .distinct()
+            .collect(Collectors.toMap(
+                java.util.function.Function.identity(),
+                id -> searchMemberUseCase.findById(id).getFullName()
+            ));
+
         model.addAttribute("sanctions", sanctions);
+        model.addAttribute("memberNames", memberNames);
         model.addAttribute("unpaidTotal", unpaidTotal);
         model.addAttribute("unpaidCount", unpaidCount);
         model.addAttribute("members", searchMemberUseCase.findAll());
@@ -93,13 +105,14 @@ public class SanctionController {
             return "sanctions/form";
         }
 
-        SanctionEntity sanction = createSanctionUseCase.execute(
+        Sanction sanction = createSanctionUseCase.execute(
             form.getMemberId(), LocalDate.now(), form.getAmount(),
             form.getReason(), SanctionOrigin.manual, null);
 
+        String memberName = searchMemberUseCase.findById(form.getMemberId()).getFullName();
         ra.addFlashAttribute("successMessage",
             "Sanction disciplinaire de " + form.getAmount() + " FCFA enregistrée pour "
-                + sanction.getMember().getFullName() + ".");
+                + memberName + ".");
         return "redirect:/sanctions";
     }
 
@@ -109,7 +122,7 @@ public class SanctionController {
                       @AuthenticationPrincipal UserDetailsImpl principal,
                       RedirectAttributes ra) {
         try {
-            SanctionEntity sanction = paySanctionUseCase.execute(id);
+            Sanction sanction = paySanctionUseCase.execute(id);
 
             depositMoneyUseCase.execute(CashboxType.sanction, sanction.getAmount(),
                 "Paiement cash sanction #" + id + " — " + sanction.getReason(),
