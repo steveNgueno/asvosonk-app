@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.asvosonk.member.infrastructure.persistence.entity.MemberEntity;
 import org.asvosonk.session.domain.valueobject.AttendanceStatus;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -38,6 +40,7 @@ public class SessionAttendanceEntity {
     private boolean coveredByFund = false;
 
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(name = "attendance_status", nullable = false)
     private AttendanceStatus attendanceStatus = AttendanceStatus.up_to_date;
 

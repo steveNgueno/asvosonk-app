@@ -54,6 +54,13 @@ public class JpaMemberRepository implements MemberRepository {
     }
 
     @Override
+    public List<Member> search(String keyword) {
+        return springData.searchByKeyword(keyword).stream()
+            .map(MemberEntityMapper::toDomain)
+            .collect(Collectors.toList());
+    }
+
+    @Override
     public Member save(Member member) {
         MemberEntity entity = MemberEntityMapper.toEntity(member);
         return MemberEntityMapper.toDomain(springData.save(entity));
@@ -64,14 +71,4 @@ public class JpaMemberRepository implements MemberRepository {
         springData.deleteById(member.getId());
     }
 
-    @org.springframework.stereotype.Repository
-    interface SpringDataMemberRepository extends JpaRepository<MemberEntity, Long> {
-        List<MemberEntity> findByStatusOrderByFullNameAsc(MemberStatus status);
-        List<MemberEntity> findAllByOrderByFullNameAsc();
-
-        @Query("SELECT m FROM MemberEntity m WHERE m.status = 'active' ORDER BY m.fullName ASC")
-        List<MemberEntity> findAllActive();
-
-        boolean existsByFullNameIgnoreCase(String fullName);
-    }
 }

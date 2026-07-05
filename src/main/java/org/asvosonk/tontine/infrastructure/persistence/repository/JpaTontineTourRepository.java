@@ -7,7 +7,6 @@ import org.asvosonk.tontine.domain.valueobject.TontineTourStatus;
 import org.asvosonk.tontine.infrastructure.persistence.entity.TontineTourEntity;
 import org.asvosonk.tontine.infrastructure.persistence.mapper.TontineTourMapper;
 import org.springframework.context.annotation.Primary;
-import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -55,12 +54,5 @@ public class JpaTontineTourRepository implements TontineTourRepository {
     public Optional<TontineTour> findCurrentOpenTour() {
         return springData.findTopByStatusOrderByStartDateDesc(TontineTourStatus.open)
             .map(MAPPER::toDomain);
-    }
-
-    @org.springframework.stereotype.Repository
-    interface SpringDataTontineTourRepository extends JpaRepository<TontineTourEntity, Long> {
-        List<TontineTourEntity> findAllByOrderByStartDateDesc();
-        List<TontineTourEntity> findByStatusOrderByStartDateDesc(TontineTourStatus status);
-        Optional<TontineTourEntity> findTopByStatusOrderByStartDateDesc(TontineTourStatus status);
     }
 }

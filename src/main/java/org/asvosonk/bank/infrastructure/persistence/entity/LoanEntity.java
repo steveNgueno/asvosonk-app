@@ -3,6 +3,8 @@ package org.asvosonk.bank.infrastructure.persistence.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import org.asvosonk.bank.domain.valueobject.LoanStatus;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -41,6 +43,7 @@ public class LoanEntity {
     private BigDecimal totalDue;
 
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(nullable = false, columnDefinition = "loan_status")
     private LoanStatus status = LoanStatus.active;
 

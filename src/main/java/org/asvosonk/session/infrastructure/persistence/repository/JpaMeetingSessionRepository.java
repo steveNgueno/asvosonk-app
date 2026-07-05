@@ -58,11 +58,4 @@ public class JpaMeetingSessionRepository implements MeetingSessionRepository {
         return MeetingSessionMapper.toDomain(springData.save(entity));
     }
 
-    @org.springframework.stereotype.Repository
-    interface SpringDataMeetingSessionRepository extends JpaRepository<MeetingSessionEntity, Long> {
-        List<MeetingSessionEntity> findAllByOrderBySessionDateDesc();
-        boolean existsBySessionDate(LocalDate date);
-        Optional<MeetingSessionEntity> findByStatus(SessionStatus status);
-        List<MeetingSessionEntity> findByStatusOrderBySessionDateDesc(SessionStatus status);
-    }
 }

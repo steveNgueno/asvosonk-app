@@ -29,8 +29,4 @@ public class JpaRevolvingFundRepository implements RevolvingFundRepository {
         return RevolvingFundMapper.toDomain(springData.save(entity));
     }
 
-    @org.springframework.stereotype.Repository
-    interface SpringDataRevolvingFundRepository extends JpaRepository<RevolvingFundEntity, Long> {
-        Optional<RevolvingFundEntity> findByMemberId(Long memberId);
-    }
 }

@@ -6,7 +6,6 @@ import org.asvosonk.tontine.domain.repository.TontineContributionRepository;
 import org.asvosonk.tontine.infrastructure.persistence.entity.TontineContributionEntity;
 import org.asvosonk.tontine.infrastructure.persistence.mapper.TontineContributionMapper;
 import org.springframework.context.annotation.Primary;
-import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -55,12 +54,5 @@ public class JpaTontineContributionRepository implements TontineContributionRepo
         return springData.findByContributorIdAndTourId(contributorId, tourId).stream()
             .map(MAPPER::toDomain)
             .collect(Collectors.toList());
-    }
-
-    @org.springframework.stereotype.Repository
-    interface SpringDataTontineContributionRepository extends JpaRepository<TontineContributionEntity, Long> {
-        List<TontineContributionEntity> findByTourIdOrderByCreatedAtDesc(Long tourId);
-        List<TontineContributionEntity> findByTourIdAndSessionId(Long tourId, Long sessionId);
-        List<TontineContributionEntity> findByContributorIdAndTourId(Long contributorId, Long tourId);
     }
 }

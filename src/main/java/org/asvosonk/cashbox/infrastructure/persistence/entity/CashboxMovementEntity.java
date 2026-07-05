@@ -7,6 +7,8 @@ import org.asvosonk.cashbox.domain.valueobject.MovementOrigin;
 import org.asvosonk.member.infrastructure.persistence.entity.MemberEntity;
 import org.asvosonk.security.infrastructure.persistence.entity.AppUserEntity;
 import org.asvosonk.session.infrastructure.persistence.entity.MeetingSessionEntity;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -30,6 +32,7 @@ public class CashboxMovementEntity {
     private LocalDateTime movementDate = LocalDateTime.now();
 
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(nullable = false, columnDefinition = "movement_direction")
     private MovementDirection direction;
 

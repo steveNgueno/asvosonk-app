@@ -6,7 +6,6 @@ import org.asvosonk.tontine.domain.repository.TontineParticipantRepository;
 import org.asvosonk.tontine.infrastructure.persistence.entity.TontineParticipantEntity;
 import org.asvosonk.tontine.infrastructure.persistence.mapper.TontineParticipantMapper;
 import org.springframework.context.annotation.Primary;
-import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -48,11 +47,5 @@ public class JpaTontineParticipantRepository implements TontineParticipantReposi
     @Override
     public Optional<TontineParticipant> findByTourIdAndMemberId(Long tourId, Long memberId) {
         return springData.findByTourIdAndMemberId(tourId, memberId).map(MAPPER::toDomain);
-    }
-
-    @org.springframework.stereotype.Repository
-    interface SpringDataTontineParticipantRepository extends JpaRepository<TontineParticipantEntity, Long> {
-        List<TontineParticipantEntity> findByTourIdOrderByDrawOrder(Long tourId);
-        Optional<TontineParticipantEntity> findByTourIdAndMemberId(Long tourId, Long memberId);
     }
 }

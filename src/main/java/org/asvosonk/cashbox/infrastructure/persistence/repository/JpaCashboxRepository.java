@@ -30,8 +30,4 @@ public class JpaCashboxRepository implements CashboxRepository {
         return CashboxMapper.toDomain(springData.save(entity));
     }
 
-    @org.springframework.stereotype.Repository
-    interface SpringDataCashboxRepository extends JpaRepository<CashboxEntity, Integer> {
-        Optional<CashboxEntity> findByType(CashboxType type);
-    }
 }

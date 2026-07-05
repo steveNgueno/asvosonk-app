@@ -9,7 +9,6 @@ import org.asvosonk.security.application.usecase.CreateUserUseCase;
 import org.asvosonk.security.application.usecase.LockUserUseCase;
 import org.asvosonk.security.application.usecase.UpdatePasswordUseCase;
 import org.asvosonk.security.domain.model.AppUser;
-import org.asvosonk.security.domain.model.Role;
 import org.asvosonk.security.domain.repository.AppUserRepository;
 import org.asvosonk.security.domain.repository.RoleRepository;
 import org.asvosonk.security.presentation.request.UserForm;

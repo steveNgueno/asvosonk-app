@@ -60,11 +60,4 @@ public class JpaCashboxMovementRepository implements CashboxMovementRepository {
         return CashboxMovementMapper.toDomain(saved);
     }
 
-    @org.springframework.stereotype.Repository
-    interface SpringDataCashboxMovementRepository extends JpaRepository<CashboxMovementEntity, Long> {
-        List<CashboxMovementEntity> findBySessionIdOrderByMovementDateAsc(Long sessionId);
-        List<CashboxMovementEntity> findByCashboxIdOrderByMovementDateDesc(Integer cashboxId);
-        List<CashboxMovementEntity> findTop10ByOrderByMovementDateDesc();
-        List<CashboxMovementEntity> findAllByOrderByMovementDateDesc();
-    }
 }

@@ -6,8 +6,6 @@ import org.asvosonk.bank.domain.repository.LoanRepaymentRepository;
 import org.asvosonk.bank.infrastructure.persistence.entity.LoanRepaymentEntity;
 import org.asvosonk.bank.infrastructure.persistence.mapper.LoanRepaymentMapper;
 import org.springframework.context.annotation.Primary;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
@@ -41,13 +39,5 @@ public class JpaLoanRepaymentRepository implements LoanRepaymentRepository {
     public BigDecimal getTotalRepaidByLoanId(Long loanId) {
         BigDecimal total = springData.sumAmountByLoanId(loanId);
         return total != null ? total : BigDecimal.ZERO;
-    }
-
-    @org.springframework.stereotype.Repository
-    interface SpringDataLoanRepaymentRepository extends JpaRepository<LoanRepaymentEntity, Long> {
-        List<LoanRepaymentEntity> findByLoanId(Long loanId);
-
-        @Query("SELECT SUM(r.amount) FROM LoanRepaymentEntity r WHERE r.loanId = :loanId")
-        BigDecimal sumAmountByLoanId(Long loanId);
     }
 }

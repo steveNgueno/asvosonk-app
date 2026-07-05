@@ -40,18 +40,4 @@ public class JpaRevolvingFundMovementRepository implements RevolvingFundMovement
         return RevolvingFundMovementMapper.toDomain(springData.save(entity));
     }
 
-    @org.springframework.stereotype.Repository
-    interface SpringDataRevolvingFundMovementRepository extends JpaRepository<RevolvingFundMovementEntity, Long> {
-
-        @Query("""
-            SELECT m FROM RevolvingFundMovementEntity m
-            WHERE m.fund.member.id = :memberId
-              AND m.movementType = 'advance'
-              AND m.recovered = false
-            ORDER BY m.session.sessionDate ASC
-            """)
-        List<RevolvingFundMovementEntity> findPendingAdvances(Long memberId);
-
-        List<RevolvingFundMovementEntity> findByFundMemberIdOrderByCreatedAtDesc(Long memberId);
-    }
 }

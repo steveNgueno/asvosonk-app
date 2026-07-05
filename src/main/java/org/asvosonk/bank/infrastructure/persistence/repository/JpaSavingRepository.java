@@ -6,8 +6,6 @@ import org.asvosonk.bank.domain.repository.SavingRepository;
 import org.asvosonk.bank.infrastructure.persistence.entity.SavingEntity;
 import org.asvosonk.bank.infrastructure.persistence.mapper.SavingMapper;
 import org.springframework.context.annotation.Primary;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
@@ -41,13 +39,5 @@ public class JpaSavingRepository implements SavingRepository {
     public BigDecimal getTotalSavingsByMemberId(Long memberId) {
         BigDecimal total = springData.sumAmountByMemberId(memberId);
         return total != null ? total : BigDecimal.ZERO;
-    }
-
-    @org.springframework.stereotype.Repository
-    interface SpringDataSavingRepository extends JpaRepository<SavingEntity, Long> {
-        List<SavingEntity> findByMemberIdOrderByOperationDateDesc(Long memberId);
-
-        @Query("SELECT SUM(s.amount) FROM SavingEntity s WHERE s.memberId = :memberId")
-        BigDecimal sumAmountByMemberId(Long memberId);
     }
 }

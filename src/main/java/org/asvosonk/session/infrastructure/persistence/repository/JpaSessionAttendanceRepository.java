@@ -40,9 +40,4 @@ public class JpaSessionAttendanceRepository implements SessionAttendanceReposito
         return SessionAttendanceMapper.toDomain(springData.save(entity));
     }
 
-    @org.springframework.stereotype.Repository
-    interface SpringDataSessionAttendanceRepository extends JpaRepository<SessionAttendanceEntity, Long> {
-        List<SessionAttendanceEntity> findBySessionIdOrderByMemberFullNameAsc(Long sessionId);
-        Optional<SessionAttendanceEntity> findBySessionIdAndMemberId(Long sessionId, Long memberId);
-    }
 }

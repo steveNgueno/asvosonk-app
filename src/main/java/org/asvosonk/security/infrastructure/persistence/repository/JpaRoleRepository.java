@@ -43,8 +43,4 @@ public class JpaRoleRepository implements RoleRepository {
         return UserEntityMapper.toDomain(springData.save(entity));
     }
 
-    @org.springframework.stereotype.Repository
-    interface SpringDataRoleRepository extends JpaRepository<RoleEntity, Integer> {
-        Optional<RoleEntity> findByName(String name);
-    }
 }

@@ -3,6 +3,8 @@ package org.asvosonk.cashbox.infrastructure.persistence.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import org.asvosonk.cashbox.domain.valueobject.CashboxType;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -19,6 +21,7 @@ public class CashboxEntity {
     private Integer id;
 
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(nullable = false, unique = true, columnDefinition = "cashbox_type")
     private CashboxType type;
 

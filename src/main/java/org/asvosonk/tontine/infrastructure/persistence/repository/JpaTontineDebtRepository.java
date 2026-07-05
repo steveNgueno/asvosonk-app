@@ -7,7 +7,6 @@ import org.asvosonk.tontine.domain.valueobject.DebtStatus;
 import org.asvosonk.tontine.infrastructure.persistence.entity.TontineDebtEntity;
 import org.asvosonk.tontine.infrastructure.persistence.mapper.TontineDebtMapper;
 import org.springframework.context.annotation.Primary;
-import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -63,14 +62,5 @@ public class JpaTontineDebtRepository implements TontineDebtRepository {
         return springData.findByTourIdAndDebtorId(tourId, debtorId).stream()
             .map(MAPPER::toDomain)
             .collect(Collectors.toList());
-    }
-
-    @org.springframework.stereotype.Repository
-    interface SpringDataTontineDebtRepository extends JpaRepository<TontineDebtEntity, Long> {
-        List<TontineDebtEntity> findByTourIdOrderByCreatedAtDesc(Long tourId);
-        List<TontineDebtEntity> findByTourIdAndStatus(Long tourId, DebtStatus status);
-        Optional<TontineDebtEntity> findByTourIdAndDebtorIdAndCreditorIdAndStatus(
-            Long tourId, Long debtorId, Long creditorId, DebtStatus status);
-        List<TontineDebtEntity> findByTourIdAndDebtorId(Long tourId, Long debtorId);
     }
 }

@@ -16,6 +16,8 @@ public interface MemberRepository {
 
     List<Member> findAllActive();
 
+    List<Member> search(String keyword);
+
     boolean existsByFullNameIgnoreCase(String fullName);
 
     Member save(Member member);

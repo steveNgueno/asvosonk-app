@@ -16,7 +16,7 @@ public class AssignRoleUseCase {
     private final RoleRepository roleRepository;
 
     @Transactional
-    public AppUser assignRole(Long userId, String roleName) {
+    public void assignRole(Long userId, String roleName) {
         AppUser user = appUserRepository.findById(userId)
             .orElseThrow(() -> new IllegalArgumentException("Utilisateur introuvable : " + userId));
 
@@ -24,6 +24,6 @@ public class AssignRoleUseCase {
             .orElseThrow(() -> new IllegalArgumentException("Rôle introuvable : " + roleName));
 
         user.assignRole(role);
-        return appUserRepository.save(user);
+        appUserRepository.save(user);
     }
 }

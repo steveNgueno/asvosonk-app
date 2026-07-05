@@ -27,7 +27,7 @@ public class UserDetailsImpl implements UserDetails {
         this.authorities = appUser.getRole()
                                   .getPermissions()
                                   .stream()
-                                  .map(p -> new SimpleGrantedAuthority(p.getCode()))
+                                  .map(p -> new SimpleGrantedAuthority(p.code()))
                                   .collect(Collectors.toUnmodifiableSet());
     }
 

@@ -5,6 +5,8 @@ import lombok.*;
 import org.asvosonk.member.infrastructure.persistence.entity.MemberEntity;
 import org.asvosonk.security.infrastructure.persistence.entity.AppUserEntity;
 import org.asvosonk.session.domain.valueobject.SessionStatus;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -26,6 +28,7 @@ public class MeetingSessionEntity {
     private LocalDate sessionDate;
 
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(nullable = false, columnDefinition = "session_status")
     private SessionStatus status = SessionStatus.planned;
 

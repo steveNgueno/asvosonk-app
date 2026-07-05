@@ -7,7 +7,7 @@ import org.asvosonk.bank.domain.valueobject.LoanStatus;
 import org.asvosonk.bank.infrastructure.persistence.entity.LoanEntity;
 import org.asvosonk.bank.infrastructure.persistence.mapper.LoanMapper;
 import org.springframework.context.annotation.Primary;
-import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
@@ -69,11 +69,4 @@ public class JpaLoanRepository implements LoanRepository {
             .collect(Collectors.toList());
     }
 
-    @org.springframework.stereotype.Repository
-    interface SpringDataLoanRepository extends JpaRepository<LoanEntity, Long> {
-        List<LoanEntity> findByMemberIdOrderByLoanDateDesc(Long memberId);
-        long countByMemberIdAndStatus(Long memberId, LoanStatus status);
-        List<LoanEntity> findByStatusAndDueDateBefore(LoanStatus status, LocalDate date);
-        List<LoanEntity> findByMemberIdAndStatus(Long memberId, LoanStatus status);
-    }
 }

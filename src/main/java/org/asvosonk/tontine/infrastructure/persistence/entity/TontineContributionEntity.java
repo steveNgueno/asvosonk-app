@@ -3,6 +3,8 @@ package org.asvosonk.tontine.infrastructure.persistence.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import org.asvosonk.tontine.domain.valueobject.PaymentStatus;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -35,6 +37,7 @@ public class TontineContributionEntity {
     private BigDecimal amount = BigDecimal.ZERO;
 
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(nullable = false, columnDefinition = "payment_status")
     private PaymentStatus status = PaymentStatus.paid;
 

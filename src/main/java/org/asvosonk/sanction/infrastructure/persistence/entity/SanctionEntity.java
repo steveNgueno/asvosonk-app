@@ -5,6 +5,8 @@ import lombok.*;
 import org.asvosonk.member.infrastructure.persistence.entity.MemberEntity;
 import org.asvosonk.sanction.domain.valueobject.SanctionOrigin;
 import org.asvosonk.sanction.domain.valueobject.SanctionStatus;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -35,6 +37,7 @@ public class SanctionEntity {
     private String reason;
 
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(nullable = false, columnDefinition = "sanction_origin")
     private SanctionOrigin origin = SanctionOrigin.manual;
 

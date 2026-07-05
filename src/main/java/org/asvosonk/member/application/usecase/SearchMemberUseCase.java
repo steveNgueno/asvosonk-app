@@ -25,4 +25,12 @@ public class SearchMemberUseCase {
     public List<Member> findAllActive() {
         return memberRepository.findAllActive();
     }
+
+    public List<Member> search(String keyword) {
+        // Échapper les caractères wildcard LIKE pour éviter des résultats inattendus
+        String sanitized = keyword
+            .replace("%", "\\%")
+            .replace("_", "\\_");
+        return memberRepository.search(sanitized);
+    }
 }

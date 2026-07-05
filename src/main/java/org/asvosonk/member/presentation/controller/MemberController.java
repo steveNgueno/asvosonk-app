@@ -96,6 +96,7 @@ public class MemberController {
         request.setResident(member.isResident());
         request.setStatus(member.getStatus());
         model.addAttribute("memberRequest", request);
+        model.addAttribute("memberId", id);
         model.addAttribute("statuses", MemberStatus.values());
         model.addAttribute("pageTitle", "Modifier — " + member.getFullName());
         model.addAttribute("editMode", true);

@@ -4,6 +4,10 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.asvosonk.member.domain.valueobject.MemberStatus;
 import org.asvosonk.security.infrastructure.persistence.entity.AppUserEntity;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.annotations.UpdateTimestamp;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -34,6 +38,7 @@ public class MemberEntity {
     private boolean resident = true;
 
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(nullable = false, columnDefinition = "member_status")
     private MemberStatus status = MemberStatus.active;
 
@@ -43,11 +48,13 @@ public class MemberEntity {
     @OneToOne(mappedBy = "member")
     private AppUserEntity appUser;
 
+    @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt = LocalDateTime.now();
+    private LocalDateTime createdAt;
 
+    @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
-    private LocalDateTime updatedAt = LocalDateTime.now();
+    private LocalDateTime updatedAt;
 
     @PreUpdate
     public void preUpdate() { this.updatedAt = LocalDateTime.now(); }

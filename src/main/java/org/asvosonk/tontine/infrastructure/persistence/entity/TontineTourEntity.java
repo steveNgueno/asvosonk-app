@@ -3,6 +3,8 @@ package org.asvosonk.tontine.infrastructure.persistence.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import org.asvosonk.tontine.domain.valueobject.TontineTourStatus;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -25,6 +27,7 @@ public class TontineTourEntity {
     private LocalDate endDate;
 
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(nullable = false, columnDefinition = "tontine_tour_status")
     private TontineTourStatus status = TontineTourStatus.open;
 

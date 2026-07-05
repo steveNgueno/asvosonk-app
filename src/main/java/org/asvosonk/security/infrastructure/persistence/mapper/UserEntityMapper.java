@@ -1,7 +1,6 @@
 package org.asvosonk.security.infrastructure.persistence.mapper;
 
 import org.asvosonk.member.domain.model.Member;
-import org.asvosonk.member.infrastructure.persistence.entity.MemberEntity;
 import org.asvosonk.member.infrastructure.persistence.mapper.MemberEntityMapper;
 import org.asvosonk.security.domain.model.AppUser;
 import org.asvosonk.security.domain.model.Permission;
@@ -93,9 +92,9 @@ public class UserEntityMapper {
     public static PermissionEntity toEntity(Permission domain) {
         if (domain == null) return null;
         PermissionEntity entity = new PermissionEntity();
-        entity.setId(domain.getId());
-        entity.setCode(domain.getCode());
-        entity.setDescription(domain.getDescription());
+        entity.setId(domain.id());
+        entity.setCode(domain.code());
+        entity.setDescription(domain.description());
         return entity;
     }
 }

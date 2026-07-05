@@ -54,18 +54,4 @@ public class JpaAppUserRepository implements AppUserRepository {
         springData.deleteById(appUser.getId());
     }
 
-    // Internal Spring Data repository (not exposed outside infrastructure)
-    @org.springframework.stereotype.Repository
-    interface SpringDataAppUserRepository extends JpaRepository<AppUserEntity, Long> {
-        Optional<AppUserEntity> findByLogin(String login);
-        boolean existsByLogin(String login);
-
-        @Query("""
-            SELECT u FROM AppUserEntity u
-            JOIN FETCH u.role r
-            JOIN FETCH r.permissions
-            WHERE u.login = :login
-            """)
-        Optional<AppUserEntity> findByLoginWithPermissions(String login);
-    }
 }
