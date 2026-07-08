@@ -38,8 +38,8 @@ public class RecordLoanRepaymentUseCase {
         Loan loan = loanRepository.findById(loanId)
             .orElseThrow(() -> new ResourceNotFoundException("Emprunt", loanId));
 
-        if (!loan.isActive()) {
-            throw new BusinessRuleException("Cet emprunt n'est pas actif.");
+        if (loan.isRepaid()) {
+            throw new BusinessRuleException("Cet emprunt est déjà remboursé.");
         }
 
         // Record repayment

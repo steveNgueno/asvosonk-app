@@ -45,6 +45,7 @@ public class SanctionEntity {
     private Long referenceId;
 
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(nullable = false, columnDefinition = "sanction_status")
     private SanctionStatus status = SanctionStatus.unpaid;
 

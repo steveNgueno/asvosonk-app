@@ -12,6 +12,7 @@ import java.util.List;
 public interface SpringDataLoanRepository extends JpaRepository<LoanEntity, Long> {
     List<LoanEntity> findByMemberIdOrderByLoanDateDesc(Long memberId);
     long countByMemberIdAndStatus(Long memberId, LoanStatus status);
+    long countByMemberIdAndStatusNot(Long memberId, LoanStatus status);
     List<LoanEntity> findByStatusAndDueDateBefore(LoanStatus status, LocalDate date);
     List<LoanEntity> findByMemberIdAndStatus(Long memberId, LoanStatus status);
 }

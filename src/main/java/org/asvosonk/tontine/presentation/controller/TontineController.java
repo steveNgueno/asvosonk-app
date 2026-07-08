@@ -173,7 +173,10 @@ public class TontineController {
             .findNotBenefitedYet(id);
 
         // Load the current open session so the contribution form can link to it
-        MeetingSessionEntity openSession = meetingSessionRepository.findByStatus(SessionStatus.open)
+        MeetingSessionEntity openSession = meetingSessionRepository
+            .findByStatusOrderBySessionDateDesc(SessionStatus.open)
+            .stream()
+            .findFirst()
             .orElse(null);
         model.addAttribute("openSession", openSession);
 

@@ -15,7 +15,7 @@ public class MeetingSessionMapper {
             entity.getSessionDate(),
             entity.getStatus(),
             entity.getAgenda(),
-            entity.getBeneficiary() != null ? entity.getBeneficiary().getId() : null,
+            entity.getPresenceBeneficiary() != null ? entity.getPresenceBeneficiary().getId() : null,
             entity.getClosedAt(),
             entity.getCreatedBy() != null ? entity.getCreatedBy().getId() : null,
             entity.getCreatedAt(),

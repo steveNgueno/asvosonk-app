@@ -5,10 +5,90 @@
 <body>
 <th:block th:fragment="extraScripts">
 <script>
+const TONTINE_SHARE = 1000;
+const BEVERAGE_SHARE = 500;
+const DEVELOPMENT_SHARE = 500;
+const BEVERAGE_COST_PER_PERSON = 500;
+
+function recalc() {
+    let totalTontine = 0, totalDev = 0, totalBeveragePool = 0;
+    let presentCount = 0;
+    const rows = document.querySelectorAll('.attendance-row');
+
+    rows.forEach(row => {
+        const present = row.querySelector('.present-check').checked;
+        const amount = parseFloat(row.querySelector('.amount-input').value) || 0;
+        const tontineEl = row.querySelector('.tontine-cell');
+        const bevEl = row.querySelector('.beverage-cell');
+        const devEl = row.querySelector('.development-cell');
+        const statusEl = row.querySelector('.status-badge');
+
+        let tontine = 0, bev = 0, dev = 0;
+
+        if (present && amount >= 2000) {
+            tontine = TONTINE_SHARE;
+            bev = BEVERAGE_SHARE;
+            dev = DEVELOPMENT_SHARE;
+            presentCount++;
+            statusEl.textContent = 'À jour';
+            statusEl.className = 'badge bg-status-updated';
+        } else if (present && amount > 0) {
+            // Partial payment — proportional allocation
+            const ratio = amount / 2000;
+            tontine = Math.round(TONTINE_SHARE * ratio);
+            bev = Math.round(BEVERAGE_SHARE * ratio);
+            dev = Math.round(DEVELOPMENT_SHARE * ratio);
+            presentCount++;
+            statusEl.textContent = 'Partiel';
+            statusEl.className = 'badge bg-warning text-dark';
+        } else if (!present) {
+            statusEl.textContent = 'Absent';
+            statusEl.className = 'badge bg-secondary';
+        } else {
+            // Present but 0 paid — will be determined at close
+            statusEl.textContent = '—';
+            statusEl.className = 'badge bg-light text-dark';
+        }
+
+        tontineEl.textContent = tontine > 0 ? tontine.toLocaleString() + ' F' : '—';
+        bevEl.textContent = bev > 0 ? bev.toLocaleString() + ' F' : '—';
+        devEl.textContent = dev > 0 ? dev.toLocaleString() + ' F' : '—';
+
+        totalTontine += tontine;
+        totalDev += dev;
+        totalBeveragePool += bev;
+    });
+
+    const actualCost = presentCount * BEVERAGE_COST_PER_PERSON;
+    const reliquat = Math.max(0, totalBeveragePool - actualCost);
+
+    document.getElementById('totalTontine').textContent = totalTontine.toLocaleString() + ' FCFA';
+    document.getElementById('totalDev').textContent = totalDev.toLocaleString() + ' FCFA';
+    document.getElementById('totalBeverage').textContent = totalBeveragePool.toLocaleString() + ' FCFA';
+    document.getElementById('beverageCost').textContent = actualCost.toLocaleString() + ' FCFA';
+    document.getElementById('beverageReliquat').textContent = reliquat.toLocaleString() + ' FCFA';
+    document.getElementById('presentCount').textContent = presentCount;
+    document.getElementById('netToTreasurer').textContent =
+        (totalTontine + totalDev).toLocaleString() + ' FCFA';
+}
+
 function setAll(present) {
-    document.querySelectorAll('.present-check').forEach(cb => cb.checked = present);
+    document.querySelectorAll('.present-check').forEach(cb => {
+        cb.checked = present;
+    });
+    recalc();
 }
 </script>
+</th:block>
+
+<th:block th:fragment="extraHead">
+<style>
+.attendance-row:hover { background-color: #f8f9fa; }
+.bg-status-updated { background-color: #198754 !important; color: white !important; }
+.fund-balance { font-size: 0.8rem; color: #6c757d; }
+.pending-badge { font-size: 0.7rem; }
+.footer-total { font-size: 1.1rem; font-weight: 700; }
+</style>
 </th:block>
 
 <th:block th:fragment="main-content">
@@ -16,38 +96,30 @@ function setAll(present) {
 <div class="d-flex justify-content-between align-items-center mb-3">
     <div class="page-header">
         <h2><i class="bi bi-clipboard-check me-2"></i>Saisie de présence</h2>
-        <p th:text="'Séance du ' + ${#temporals.format(session.sessionDate,'EEEE dd MMMM yyyy')}"></p>
+        <p th:text="'Séance du ' + ${#temporals.format(meetingSession.sessionDate,'EEEE dd MMMM yyyy')}"></p>
     </div>
-    <a th:href="@{/sessions}" class="btn btn-outline-secondary btn-sm">
-        <i class="bi bi-arrow-left me-1"></i>Retour
+    <a th:href="@{/sessions/{id}(id=${meetingSession.id})}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left me-1"></i>Retour à la séance
     </a>
 </div>
 
-<!-- Beneficiary selector -->
-<div class="card border-0 shadow-sm mb-3">
-    <div class="card-header fw-semibold bg-warning text-dark">
-        <i class="bi bi-trophy me-1"></i>Bénéficiaire de la tontine de présence
-    </div>
-    <div class="card-body">
-        <form th:action="@{/sessions/{id}/beneficiary(id=${session.id})}" method="post"
-              class="d-flex gap-2 align-items-center">
-            <select name="memberId" class="form-select w-auto">
-                <option value="" disabled th:selected="${session.beneficiary == null}">-- Choisir --</option>
-                <option th:each="m : ${members}" th:value="${m.id}" th:text="${m.fullName}"
-                        th:selected="${session.beneficiary?.id == m.id}"></option>
-            </select>
-            <button type="submit" class="btn btn-warning">
-                <i class="bi bi-person-check me-1"></i>Désigner
-            </button>
-            <span th:if="${session.beneficiary != null}" class="text-success fw-semibold">
-                <i class="bi bi-check-circle me-1"></i>
-                <span th:text="${session.beneficiary.fullName}"></span>
-            </span>
-        </form>
+<!-- ── Beneficiary card (automatic) ────────────────── -->
+<div class="card border-0 shadow-sm mb-3"
+     th:if="${beneficiaryMember != null}"
+     style="background: linear-gradient(135deg, #fff9e6, #fff3cd); border-left: 4px solid #ffc107;">
+    <div class="card-body py-3 d-flex align-items-center gap-3">
+        <i class="bi bi-trophy-fill text-warning fs-1"></i>
+        <div>
+            <small class="text-warning-emphasis fw-semibold">🏆 Bénéficiaire du jour (automatique)</small>
+            <div class="fs-4 fw-bold" th:text="${beneficiaryMember.fullName}"></div>
+            <small class="text-muted" th:if="${presenceOpenTour}">
+                Tour N°<span th:text="${presenceOpenTour.id}"></span>
+            </small>
+        </div>
     </div>
 </div>
 
-<!-- Attendance table -->
+<!-- ── Attendance table ────────────────────────────── -->
 <div class="card border-0 shadow-sm mb-3">
     <div class="card-header fw-semibold bg-dark text-white d-flex justify-content-between align-items-center">
         <span><i class="bi bi-people me-1"></i>Présences &amp; cotisations</span>
@@ -57,64 +129,125 @@ function setAll(present) {
         </div>
     </div>
     <div class="table-responsive">
-        <table class="table table-hover mb-0">
+        <table class="table table-hover mb-0" id="attendanceTable">
             <thead>
                 <tr>
-                    <th>Membre</th>
-                    <th colspan="3">Présence &amp; cotisation</th>
+                    <th style="min-width:160px">Membre</th>
+                    <th style="width:70px">Fond</th>
+                    <th style="width:60px">Dettes</th>
+                    <th style="width:70px" class="text-center">Présent</th>
+                    <th style="width:130px">Montant saisi</th>
+                    <th style="width:90px">Statut</th>
+                    <th style="width:80px">→ Tont.</th>
+                    <th style="width:80px">→ Bois.</th>
+                    <th style="width:80px">→ Dév.</th>
                 </tr>
             </thead>
             <tbody>
-                <tr th:each="att : ${attendances}">
+                <tr th:each="att : ${attendances}" class="attendance-row">
                     <td class="fw-semibold" th:text="${att.member.fullName}"></td>
-                    <td colspan="3">
-                        <form th:action="@{/sessions/{id}/attendance(id=${session.id})}"
-                              method="post" class="d-flex gap-2 align-items-center">
+                    <td class="fund-balance" th:text="${fundBalances[att.member.id] != null ? fundBalances[att.member.id] + ' F' : '—'}"></td>
+                    <td>
+                        <span th:if="${pendingDebts[att.member.id] != null && pendingDebts[att.member.id] > 0}"
+                              class="badge bg-danger pending-badge"
+                              th:text="${pendingDebts[att.member.id]} + ' séa.'"></span>
+                        <span th:unless="${pendingDebts[att.member.id] != null && pendingDebts[att.member.id] > 0}"
+                              class="text-muted small">0</span>
+                    </td>
+                    <td class="text-center">
+                        <form th:action="@{/sessions/{id}/attendance(id=${meetingSession.id})}"
+                              method="post" class="d-inline">
                             <input type="hidden" name="memberId" th:value="${att.member.id}">
                             <input type="hidden" name="present" value="false">
-                            <div class="d-flex align-items-center gap-1" style="min-width:95px">
-                                <input type="checkbox" name="present" value="true"
-                                       class="form-check-input present-check"
-                                       th:checked="${att.present}"
-                                       th:id="'present-' + ${att.member.id}">
-                                <label class="small text-nowrap" th:for="'present-' + ${att.member.id}">
-                                    Présent
-                                </label>
-                            </div>
-                            <input type="number" name="amountPaid" class="form-control form-control-sm"
-                                   style="width:130px" placeholder="Montant"
-                                   th:value="${att.amountPaid}" min="0" step="500">
-                            <button type="submit" class="btn btn-sm btn-outline-primary">
-                                <i class="bi bi-check"></i>
-                            </button>
-                            <span class="badge"
-                                  th:classappend="${att.amountPaid > 0 ? 'bg-success' : 'bg-light text-dark'}"
-                                  th:text="${att.amountPaid > 0 ? att.amountPaid + ' FCFA' : '—'}"></span>
+                            <input type="checkbox" name="present" value="true"
+                                   class="form-check-input present-check"
+                                   th:checked="${att.present}"
+                                   th:id="'present-' + ${att.member.id}"
+                                   onchange="recalc()">
                         </form>
                     </td>
+                    <td>
+                        <form th:action="@{/sessions/{id}/attendance(id=${meetingSession.id})}"
+                              method="post" class="d-flex gap-1">
+                            <input type="hidden" name="memberId" th:value="${att.member.id}">
+                            <input type="number" name="amountPaid"
+                                   class="form-control form-control-sm amount-input"
+                                   style="width:100px" placeholder="Montant"
+                                   th:value="${att.amountPaid}" min="0" step="500"
+                                   onchange="recalc()" oninput="recalc()">
+                            <button type="submit" class="btn btn-sm btn-outline-primary" title="Sauvegarder">
+                                <i class="bi bi-check"></i>
+                            </button>
+                        </form>
+                    </td>
+                    <td>
+                        <span class="badge status-badge"
+                              th:classappend="${att.amountPaid >= 2000 ? 'bg-success' : (att.amountPaid > 0 ? 'bg-warning text-dark' : 'bg-light text-dark')}"
+                              th:text="${att.amountPaid >= 2000 ? 'À jour' : (att.amountPaid > 0 ? 'Partiel' : '—')}">—</span>
+                    </td>
+                    <td class="tontine-cell small">—</td>
+                    <td class="beverage-cell small">—</td>
+                    <td class="development-cell small">—</td>
                 </tr>
             </tbody>
         </table>
     </div>
+
+    <!-- ── Real-time footer ─────────────────────────── -->
+    <div class="card-footer bg-light">
+        <div class="row g-2 text-center">
+            <div class="col-md-3">
+                <small class="text-muted d-block">Présents</small>
+                <span class="footer-total text-primary" id="presentCount">0</span>
+            </div>
+            <div class="col-md-3">
+                <small class="text-muted d-block">Tontine → bénéficiaire</small>
+                <span class="footer-total text-success" id="totalTontine">0 FCFA</span>
+            </div>
+            <div class="col-md-3">
+                <small class="text-muted d-block">Caisse Développement</small>
+                <span class="footer-total text-info" id="totalDev">0 FCFA</span>
+            </div>
+            <div class="col-md-3">
+                <small class="text-muted d-block">Reliquat Boisson</small>
+                <span class="footer-total text-warning" id="beverageReliquat">0 FCFA</span>
+            </div>
+        </div>
+        <div class="row g-2 text-center mt-1">
+            <div class="col-4">
+                <small class="text-muted d-block">Pool Boisson brut</small>
+                <span class="small" id="totalBeverage">0 FCFA</span>
+            </div>
+            <div class="col-4">
+                <small class="text-muted d-block">Coût boisson estimé</small>
+                <span class="small" id="beverageCost">0 FCFA</span>
+            </div>
+            <div class="col-4">
+                <small class="text-muted d-block">Net à remettre au trésorier</small>
+                <span class="footer-total text-dark" id="netToTreasurer">0 FCFA</span>
+            </div>
+        </div>
+    </div>
 </div>
 
-<!-- Close session button -->
+<!-- ── Close presence button ───────────────────────── -->
 <div class="card border-danger border-0 shadow-sm" sec:authorize="hasAuthority('SESSION_CLOSE')">
     <div class="card-body d-flex align-items-center justify-content-between">
         <div>
-            <strong>Clôturer la séance</strong>
+            <strong><i class="bi bi-lock me-1"></i>Clôturer la présence</strong>
             <p class="mb-0 text-muted small">
-                Cette action est irréversible. Tous les calculs seront effectués automatiquement.
+                Cette action déclenche les calculs automatiques (scénarios fond de roulement,
+                sanctions, caisses). Elle est irréversible.
             </p>
         </div>
-        <form th:action="@{/sessions/{id}/close(id=${session.id})}" method="post"
-              onsubmit="return confirm('Confirmer la clôture de la séance ?')">
-            <button type="submit" class="btn btn-danger"
-                    th:disabled="${session.beneficiary == null}">
-                <i class="bi bi-lock me-1"></i>Clôturer la séance
+        <form th:action="@{/sessions/{id}/presence/close(id=${meetingSession.id})}" method="post"
+              onsubmit="return confirm('Confirmer la clôture de la présence ? Les calculs seront effectués automatiquement.')">
+            <button type="submit" class="btn btn-danger btn-lg">
+                <i class="bi bi-lock me-1"></i>Clôturer la présence
             </button>
         </form>
     </div>
 </div>
 
+<script>recalc();</script>
 </th:block></body></html>

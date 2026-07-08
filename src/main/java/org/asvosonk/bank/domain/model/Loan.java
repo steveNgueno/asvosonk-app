@@ -62,8 +62,14 @@ public class Loan {
 
     public boolean isActive() { return status == LoanStatus.active; }
 
+    public boolean isRepaid() { return status == LoanStatus.repaid; }
+
+    /** A loan still owes money while it is not fully repaid (active or overdue). */
+    public boolean isOutstanding() { return status != LoanStatus.repaid; }
+
     public boolean isOverdue() {
-        return status == LoanStatus.active && LocalDate.now().isAfter(dueDate);
+        return status == LoanStatus.overdue
+            || (status == LoanStatus.active && LocalDate.now().isAfter(dueDate));
     }
 
     public BigDecimal getRemainingBalance(BigDecimal totalRepaid) {

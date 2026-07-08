@@ -1,180 +1,218 @@
 <!DOCTYPE html>
 <html lang="fr" xmlns:th="http://www.thymeleaf.org"
-      th:replace="~{layout :: layout(pageTitle=${pageTitle}, content=~{::main-content}, extraHead=~{}, extraScripts=~{})}">
+      th:replace="~{layout :: layout(pageTitle=${pageTitle}, content=~{::main-content}, extraHead=~{}, extraScripts=~{::extraScripts})}">
+<head th:fragment="extraScripts">
+<style>
+@media print {
+    .btn, nav, footer, .navbar, .no-print { display: none !important; }
+    .card { border: 1px solid #dee2e6 !important; box-shadow: none !important; }
+    .print-only { display: block !important; }
+}
+.print-only { display: none; }
+.report-section { border-left: 4px solid var(--bs-primary); margin-bottom: 1.5rem; }
+.report-section.presence { border-left-color: #198754; }
+.report-section.tontine  { border-left-color: #0d6efd; }
+.report-section.banque   { border-left-color: #6f42c1; }
+.report-section.soldes   { border-left-color: #fd7e14; }
+.report-section.synth    { border-left-color: #dc3545; }
+</style>
+<script>function printReport() { window.print(); }</script>
+</head>
 <body><th:block th:fragment="main-content">
 
-<div class="d-flex justify-content-between align-items-center mb-3">
+<div class="d-flex justify-content-between align-items-center mb-3 no-print">
     <div class="page-header">
         <h2><i class="bi bi-file-earmark-bar-graph me-2"></i>Rapport de séance</h2>
-        <p th:text="'Séance du ' + ${#temporals.format(session.sessionDate,'EEEE dd MMMM yyyy')}"></p>
+        <p th:text="'Séance du ' + ${#temporals.format(meetingSession.sessionDate,'EEEE dd MMMM yyyy')}"></p>
     </div>
-    <a th:href="@{/sessions}" class="btn btn-outline-secondary btn-sm">
-        <i class="bi bi-arrow-left me-1"></i>Retour aux séances
-    </a>
+    <div class="d-flex gap-2">
+        <button class="btn btn-outline-primary" onclick="printReport()">
+            <i class="bi bi-printer me-1"></i>Imprimer / PDF
+        </button>
+        <a th:href="@{/sessions/{id}(id=${meetingSession.id})}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left me-1"></i>Retour
+        </a>
+    </div>
 </div>
 
-<!-- Summary cards (shown if closeResult available, else compute from session) -->
-<div th:if="${closeResult != null}">
+<th:block th:if="${closeResult != null && sessionReport != null}">
 
-    <!-- Stats row -->
-    <div class="row g-3 mb-3">
-        <div class="col-md-3">
-            <div class="card border-0 shadow-sm text-center p-3">
-                <div class="fs-1 fw-bold text-primary" th:text="${closeResult.totalCotisants}"></div>
-                <div class="text-muted small">Cotisants</div>
+<!-- ══════════════════════════════════════════════════ -->
+<!-- PRÉSENCE                                           -->
+<!-- ══════════════════════════════════════════════════ -->
+<div class="card border-0 shadow-sm mb-4 report-section presence">
+    <div class="card-header bg-success text-white fw-semibold">
+        <i class="bi bi-clipboard-check me-1"></i>PRÉSENCE
+    </div>
+    <div class="card-body">
+        <div class="row mb-2">
+            <div class="col-md-6">
+                <strong>Bénéficiaire :</strong>
+                <span th:text="${closeResult.beneficiary != null ? closeResult.beneficiary.fullName : '—'}"></span>
+                <span th:if="${meetingSession.presenceBeneficiary}" class="text-muted small ms-2">
+                    (Membre #<span th:text="${meetingSession.presenceBeneficiary.id}"></span>)
+                </span>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card border-0 shadow-sm text-center p-3">
-                <div class="fs-1 fw-bold text-success" th:text="${closeResult.presentCount}"></div>
-                <div class="text-muted small">Présents</div>
+
+        <div class="row g-2 mb-3">
+            <div class="col-md-3 text-center py-2 rounded bg-light">
+                <div class="fs-3 fw-bold text-primary" th:text="${closeResult.totalCotisants}"></div>
+                <small class="text-muted">Cotisants</small>
+            </div>
+            <div class="col-md-3 text-center py-2 rounded bg-light">
+                <div class="fs-3 fw-bold text-success" th:text="${closeResult.presentCount}"></div>
+                <small class="text-muted">Présents</small>
+            </div>
+            <div class="col-md-3 text-center py-2 rounded bg-light">
+                <div class="fs-3 fw-bold text-warning" th:text="${closeResult.fundCoveredCount}"></div>
+                <small class="text-muted">Fond</small>
+            </div>
+            <div class="col-md-3 text-center py-2 rounded bg-light">
+                <div class="fs-3 fw-bold text-danger" th:text="${closeResult.defaultCount}"></div>
+                <small class="text-muted">Échecs</small>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card border-0 shadow-sm text-center p-3">
-                <div class="fs-1 fw-bold text-warning" th:text="${closeResult.fundCoveredCount}"></div>
-                <div class="text-muted small">Cotisés par fond</div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card border-0 shadow-sm text-center p-3">
-                <div class="fs-1 fw-bold text-danger" th:text="${closeResult.defaultCount}"></div>
-                <div class="text-muted small">Échecs</div>
-            </div>
+
+        <table class="table table-sm mb-0" style="max-width:500px">
+            <tr>
+                <td>Tontine brute collectée</td>
+                <td class="fw-bold text-end" th:text="${#numbers.formatDecimal(closeResult.grossTontine,1,'COMMA',0,'POINT')} + ' FCFA'"></td>
+            </tr>
+            <tr th:if="${closeResult.sanctionDeductions.compareTo(T(java.math.BigDecimal).ZERO) > 0}" class="text-danger">
+                <td>— Retenues (sanctions bénéficiaire)</td>
+                <td class="fw-bold text-end" th:text="'−' + ${#numbers.formatDecimal(closeResult.sanctionDeductions,1,'COMMA',0,'POINT')} + ' FCFA'"></td>
+            </tr>
+            <tr class="table-success fw-bold">
+                <td>Tontine remise à <span th:text="${closeResult.beneficiary != null ? closeResult.beneficiary.fullName : '—'}"></span></td>
+                <td class="fw-bold text-end fs-5" th:text="${#numbers.formatDecimal(closeResult.netTontine,1,'COMMA',0,'POINT')} + ' FCFA ✓'"></td>
+            </tr>
+            <tr>
+                <td>Caisse Développement</td>
+                <td class="fw-bold text-end text-info" th:text="'+' + ${#numbers.formatDecimal(closeResult.totalDevelopment,1,'COMMA',0,'POINT')} + ' FCFA'"></td>
+            </tr>
+            <tr>
+                <td>Reliquat Boisson</td>
+                <td class="fw-bold text-end text-warning" th:text="'+' + ${#numbers.formatDecimal(closeResult.beverageReliquat,1,'COMMA',0,'POINT')} + ' FCFA'"></td>
+            </tr>
+        </table>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════ -->
+<!-- GRANDE TONTINE (placeholder until module is built) -->
+<!-- ══════════════════════════════════════════════════ -->
+<div class="card border-0 shadow-sm mb-4 report-section tontine">
+    <div class="card-header bg-primary text-white fw-semibold">
+        <i class="bi bi-cash-stack me-1"></i>GRANDE TONTINE
+    </div>
+    <div class="card-body">
+        <p class="text-muted mb-0"><em>Données non disponibles — module en cours d'intégration.</em></p>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════ -->
+<!-- BANQUE PROJET                                      -->
+<!-- ══════════════════════════════════════════════════ -->
+<div class="card border-0 shadow-sm mb-4 report-section banque">
+    <div class="card-header bg-purple text-white fw-semibold" style="background-color:#6f42c1">
+        <i class="bi bi-building me-1"></i>BANQUE PROJET
+    </div>
+    <div class="card-body">
+        <p class="text-muted mb-0"><em>Module à implémenter.</em></p>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════ -->
+<!-- BANQUE ANNUELLE                                    -->
+<!-- ══════════════════════════════════════════════════ -->
+<div class="card border-0 shadow-sm mb-4 report-section banque">
+    <div class="card-header text-white fw-semibold" style="background-color:#6f42c1">
+        <i class="bi bi-bank me-1"></i>BANQUE ANNUELLE
+    </div>
+    <div class="card-body">
+        <p class="text-muted mb-0"><em>Module à implémenter.</em></p>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════ -->
+<!-- SOLDES DES CAISSES                                 -->
+<!-- ══════════════════════════════════════════════════ -->
+<div class="card border-0 shadow-sm mb-4 report-section soldes">
+    <div class="card-header text-white fw-semibold" style="background-color:#fd7e14">
+        <i class="bi bi-safe me-1"></i>SOLDES DES CAISSES
+    </div>
+    <div class="card-body">
+        <div class="row g-3">
+            <th:block th:each="entry : ${cashboxBalances}">
+                <div class="col-md-3 text-center py-2 rounded bg-light">
+                    <small class="text-muted d-block" th:text="${entry.key}">Caisse</small>
+                    <span class="fs-5 fw-bold" th:text="${#numbers.formatDecimal(entry.value,1,'COMMA',0,'POINT')} + ' FCFA'"></span>
+                </div>
+            </th:block>
         </div>
     </div>
+</div>
 
-    <!-- Financial summary -->
-    <div class="row g-3 mb-3">
-        <div class="col-md-6">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-dark text-white fw-semibold">Entrées du jour</div>
-                <div class="table-responsive">
-                    <table class="table table-sm mb-0">
-                        <tr>
-                            <td>Tontine brute collectée</td>
-                            <td class="amount amount-in text-end"
-                                th:text="${#numbers.formatDecimal(closeResult.grossTontine,1,'COMMA',0,'POINT')} + ' FCFA'"></td>
-                        </tr>
-                        <tr th:if="${closeResult.sanctionDeductions.compareTo(T(java.math.BigDecimal).ZERO) > 0}">
-                            <td class="text-muted">— Sanctions déduites (bénéficiaire)</td>
-                            <td class="amount amount-out text-end"
-                                th:text="'− ' + ${#numbers.formatDecimal(closeResult.sanctionDeductions,1,'COMMA',0,'POINT')} + ' FCFA'"></td>
-                        </tr>
-                        <tr class="fw-bold">
-                            <td>Tontine nette → bénéficiaire</td>
-                            <td class="amount amount-in text-end"
-                                th:text="${#numbers.formatDecimal(closeResult.netTontine,1,'COMMA',0,'POINT')} + ' FCFA'"></td>
-                        </tr>
-                        <tr>
-                            <td>Caisse Développement</td>
-                            <td class="amount amount-in text-end"
-                                th:text="${#numbers.formatDecimal(closeResult.totalDevelopment,1,'COMMA',0,'POINT')} + ' FCFA'"></td>
-                        </tr>
-                        <tr>
-                            <td>Reliquat Boisson</td>
-                            <td class="amount amount-in text-end"
-                                th:text="${#numbers.formatDecimal(closeResult.beverageReliquat,1,'COMMA',0,'POINT')} + ' FCFA'"></td>
-                        </tr>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-6">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-success text-white fw-semibold">
-                    <i class="bi bi-cash me-1"></i>Montant net à remettre au trésorier
-                </div>
-                <div class="card-body text-center">
-                    <div class="display-5 fw-bold text-success"
-                         th:text="${#numbers.formatDecimal(closeResult.netAmountToTreasurer,1,'COMMA',0,'POINT')} + ' FCFA'"></div>
-                    <p class="text-muted small mt-1">Tontine nette + Caisse Développement</p>
-                </div>
-            </div>
-
-            <div class="card border-0 shadow-sm mt-3">
-                <div class="card-header bg-warning text-dark fw-semibold">
-                    <i class="bi bi-trophy me-1"></i>Bénéficiaire du jour
-                </div>
-                <div class="card-body text-center">
-                    <div class="fs-4 fw-bold"
-                         th:text="${closeResult.beneficiary.fullName}"></div>
-                    <div class="text-muted"
-                         th:text="'Reçoit : ' + ${#numbers.formatDecimal(closeResult.netTontine,1,'COMMA',0,'POINT')} + ' FCFA'"></div>
-                </div>
-            </div>
-        </div>
+<!-- ══════════════════════════════════════════════════ -->
+<!-- MONTANT NET À REMETTRE AU TRÉSORIER                -->
+<!-- ══════════════════════════════════════════════════ -->
+<div class="card border-0 shadow-sm mb-4 report-section synth border-danger">
+    <div class="card-header bg-danger text-white fw-semibold">
+        <i class="bi bi-cash me-1"></i>MONTANT NET À REMETTRE AU TRÉSORIER
     </div>
-
-    <!-- Per-member detail table -->
-    <div class="card border-0 shadow-sm">
-        <div class="card-header bg-dark text-white fw-semibold">Détail par membre</div>
-        <div class="table-responsive">
-            <table class="table table-sm mb-0">
-                <thead>
-                    <tr>
-                        <th>Membre</th>
-                        <th class="text-center">Statut</th>
-                        <th class="text-end">→ Tontine</th>
-                        <th class="text-end">→ Boisson</th>
-                        <th class="text-end">→ Dév.</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr th:each="r : ${closeResult.attendanceResults}">
-                        <td th:text="${r.member.fullName}"></td>
-                        <td class="text-center">
-                            <span class="badge"
-                                  th:classappend="${r.upToDate ? 'bg-success' :
-                                                  (r.coveredByFund ? 'bg-warning text-dark' : 'bg-danger')}"
-                                  th:text="${r.upToDate ? 'À jour' :
-                                            (r.coveredByFund ? 'Fond' : 'Échec')}"></span>
-                        </td>
-                        <td class="amount text-end"
-                            th:text="${#numbers.formatDecimal(r.contributionToTontine,1,'COMMA',0,'POINT')}"></td>
-                        <td class="amount text-end"
-                            th:text="${#numbers.formatDecimal(r.contributionToBeverage,1,'COMMA',0,'POINT')}"></td>
-                        <td class="amount text-end"
-                            th:text="${#numbers.formatDecimal(r.contributionToDevelopment,1,'COMMA',0,'POINT')}"></td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
+    <div class="card-body text-center py-4">
+        <div class="display-4 fw-bold text-danger"
+             th:text="${#numbers.formatDecimal(closeResult.netAmountToTreasurer,1,'COMMA',0,'POINT')} + ' FCFA'"></div>
+        <p class="text-muted mt-2 mb-0">
+            <span th:text="${#numbers.formatDecimal(closeResult.netTontine,1,'COMMA',0,'POINT')} + ' FCFA (tontine)'"></span>
+            +
+            <span th:text="${#numbers.formatDecimal(closeResult.totalDevelopment,1,'COMMA',0,'POINT')} + ' FCFA (développement)'"></span>
+        </p>
+        <small class="text-muted">Rapport généré le
+            <span th:text="${sessionReport.generatedAt != null ? #temporals.format(sessionReport.generatedAt,'dd/MM/yyyy HH:mm') : '—'}"></span>
+        </small>
     </div>
+</div>
 
-</div><!-- /closeResult -->
+<!-- ── Per-member detail table ─────────────────────── -->
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-dark text-white fw-semibold">Détail des cotisations par membre</div>
+    <div class="table-responsive">
+        <table class="table table-sm mb-0">
+            <thead>
+                <tr>
+                    <th>Membre</th>
+                    <th class="text-center">Présent</th>
+                    <th class="text-end">Montant</th>
+                    <th class="text-center">Statut</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="a : ${attendances}">
+                    <td th:text="${a.member.fullName}"></td>
+                    <td class="text-center">
+                        <span th:if="${a.present}" class="text-success">✓</span>
+                        <span th:unless="${a.present}" class="text-danger">✗</span>
+                    </td>
+                    <td class="text-end" th:text="${#numbers.formatDecimal(a.amountPaid,1,'COMMA',0,'POINT')} + ' FCFA'"></td>
+                    <td class="text-center">
+                        <span class="badge"
+                              th:classappend="${a.attendanceStatus.name()=='up_to_date'?'bg-success':(a.attendanceStatus.name()=='covered_by_fund'?'bg-warning text-dark':'bg-danger')}"
+                              th:text="${a.attendanceStatus.name()=='up_to_date'?'À jour':(a.attendanceStatus.name()=='covered_by_fund'?'Fond':'Échec')}"></span>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
 
-<!-- Fallback: session already closed, show attendance list only -->
-<div th:if="${closeResult == null}">
-    <div class="alert alert-info">
-        <i class="bi bi-info-circle me-1"></i>
-        Séance clôturée le
-        <span th:text="${session.closedAt != null ? #temporals.format(session.closedAt,'dd/MM/yyyy HH:mm') : '—'}"></span>.
-    </div>
-    <div class="card border-0 shadow-sm">
-        <div class="table-responsive">
-            <table class="table table-sm mb-0">
-                <thead><tr><th>Membre</th><th>Présent</th><th>Montant</th><th>Statut</th></tr></thead>
-                <tbody>
-                    <tr th:each="a : ${attendances}">
-                        <td th:text="${a.member.fullName}"></td>
-                        <td th:text="${a.present ? 'Oui' : 'Non'}"></td>
-                        <td class="amount" th:text="${#numbers.formatDecimal(a.amountPaid,1,'COMMA',0,'POINT')} + ' FCFA'"></td>
-                        <td>
-                            <span class="badge"
-                                  th:classappend="${a.attendanceStatus.name()=='up_to_date'?'bg-success':
-                                                  (a.attendanceStatus.name()=='covered_by_fund'?'bg-warning text-dark':
-                                                  (a.attendanceStatus.name()=='default_status'?'bg-danger':'bg-secondary'))}"
-                                  th:text="${a.attendanceStatus.name()=='up_to_date'?'À jour':
-                                            (a.attendanceStatus.name()=='covered_by_fund'?'Fond':
-                                            (a.attendanceStatus.name()=='default_status'?'Échec':'Recouvré'))}"></span>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
+</th:block>
+
+<!-- ── Fallback: no report data ────────────────────── -->
+<div th:if="${closeResult == null}" class="alert alert-info">
+    <i class="bi bi-info-circle me-1"></i>
+    Rapport non disponible. La séance n'a pas encore été clôturée ou le rapport n'a pas été généré.
 </div>
 
 </th:block></body></html>

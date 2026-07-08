@@ -33,7 +33,7 @@ public class JpaAppUserRepository implements AppUserRepository {
 
     @Override
     public List<AppUser> findAll() {
-        return springData.findAll().stream()
+        return springData.findAllWithMemberAndRole().stream()
             .map(UserEntityMapper::toDomain)
             .collect(Collectors.toList());
     }

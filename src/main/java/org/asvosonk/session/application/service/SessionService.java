@@ -59,22 +59,26 @@ public class SessionService {
 
     public List<MeetingSessionEntity> findAll() {
         return entityManager.createQuery(
-                "SELECT s FROM MeetingSessionEntity s ORDER BY s.sessionDate DESC",
+                "SELECT s FROM MeetingSessionEntity s LEFT JOIN FETCH s.presenceBeneficiary ORDER BY s.sessionDate DESC",
                 MeetingSessionEntity.class)
             .getResultList();
     }
 
     public MeetingSessionEntity findById(Long id) {
-        MeetingSessionEntity session = entityManager.find(MeetingSessionEntity.class, id);
-        if (session == null) {
+        try {
+            return entityManager.createQuery(
+                    "SELECT s FROM MeetingSessionEntity s LEFT JOIN FETCH s.presenceBeneficiary WHERE s.id = :id",
+                    MeetingSessionEntity.class)
+                .setParameter("id", id)
+                .getSingleResult();
+        } catch (jakarta.persistence.NoResultException e) {
             throw new IllegalArgumentException("Séance introuvable : " + id);
         }
-        return session;
     }
 
     public List<SessionAttendanceEntity> findAttendances(Long sessionId) {
         return entityManager.createQuery(
-                "SELECT a FROM SessionAttendanceEntity a JOIN a.member m WHERE a.session.id = :sessionId ORDER BY m.fullName ASC",
+                "SELECT a FROM SessionAttendanceEntity a JOIN FETCH a.member m WHERE a.session.id = :sessionId ORDER BY m.fullName ASC",
                 SessionAttendanceEntity.class)
             .setParameter("sessionId", sessionId)
             .getResultList();
@@ -122,7 +126,7 @@ public class SessionService {
         if (session.isClosed()) throw new IllegalStateException("Séance déjà clôturée");
         Member beneficiary = memberRepository.findById(memberId)
             .orElseThrow(() -> new IllegalArgumentException("Membre introuvable"));
-        session.setBeneficiary(entityManager.getReference(MemberEntity.class, beneficiary.getId()));
+        session.setPresenceBeneficiary(entityManager.getReference(MemberEntity.class, beneficiary.getId()));
         entityManager.merge(session);
     }
 
@@ -171,7 +175,7 @@ public class SessionService {
         MeetingSessionEntity session = findById(sessionId);
 
         if (session.isClosed()) throw new IllegalStateException("Séance déjà clôturée");
-        if (session.getBeneficiary() == null)
+        if (session.getPresenceBeneficiary() == null)
             throw new IllegalStateException("Le bénéficiaire du jour n'a pas été désigné");
 
         List<SessionAttendanceEntity> attendances = findAttendances(sessionId);
@@ -220,7 +224,7 @@ public class SessionService {
         }
 
         // ── Sanctions check on beneficiary ────────────────────
-        MemberEntity beneficiaryEntity = session.getBeneficiary();
+        MemberEntity beneficiaryEntity = session.getPresenceBeneficiary();
         Member beneficiary = toDomain(beneficiaryEntity);
 
         TypedQuery<SanctionEntity> sanctionsQuery = entityManager.createQuery(

@@ -51,6 +51,7 @@ public class CashboxMovementEntity {
     private MeetingSessionEntity session;
 
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(nullable = false, columnDefinition = "movement_origin")
     private MovementOrigin origin = MovementOrigin.manual;
 

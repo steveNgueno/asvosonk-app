@@ -5,6 +5,7 @@ import lombok.*;
 import org.asvosonk.member.infrastructure.persistence.entity.MemberEntity;
 import org.asvosonk.security.infrastructure.persistence.entity.AppUserEntity;
 import org.asvosonk.session.domain.valueobject.SessionStatus;
+import org.asvosonk.session.domain.valueobject.SessionStep;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -35,9 +36,27 @@ public class MeetingSessionEntity {
     @Column
     private String agenda;
 
+    @Column(name = "current_step", nullable = false)
+    private String currentStep = SessionStep.CREATED.name();
+
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "beneficiary_id")
-    private MemberEntity beneficiary;
+    @JoinColumn(name = "presence_beneficiary_id")
+    private MemberEntity presenceBeneficiary;
+
+    @Column(name = "presence_closed_at")
+    private LocalDateTime presenceClosedAt;
+
+    @Column(name = "tontine_closed_at")
+    private LocalDateTime tontineClosedAt;
+
+    @Column(name = "banque_projet_closed_at")
+    private LocalDateTime banqueProjetClosedAt;
+
+    @Column(name = "banque_annuelle_closed_at")
+    private LocalDateTime banqueAnnuelleClosedAt;
+
+    @Column(name = "report_generated_at")
+    private LocalDateTime reportGeneratedAt;
 
     @Column(name = "closed_at")
     private LocalDateTime closedAt;
@@ -61,4 +80,22 @@ public class MeetingSessionEntity {
     public boolean isClosed()  { return status == SessionStatus.closed;  }
     public boolean isOpen()    { return status == SessionStatus.open;    }
     public boolean isPlanned() { return status == SessionStatus.planned; }
+
+    // ── Step helpers ──────────────────────────────────────────
+
+    public SessionStep getCurrentStepEnum() {
+        return SessionStep.valueOf(currentStep);
+    }
+
+    public void setCurrentStepEnum(SessionStep step) {
+        this.currentStep = step.name();
+    }
+
+    public boolean isStepAtLeast(SessionStep step) {
+        return getCurrentStepEnum().ordinal() >= step.ordinal();
+    }
+
+    public boolean isStepExactly(SessionStep step) {
+        return getCurrentStepEnum() == step;
+    }
 }

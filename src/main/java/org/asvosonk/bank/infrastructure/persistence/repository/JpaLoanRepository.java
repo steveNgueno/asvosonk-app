@@ -45,7 +45,9 @@ public class JpaLoanRepository implements LoanRepository {
 
     @Override
     public long countActiveLoans(Long memberId) {
-        return springData.countByMemberIdAndStatus(memberId, LoanStatus.active);
+        // "Active" for the purpose of the simultaneous-loan limit means any
+        // outstanding (not yet fully repaid) loan — including overdue ones.
+        return springData.countByMemberIdAndStatusNot(memberId, LoanStatus.repaid);
     }
 
     @Override

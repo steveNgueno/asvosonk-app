@@ -78,7 +78,14 @@ public class RevolvingFundService {
                 "SELECT f FROM RevolvingFundEntity f WHERE f.member.id = :memberId",
                 RevolvingFundEntity.class)
             .setParameter("memberId", member.getId())
-            .getSingleResult();
+            .getResultStream()
+            .findFirst()
+            .orElseGet(() -> {
+                RevolvingFundEntity newFund = new RevolvingFundEntity();
+                newFund.setMember(toEntity(member));
+                entityManager.persist(newFund);
+                return newFund;
+            });
 
         List<RevolvingFundMovementEntity> pendingAdvances = entityManager.createQuery(
                 "SELECT m FROM RevolvingFundMovementEntity m WHERE m.fund.member.id = :memberId AND m.movementType = 'advance' AND m.recovered = false ORDER BY m.session.sessionDate ASC",

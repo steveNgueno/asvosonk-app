@@ -1,6 +1,8 @@
 package org.asvosonk.sanction.infrastructure.persistence.repository;
 
 import lombok.RequiredArgsConstructor;
+import org.asvosonk.member.infrastructure.persistence.entity.MemberEntity;
+import org.asvosonk.member.infrastructure.persistence.repository.SpringDataMemberRepository;
 import org.asvosonk.sanction.domain.model.Sanction;
 import org.asvosonk.sanction.domain.repository.SanctionRepository;
 import org.asvosonk.sanction.domain.valueobject.SanctionStatus;
@@ -19,6 +21,7 @@ import java.util.stream.Collectors;
 public class JpaSanctionRepository implements SanctionRepository {
 
     private final SanctionJpaRepository springData;
+    private final SpringDataMemberRepository memberSpringData;
 
     @Override
     public Optional<Sanction> findById(Long id) {
@@ -56,6 +59,7 @@ public class JpaSanctionRepository implements SanctionRepository {
     @Override
     public Sanction save(Sanction sanction) {
         SanctionEntity entity = SanctionMapper.toEntity(sanction);
+        entity.setMember(memberSpringData.getReferenceById(sanction.getMemberId()));
         return SanctionMapper.toDomain(springData.save(entity));
     }
 }

@@ -105,7 +105,7 @@
                 <form th:action="@{/members/{id}/status(id=${member.id})}" method="post"
                       class="d-flex gap-2 align-items-center">
                     <select name="newStatus" class="form-select w-auto">
-                        <option th:each="s : ${T(org.asvosonk.member.entity.MemberStatus).values()}"
+                        <option th:each="s : ${memberStatuses}"
                                 th:value="${s}" th:text="${s.name()}"
                                 th:selected="${s == member.status}"></option>
                     </select>

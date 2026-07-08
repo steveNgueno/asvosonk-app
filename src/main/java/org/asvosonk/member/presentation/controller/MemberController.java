@@ -50,6 +50,7 @@ public class MemberController {
         model.addAttribute("fees", feeRepository.findByMemberIdOrderByFeeType(id));
         model.addAttribute("feePaymentForm", new FeePaymentForm());
         model.addAttribute("feeTypes", FeeType.values());
+        model.addAttribute("memberStatuses", MemberStatus.values());
         model.addAttribute("pageTitle", member.getFullName());
         return "members/detail";
     }

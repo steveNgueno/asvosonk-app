@@ -21,7 +21,7 @@ public class GetMemberBankSummaryUseCase {
         BigDecimal totalSavings = savingRepository.getTotalSavingsByMemberId(memberId);
         List<Loan> allLoans = loanRepository.findByMemberIdOrderByLoanDateDesc(memberId);
         List<Loan> activeLoans = allLoans.stream()
-            .filter(Loan::isActive)
+            .filter(Loan::isOutstanding)
             .toList();
         boolean eligibleForLoan = totalSavings.compareTo(BigDecimal.ZERO) > 0
             && activeLoans.size() < 2;
