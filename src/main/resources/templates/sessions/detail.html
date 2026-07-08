@@ -4,80 +4,6 @@
       th:replace="~{layout :: layout(pageTitle=${pageTitle}, content=~{::main-content}, extraHead=~{}, extraScripts=~{::extraScripts})}">
 <head th:fragment="extraHead">
 <style>
-/* ── Stepper styles ────────────────────────────────── */
-.stepper-wrapper {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 1.25rem 0.5rem;
-    position: relative;
-}
-.stepper-wrapper::before {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 2.5rem;
-    right: 2.5rem;
-    height: 3px;
-    background: #dee2e6;
-    transform: translateY(-50%);
-    z-index: 0;
-}
-.stepper-step {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    position: relative;
-    z-index: 1;
-    cursor: default;
-}
-.stepper-circle {
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.2rem;
-    border: 3px solid #dee2e6;
-    background: white;
-    color: #adb5bd;
-    transition: all 0.3s ease;
-}
-.stepper-step.completed .stepper-circle {
-    background: #198754;
-    border-color: #198754;
-    color: white;
-}
-.stepper-step.current .stepper-circle {
-    background: #ffc107;
-    border-color: #ffc107;
-    color: #212529;
-    box-shadow: 0 0 0 4px rgba(255,193,7,0.3);
-    animation: pulse-current 2s infinite;
-}
-.stepper-step.pending .stepper-circle {
-    background: white;
-    border-color: #dee2e6;
-    color: #adb5bd;
-}
-.stepper-label {
-    font-size: 0.7rem;
-    margin-top: 0.4rem;
-    text-align: center;
-    font-weight: 600;
-    max-width: 80px;
-    line-height: 1.2;
-}
-.stepper-step.completed .stepper-label { color: #198754; }
-.stepper-step.current .stepper-label    { color: #e67e22; }
-.stepper-step.pending .stepper-label    { color: #adb5bd; }
-
-@keyframes pulse-current {
-    0%, 100% { box-shadow: 0 0 0 4px rgba(255,193,7,0.3); }
-    50% { box-shadow: 0 0 0 8px rgba(255,193,7,0.15); }
-}
-
 /* ── Section cards ────────────────────────────────── */
 .step-content { display: none; }
 .step-content.active { display: block; }
@@ -141,20 +67,23 @@
     </a>
 </div>
 
-<!-- ── Stepper ─────────────────────────────────────── -->
+<!-- ── Stepper 5 étapes (sans Agenda) ────────────── -->
 <div class="card border-0 shadow-sm mb-4">
     <div class="card-body py-3">
-        <div class="stepper-wrapper">
+        <div class="stepper">
             <th:block th:each="ds, iter : ${displaySteps}">
-                <!-- Determine state: completed / current / pending -->
-                <th:block th:with="
-                    stepState = ${iter.index < currentDisplayStepIdx} ? 'completed' :
-                                (${iter.index == currentDisplayStepIdx} ? 'current' : 'pending')">
-                    <div class="stepper-step" th:classappend="${stepState}">
-                        <div class="stepper-circle">
-                            <i th:classappend="${ds.icon}"></i>
-                        </div>
-                        <div class="stepper-label" th:text="${ds.label}">Step</div>
+                <th:block th:if="${iter.index > 0}">
+                    <th:block th:if="${iter.index > 1}">
+                        <div class="stepper-divider">›</div>
+                    </th:block>
+                    <div class="stepper-step"
+                         th:classappend="${iter.index < currentDisplayStepIdx} ? 'done' :
+                                         (${iter.index == currentDisplayStepIdx} ? 'active' : '')">
+                        <span class="icon">
+                            <i class="bi"
+                               th:classappend="${iter.index < currentDisplayStepIdx} ? 'bi-check-circle-fill' : ${ds.icon}"></i>
+                        </span>
+                        <span th:text="${ds.label}">Step</span>
                     </div>
                 </th:block>
             </th:block>
@@ -720,7 +649,7 @@
                                 <td>
                                     <div class="progress" style="height:1.25rem">
                                         <div class="progress-bar bg-success"
-                                             th:style="'width:' + (totalSteps > 0 ? ((presenceAmt * 100) / totalSteps) : 0) + '%'"></div>
+                                             th:style="|width:${totalSteps gt 0 ? presenceAmt * 100.0 / totalSteps : 0}%|"></div>
                                     </div>
                                 </td>
                             </tr>
@@ -733,7 +662,7 @@
                                 <td>
                                     <div class="progress" style="height:1.25rem">
                                         <div class="progress-bar bg-primary"
-                                             th:style="'width:' + (totalSteps > 0 ? ((tontineAmt * 100) / totalSteps) : 0) + '%'"></div>
+                                             th:style="|width:${totalSteps gt 0 ? tontineAmt * 100.0 / totalSteps : 0}%|"></div>
                                     </div>
                                 </td>
                             </tr>
@@ -746,7 +675,7 @@
                                 <td>
                                     <div class="progress" style="height:1.25rem">
                                         <div class="progress-bar bg-info"
-                                             th:style="'width:' + (totalSteps > 0 ? ((devAmt * 100) / totalSteps) : 0) + '%'"></div>
+                                             th:style="|width:${totalSteps gt 0 ? devAmt * 100.0 / totalSteps : 0}%|"></div>
                                     </div>
                                 </td>
                             </tr>
@@ -759,7 +688,7 @@
                                 <td>
                                     <div class="progress" style="height:1.25rem">
                                         <div class="progress-bar"
-                                             th:style="'width:' + (totalSteps > 0 ? ((banqueProjetAmt * 100) / totalSteps) : 0) + '%; background-color: #6f42c1'"></div>
+                                             th:style="|width:${totalSteps gt 0 ? banqueProjetAmt * 100.0 / totalSteps : 0}%; background-color: #6f42c1|"></div>
                                     </div>
                                 </td>
                             </tr>
@@ -772,7 +701,7 @@
                                 <td>
                                     <div class="progress" style="height:1.25rem">
                                         <div class="progress-bar"
-                                             th:style="'width:' + (totalSteps > 0 ? ((banqueAnnuelleSavings * 100) / totalSteps) : 0) + '%; background-color: #fd7e14'"></div>
+                                             th:style="|width:${totalSteps gt 0 ? banqueAnnuelleSavings * 100.0 / totalSteps : 0}%; background-color: #fd7e14|"></div>
                                     </div>
                                 </td>
                             </tr>
@@ -785,7 +714,7 @@
                                 <td>
                                     <div class="progress" style="height:1.25rem">
                                         <div class="progress-bar bg-info"
-                                             th:style="'width:' + (totalSteps > 0 ? ((banqueAnnuelleRepayments * 100) / totalSteps) : 0) + '%'"></div>
+                                             th:style="|width:${totalSteps gt 0 ? banqueAnnuelleRepayments * 100.0 / totalSteps : 0}%|"></div>
                                     </div>
                                 </td>
                             </tr>
@@ -802,25 +731,25 @@
                 </div>
 
                 <!-- Cumulative bar -->
-                <div class="cumul-bar mt-3" th:if="${totalSteps > 0}">
+                <div class="cumul-bar mt-3" th:if="${totalSteps gt 0}">
                     <div class="cumul-bar-segment bg-success"
-                         th:style="'width:' + (presenceAmt * 100 / totalSteps) + '%'"
-                         th:title="'Présence: ' + presenceAmt">P</div>
+                         th:style="|width:${presenceAmt * 100.0 / totalSteps}%|"
+                         th:title="|Présence: ${presenceAmt}|">P</div>
                     <div class="cumul-bar-segment bg-primary"
-                         th:style="'width:' + (tontineAmt * 100 / totalSteps) + '%'"
-                         th:title="'Tontine: ' + tontineAmt">T</div>
+                         th:style="|width:${tontineAmt * 100.0 / totalSteps}%|"
+                         th:title="|Tontine: ${tontineAmt}|">T</div>
                     <div class="cumul-bar-segment bg-info"
-                         th:style="'width:' + (devAmt * 100 / totalSteps) + '%'"
-                         th:title="'Développement: ' + devAmt">D</div>
+                         th:style="|width:${devAmt * 100.0 / totalSteps}%|"
+                         th:title="|Développement: ${devAmt}|">D</div>
                     <div class="cumul-bar-segment"
-                         th:style="'width:' + (banqueProjetAmt * 100 / totalSteps) + '%; background-color: #6f42c1'"
-                         th:title="'Banque Projet: ' + banqueProjetAmt">BP</div>
+                         th:style="|width:${banqueProjetAmt * 100.0 / totalSteps}%; background-color: #6f42c1|"
+                         th:title="|Banque Projet: ${banqueProjetAmt}|">BP</div>
                     <div class="cumul-bar-segment"
-                         th:style="'width:' + (banqueAnnuelleSavings * 100 / totalSteps) + '%; background-color: #fd7e14'"
-                         th:title="'Banque Annuelle épargne: ' + banqueAnnuelleSavings">BA</div>
+                         th:style="|width:${banqueAnnuelleSavings * 100.0 / totalSteps}%; background-color: #fd7e14|"
+                         th:title="|Banque Annuelle épargne: ${banqueAnnuelleSavings}|">BA</div>
                     <div class="cumul-bar-segment bg-info"
-                         th:style="'width:' + (banqueAnnuelleRepayments * 100 / totalSteps) + '%'"
-                         th:title="'Banque Annuelle remb.: ' + banqueAnnuelleRepayments">R</div>
+                         th:style="|width:${banqueAnnuelleRepayments * 100.0 / totalSteps}%|"
+                         th:title="|Banque Annuelle remb.: ${banqueAnnuelleRepayments}|">R</div>
                 </div>
             </th:block>
         </div>

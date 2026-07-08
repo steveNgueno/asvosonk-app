@@ -1,97 +1,158 @@
 /* =============================================================
-   ASVOSONK — Custom styles
-   Complements Bootstrap 5, keeps things functional and clean
+   ASVOSONK — Thème visuel
+   Palette institutionnelle, typographie Inter, design épuré
    ============================================================= */
 
-/* ── Global ─────────────────────────────────────────────── */
-body {
-    font-size: .92rem;
-    color: #2c3e50;
-    background-color: #f4f6f9;
+/* ── Palette principale ─────────────────────────────── */
+:root {
+  --color-primary:   #1a5276;   /* bleu foncé — couleur institutionnelle */
+  --color-secondary: #2e86c1;   /* bleu moyen */
+  --color-accent:    #f39c12;   /* orange/or — pour les bénéficiaires, montants clés */
+  --color-success:   #1e8449;
+  --color-danger:    #c0392b;
+  --color-warning:   #d4ac0d;
+  --color-bg:        #f0f4f8;   /* fond légèrement bleuté, pas gris terne */
+  --color-card:      #ffffff;
+  --color-text:      #1c2833;
+  --color-muted:     #707b7c;
+  --color-border:    #d5d8dc;
 }
 
-/* ── Navbar ─────────────────────────────────────────────── */
-.navbar-brand { letter-spacing: .04em; }
+/* ── Corps ──────────────────────────────────────────── */
+body {
+  background-color: var(--color-bg);
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  font-size: 0.93rem;
+  color: var(--color-text);
+}
 
-/* Active nav link highlight */
+/* ── Navbar : bleu foncé au lieu de noir ────────────── */
+.navbar { background-color: var(--color-primary) !important; }
+.navbar-brand { font-size: 1.1rem; letter-spacing: 0.05em; }
+
+/* Active nav link highlight (héritage conservé) */
 .navbar-nav .nav-link.active,
 .navbar-nav .nav-link:focus {
     color: #fff !important;
     font-weight: 600;
 }
 
-/* ── Cards ──────────────────────────────────────────────── */
+/* ── Cartes ─────────────────────────────────────────── */
 .card {
-    border-radius: 10px;
-    transition: box-shadow .15s ease, transform .1s ease;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.06);
+  transition: box-shadow .15s ease;
 }
-.card:hover {
-    box-shadow: 0 6px 20px rgba(0,0,0,.12) !important;
-    transform: translateY(-2px);
-}
-
-/* ── Tables ─────────────────────────────────────────────── */
-.table th {
-    background-color: #2c3e50;
-    color: #fff;
-    font-weight: 500;
-    font-size: .85rem;
-    white-space: nowrap;
-}
-.table-hover tbody tr:hover {
-    background-color: #eaf0fb;
+.card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.1); }
+.card-header {
+  background-color: var(--color-primary);
+  color: #fff;
+  font-weight: 600;
+  border-radius: 10px 10px 0 0 !important;
+  font-size: .875rem;
+  padding: .65rem 1rem;
 }
 
-/* ── Badges ─────────────────────────────────────────────── */
-.badge { font-size: .75rem; }
+/* ── Boutons principaux ──────────────────────────────── */
+.btn-primary {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+.btn-primary:hover { background-color: var(--color-secondary); }
 
-/* ── Status badges (attendance, sanctions, loans) ───────── */
-.status-up-to-date  { background-color: #198754; color: #fff; }
+/* ── Tables ─────────────────────────────────────────── */
+.table > thead { background-color: var(--color-primary); color: #fff; }
+.table > thead > tr > th { font-weight: 500; font-size: .82rem; white-space: nowrap; }
+.table-hover tbody tr:hover { background-color: #eaf2fb; }
+
+/* ── Montants financiers ─────────────────────────────── */
+.amount         { font-family: 'Courier New', monospace; font-weight: 600; }
+.amount-in      { color: var(--color-success); }
+.amount-out     { color: var(--color-danger); }
+.amount-neutral { color: var(--color-text); }
+
+/* ── Badge de statut ─────────────────────────────────── */
+.badge { font-size: .75rem; padding: .35em .65em; border-radius: 6px; }
+
+/* ── Highlight bénéficiaire ──────────────────────────── */
+.beneficiary-row  { background-color: #fef9e7 !important; border-left: 4px solid var(--color-accent); }
+.beneficiary-badge {
+  background-color: var(--color-accent);
+  color: #000;
+  font-weight: 700;
+}
+
+/* ── Page header ─────────────────────────────────────── */
+.page-header { border-left: 4px solid var(--color-accent); padding-left: .75rem; }
+.page-header h2 { font-size: 1.3rem; font-weight: 700; margin: 0; }
+.page-header .subtitle { font-size: .82rem; color: var(--color-muted); margin: 0; }
+/* Compatibilité : les templates utilisent aussi <p> dans .page-header */
+.page-header p  { margin: 0; font-size: .82rem; color: var(--color-muted); }
+
+/* ── Caisse cards ─────────────────────────────────────── */
+.cashbox-card { border-top: 4px solid; border-radius: 10px; }
+.cashbox-card.development { border-top-color: var(--color-success); }
+.cashbox-card.sanction    { border-top-color: var(--color-danger); }
+.cashbox-card.beverage    { border-top-color: var(--color-warning); }
+.cashbox-card.bank        { border-top-color: var(--color-secondary); }
+.cashbox-card .balance    { font-size: 1.5rem; font-weight: 700; font-family: 'Courier New', monospace; }
+
+/* ── Alertes flash messages ──────────────────────────── */
+.alert { border-radius: 8px; border-left-width: 5px; font-size: .9rem; }
+.alert-success { border-left-color: var(--color-success); }
+.alert-danger  { border-left-color: var(--color-danger); }
+
+/* ── Stepper ─────────────────────────────────────────── */
+.stepper { display: flex; align-items: center; gap: 0; margin-bottom: 1.5rem; overflow-x: auto; }
+.stepper-step {
+  display: flex; align-items: center; gap: .4rem;
+  padding: .5rem 1rem; font-size: .8rem;
+  background: #e8edf2; color: var(--color-muted);
+  flex-shrink: 0;
+}
+.stepper-step:first-child { border-radius: 8px 0 0 8px; }
+.stepper-step:last-child  { border-radius: 0 8px 8px 0; }
+.stepper-step.done    { background: var(--color-success); color: #fff; }
+.stepper-step.active  { background: var(--color-primary); color: #fff; font-weight: 600; }
+.stepper-step .icon   { font-size: 1rem; }
+
+/* ── Fond de roulement status ────────────────────────── */
+.fund-ok      { color: var(--color-success); font-weight: 600; }
+.fund-warning { color: var(--color-warning); font-weight: 600; }
+.fund-danger  { color: var(--color-danger);  font-weight: 600; }
+
+/* ── Status badges (attendance, sanctions, loans) ────── */
+.status-up-to-date  { background-color: var(--color-success); color: #fff; }
 .status-fund        { background-color: #fd7e14; color: #fff; }
-.status-default     { background-color: #dc3545; color: #fff; }
+.status-default     { background-color: var(--color-danger); color: #fff; }
 .status-recovered   { background-color: #6c757d; color: #fff; }
-.status-unpaid      { background-color: #dc3545; color: #fff; }
-.status-paid        { background-color: #198754; color: #fff; }
+.status-unpaid      { background-color: var(--color-danger); color: #fff; }
+.status-paid        { background-color: var(--color-success); color: #fff; }
 .status-overdue     { background-color: #6f1d1b; color: #fff; }
 .status-active-loan { background-color: #0d6efd; color: #fff; }
 
-/* ── Amount display ─────────────────────────────────────── */
-.amount {
-    font-family: 'Courier New', monospace;
-    font-weight: 600;
-    white-space: nowrap;
-}
-.amount-in  { color: #198754; }
-.amount-out { color: #dc3545; }
-
-/* ── Page headers ───────────────────────────────────────── */
-.page-header {
-    border-left: 4px solid #2c3e50;
-    padding-left: .75rem;
-    margin-bottom: 1.2rem;
-}
-.page-header h2 { margin: 0; font-size: 1.35rem; }
-.page-header p  { margin: 0; font-size: .82rem; color: #6c757d; }
-
-/* ── Forms ──────────────────────────────────────────────── */
+/* ── Forms ────────────────────────────────────────────── */
 .form-label { font-weight: 500; }
 
-/* ── Cashbox summary cards ──────────────────────────────── */
-.cashbox-card .balance {
-    font-size: 1.6rem;
-    font-weight: 700;
-    font-family: 'Courier New', monospace;
-}
-.cashbox-card.development { border-top: 4px solid #198754; }
-.cashbox-card.sanction    { border-top: 4px solid #dc3545; }
-.cashbox-card.beverage    { border-top: 4px solid #fd7e14; }
-.cashbox-card.bank        { border-top: 4px solid #0d6efd; }
-
-/* ── Alerts ─────────────────────────────────────────────── */
-.alert { border-radius: 8px; }
-
-/* ── Footer ─────────────────────────────────────────────── */
+/* ── Footer ───────────────────────────────────────────── */
 footer { font-size: .78rem; }
 
-/* ── Scrollable table wrapper (long lists) ──────────────── */
+/* ── Scrollable table wrapper (long lists) ────────────── */
 .table-responsive { border-radius: 8px; }
+
+/* ── Stepper divider arrow ─────────────────────────── */
+.stepper-divider {
+  color: var(--color-muted);
+  font-size: 1.2rem;
+  line-height: 1;
+  padding: 0 .25rem;
+  align-self: center;
+}
+
+/* ── Responsive ──────────────────────────────────────── */
+@media (max-width: 768px) {
+  .page-header h2 { font-size: 1.1rem; }
+  .cashbox-card .balance { font-size: 1.2rem; }
+  .table-responsive { font-size: .82rem; }
+}

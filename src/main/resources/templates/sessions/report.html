@@ -35,6 +35,26 @@
     </div>
 </div>
 
+<!-- ── Stepper 5 étapes (sans Agenda) ────────────── -->
+<div class="stepper mb-4 no-print">
+    <th:block th:each="ds, iter : ${displaySteps}">
+        <th:block th:if="${iter.index > 0}">
+            <th:block th:if="${iter.index > 1}">
+                <div class="stepper-divider">›</div>
+            </th:block>
+            <div class="stepper-step"
+                 th:classappend="${iter.index < currentDisplayStepIdx} ? 'done' :
+                                 (${iter.index == currentDisplayStepIdx} ? 'active' : '')">
+                <span class="icon">
+                    <i class="bi"
+                       th:classappend="${iter.index < currentDisplayStepIdx} ? 'bi-check-circle-fill' : ${ds.icon}"></i>
+                </span>
+                <span th:text="${ds.label}">Step</span>
+            </div>
+        </th:block>
+    </th:block>
+</div>
+
 <th:block th:if="${closeResult != null && sessionReport != null}">
 
 <!-- ══════════════════════════════════════════════════ -->

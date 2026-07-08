@@ -262,8 +262,14 @@ public class SessionController {
         model.addAttribute("fundBalances", fundBalances);
         model.addAttribute("pendingDebts", pendingDebts);
 
+        // ── Stepper data ───────────────────────────────────
+        model.addAttribute("displaySteps", SessionStep.DisplayStep.values());
+        model.addAttribute("currentDisplayStepIdx", computeDisplayStepIndex(session.getCurrentStepEnum()));
+        model.addAttribute("currentStep", session.getCurrentStepEnum());
+
         model.addAttribute("pageTitle", "Saisie — " + session.getSessionDate());
         return "sessions/attendance";
+
     }
 
     @PostMapping("/{id}/attendance")
@@ -427,6 +433,11 @@ public class SessionController {
         MeetingSessionEntity session = sessionService.findById(id);
         model.addAttribute("meetingSession", session);
         model.addAttribute("attendances",     sessionService.findAttendances(id));
+        // ── Stepper data ───────────────────────────────────
+        model.addAttribute("displaySteps", SessionStep.DisplayStep.values());
+        model.addAttribute("currentDisplayStepIdx", computeDisplayStepIndex(session.getCurrentStepEnum()));
+        model.addAttribute("currentStep", session.getCurrentStepEnum());
+
         model.addAttribute("pageTitle",      "Rapport — " + session.getSessionDate());
 
         if (session.isStepAtLeast(SessionStep.PRESENCE_CLOSED)) {

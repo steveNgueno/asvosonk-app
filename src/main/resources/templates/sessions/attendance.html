@@ -18,9 +18,6 @@ function recalc() {
     rows.forEach(row => {
         const present = row.querySelector('.present-check').checked;
         const amount = parseFloat(row.querySelector('.amount-input').value) || 0;
-        const tontineEl = row.querySelector('.tontine-cell');
-        const bevEl = row.querySelector('.beverage-cell');
-        const devEl = row.querySelector('.development-cell');
         const statusEl = row.querySelector('.status-badge');
 
         let tontine = 0, bev = 0, dev = 0;
@@ -31,9 +28,8 @@ function recalc() {
             dev = DEVELOPMENT_SHARE;
             presentCount++;
             statusEl.textContent = 'À jour';
-            statusEl.className = 'badge bg-status-updated';
+            statusEl.className = 'badge bg-success';
         } else if (present && amount > 0) {
-            // Partial payment — proportional allocation
             const ratio = amount / 2000;
             tontine = Math.round(TONTINE_SHARE * ratio);
             bev = Math.round(BEVERAGE_SHARE * ratio);
@@ -45,14 +41,9 @@ function recalc() {
             statusEl.textContent = 'Absent';
             statusEl.className = 'badge bg-secondary';
         } else {
-            // Present but 0 paid — will be determined at close
             statusEl.textContent = '—';
             statusEl.className = 'badge bg-light text-dark';
         }
-
-        tontineEl.textContent = tontine > 0 ? tontine.toLocaleString() + ' F' : '—';
-        bevEl.textContent = bev > 0 ? bev.toLocaleString() + ' F' : '—';
-        devEl.textContent = dev > 0 ? dev.toLocaleString() + ' F' : '—';
 
         totalTontine += tontine;
         totalDev += dev;
@@ -62,10 +53,8 @@ function recalc() {
     const actualCost = presentCount * BEVERAGE_COST_PER_PERSON;
     const reliquat = Math.max(0, totalBeveragePool - actualCost);
 
-    document.getElementById('totalTontine').textContent = totalTontine.toLocaleString() + ' FCFA';
+    document.getElementById('totalTontineFooter').textContent = totalTontine.toLocaleString() + ' FCFA';
     document.getElementById('totalDev').textContent = totalDev.toLocaleString() + ' FCFA';
-    document.getElementById('totalBeverage').textContent = totalBeveragePool.toLocaleString() + ' FCFA';
-    document.getElementById('beverageCost').textContent = actualCost.toLocaleString() + ' FCFA';
     document.getElementById('beverageReliquat').textContent = reliquat.toLocaleString() + ' FCFA';
     document.getElementById('presentCount').textContent = presentCount;
     document.getElementById('netToTreasurer').textContent =
@@ -84,9 +73,6 @@ function setAll(present) {
 <th:block th:fragment="extraHead">
 <style>
 .attendance-row:hover { background-color: #f8f9fa; }
-.bg-status-updated { background-color: #198754 !important; color: white !important; }
-.fund-balance { font-size: 0.8rem; color: #6c757d; }
-.pending-badge { font-size: 0.7rem; }
 .footer-total { font-size: 1.1rem; font-weight: 700; }
 </style>
 </th:block>
@@ -103,20 +89,37 @@ function setAll(present) {
     </a>
 </div>
 
-<!-- ── Beneficiary card (automatic) ────────────────── -->
-<div class="card border-0 shadow-sm mb-3"
-     th:if="${beneficiaryMember != null}"
-     style="background: linear-gradient(135deg, #fff9e6, #fff3cd); border-left: 4px solid #ffc107;">
-    <div class="card-body py-3 d-flex align-items-center gap-3">
-        <i class="bi bi-trophy-fill text-warning fs-1"></i>
-        <div>
-            <small class="text-warning-emphasis fw-semibold">🏆 Bénéficiaire du jour (automatique)</small>
-            <div class="fs-4 fw-bold" th:text="${beneficiaryMember.fullName}"></div>
-            <small class="text-muted" th:if="${presenceOpenTour}">
-                Tour N°<span th:text="${presenceOpenTour.id}"></span>
-            </small>
-        </div>
-    </div>
+<!-- ── Stepper 5 étapes (sans Agenda) ────────────── -->
+<div class="stepper mb-4">
+    <th:block th:each="ds, iter : ${displaySteps}">
+        <th:block th:if="${iter.index > 0}">
+            <th:block th:if="${iter.index > 1}">
+                <div class="stepper-divider">›</div>
+            </th:block>
+            <div class="stepper-step"
+                 th:classappend="${iter.index < currentDisplayStepIdx} ? 'done' :
+                                 (${iter.index == currentDisplayStepIdx} ? 'active' : '')">
+                <span class="icon">
+                    <i class="bi"
+                       th:classappend="${iter.index < currentDisplayStepIdx} ? 'bi-check-circle-fill' : ${ds.icon}"></i>
+                </span>
+                <span th:text="${ds.label}">Step</span>
+            </div>
+        </th:block>
+    </th:block>
+</div>
+
+<!-- ── Beneficiary info alert ──────────────────────── -->
+<div class="alert alert-info d-flex align-items-center gap-2 py-2 mb-3"
+     th:if="${beneficiaryMember != null}">
+    <i class="bi bi-trophy-fill text-warning fs-5"></i>
+    <span>
+        Bénéficiaire du jour :
+        <strong th:text="${beneficiaryMember.fullName}"></strong>
+        <th:block th:if="${presenceOpenTour}">
+            &nbsp;(Tour N°<span th:text="${presenceOpenTour.id}"></span>)
+        </th:block>
+    </span>
 </div>
 
 <!-- ── Attendance table ────────────────────────────── -->
@@ -133,27 +136,38 @@ function setAll(present) {
             <thead>
                 <tr>
                     <th style="min-width:160px">Membre</th>
-                    <th style="width:70px">Fond</th>
-                    <th style="width:60px">Dettes</th>
+                    <th style="min-width:180px">Situation fond de roulement</th>
                     <th style="width:70px" class="text-center">Présent</th>
-                    <th style="width:130px">Montant saisi</th>
-                    <th style="width:90px">Statut</th>
-                    <th style="width:80px">→ Tont.</th>
-                    <th style="width:80px">→ Bois.</th>
-                    <th style="width:80px">→ Dév.</th>
+                    <th style="width:180px">Montant à saisir</th>
+                    <th style="width:100px">Statut</th>
                 </tr>
             </thead>
             <tbody>
-                <tr th:each="att : ${attendances}" class="attendance-row">
-                    <td class="fw-semibold" th:text="${att.member.fullName}"></td>
-                    <td class="fund-balance" th:text="${fundBalances[att.member.id] != null ? fundBalances[att.member.id] + ' F' : '—'}"></td>
+                <tr th:each="att : ${attendances}" class="attendance-row"
+                    th:classappend="${att.member.id == meetingSession.presenceBeneficiary?.id} ? 'beneficiary-row' : ''">
                     <td>
-                        <span th:if="${pendingDebts[att.member.id] != null && pendingDebts[att.member.id] > 0}"
-                              class="badge bg-danger pending-badge"
-                              th:text="${pendingDebts[att.member.id]} + ' séa.'"></span>
-                        <span th:unless="${pendingDebts[att.member.id] != null && pendingDebts[att.member.id] > 0}"
-                              class="text-muted small">0</span>
+                        <span class="fw-semibold" th:text="${att.member.fullName}"></span>
+                        <span th:if="${att.member.id == meetingSession.presenceBeneficiary?.id}"
+                              class="badge beneficiary-badge ms-1">🏆 Bénéficiaire</span>
                     </td>
+
+                    <!-- Situation fond de roulement -->
+                    <td>
+                        <span th:if="${pendingDebts[att.member.id] != null && pendingDebts[att.member.id] == 0}" class="fund-ok">
+                            <i class="bi bi-check-circle-fill"></i>
+                            À jour (<span th:text="${fundBalances[att.member.id] != null ? fundBalances[att.member.id] : 0} + ' FCFA'"></span>)
+                        </span>
+                        <span th:if="${pendingDebts[att.member.id] != null && pendingDebts[att.member.id] == 1}" class="fund-warning">
+                            <i class="bi bi-exclamation-circle-fill"></i>
+                            1 séance due — saisir min 4 000
+                        </span>
+                        <span th:if="${pendingDebts[att.member.id] != null && pendingDebts[att.member.id] >= 2}" class="fund-danger">
+                            <i class="bi bi-x-circle-fill"></i>
+                            2 séances dues — saisir min 6 000
+                        </span>
+                        <span th:if="${pendingDebts[att.member.id] == null}" class="text-muted small">—</span>
+                    </td>
+
                     <td class="text-center">
                         <form th:action="@{/sessions/{id}/attendance(id=${meetingSession.id})}"
                               method="post" class="d-inline">
@@ -166,30 +180,42 @@ function setAll(present) {
                                    onchange="recalc()">
                         </form>
                     </td>
+
+                    <!-- Saisie montant -->
                     <td>
                         <form th:action="@{/sessions/{id}/attendance(id=${meetingSession.id})}"
-                              method="post" class="d-flex gap-1">
+                              method="post" class="d-flex gap-1 align-items-center">
                             <input type="hidden" name="memberId" th:value="${att.member.id}">
                             <input type="number" name="amountPaid"
                                    class="form-control form-control-sm amount-input"
-                                   style="width:100px" placeholder="Montant"
-                                   th:value="${att.amountPaid}" min="0" step="500"
+                                   style="width:110px" step="2000" min="0"
+                                   th:value="${att.amountPaid}"
+                                   th:placeholder="${pendingDebts[att.member.id] != null && pendingDebts[att.member.id] == 0 ? '2000' :
+                                                    (pendingDebts[att.member.id] != null && pendingDebts[att.member.id] == 1 ? '4000' : '6000')}"
                                    onchange="recalc()" oninput="recalc()">
-                            <button type="submit" class="btn btn-sm btn-outline-primary" title="Sauvegarder">
-                                <i class="bi bi-check"></i>
+                            <button type="submit" class="btn btn-sm btn-primary" title="Sauvegarder">
+                                <i class="bi bi-check-lg"></i>
                             </button>
                         </form>
                     </td>
-                    <td>
+
+                    <!-- Statut -->
+                    <td class="text-center">
                         <span class="badge status-badge"
                               th:classappend="${att.amountPaid >= 2000 ? 'bg-success' : (att.amountPaid > 0 ? 'bg-warning text-dark' : 'bg-light text-dark')}"
                               th:text="${att.amountPaid >= 2000 ? 'À jour' : (att.amountPaid > 0 ? 'Partiel' : '—')}">—</span>
                     </td>
-                    <td class="tontine-cell small">—</td>
-                    <td class="beverage-cell small">—</td>
-                    <td class="development-cell small">—</td>
                 </tr>
             </tbody>
+            <!-- ── Tfoot ─────────────────────────────── -->
+            <tfoot class="bg-light fw-bold">
+                <tr>
+                    <td colspan="2">Totaux estimés :</td>
+                    <td class="text-center"><span id="presentCount">0</span> présent(s)</td>
+                    <td class="amount amount-in" id="tfootTotalTontine">0 FCFA → bénéficiaire</td>
+                    <td></td>
+                </tr>
+            </tfoot>
         </table>
     </div>
 
@@ -197,12 +223,8 @@ function setAll(present) {
     <div class="card-footer bg-light">
         <div class="row g-2 text-center">
             <div class="col-md-3">
-                <small class="text-muted d-block">Présents</small>
-                <span class="footer-total text-primary" id="presentCount">0</span>
-            </div>
-            <div class="col-md-3">
                 <small class="text-muted d-block">Tontine → bénéficiaire</small>
-                <span class="footer-total text-success" id="totalTontine">0 FCFA</span>
+                <span class="footer-total text-success" id="totalTontineFooter">0 FCFA</span>
             </div>
             <div class="col-md-3">
                 <small class="text-muted d-block">Caisse Développement</small>
@@ -212,17 +234,7 @@ function setAll(present) {
                 <small class="text-muted d-block">Reliquat Boisson</small>
                 <span class="footer-total text-warning" id="beverageReliquat">0 FCFA</span>
             </div>
-        </div>
-        <div class="row g-2 text-center mt-1">
-            <div class="col-4">
-                <small class="text-muted d-block">Pool Boisson brut</small>
-                <span class="small" id="totalBeverage">0 FCFA</span>
-            </div>
-            <div class="col-4">
-                <small class="text-muted d-block">Coût boisson estimé</small>
-                <span class="small" id="beverageCost">0 FCFA</span>
-            </div>
-            <div class="col-4">
+            <div class="col-md-3">
                 <small class="text-muted d-block">Net à remettre au trésorier</small>
                 <span class="footer-total text-dark" id="netToTreasurer">0 FCFA</span>
             </div>
