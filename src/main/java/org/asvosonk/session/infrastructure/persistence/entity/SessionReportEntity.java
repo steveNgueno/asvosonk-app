@@ -67,19 +67,6 @@ public class SessionReportEntity {
     @Column(name = "tontine_net_paid", nullable = false, precision = 12, scale = 2)
     private BigDecimal tontineNetPaid = BigDecimal.ZERO;
 
-    // ── Banque Projet ────────────────────────────────────────
-
-    @Column(name = "banque_projet_collected", nullable = false, precision = 12, scale = 2)
-    private BigDecimal banqueProjetCollected = BigDecimal.ZERO;
-
-    // ── Banque Annuelle ──────────────────────────────────────
-
-    @Column(name = "banque_annuelle_savings", nullable = false, precision = 12, scale = 2)
-    private BigDecimal banqueAnnuelleSavings = BigDecimal.ZERO;
-
-    @Column(name = "banque_annuelle_repayments", nullable = false, precision = 12, scale = 2)
-    private BigDecimal banqueAnnuelleRepayments = BigDecimal.ZERO;
-
     // ── Synthèse ─────────────────────────────────────────────
 
     @Column(name = "total_to_treasurer", nullable = false, precision = 12, scale = 2)

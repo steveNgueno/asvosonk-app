@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.asvosonk.bank.domain.model.Loan;
 import org.asvosonk.bank.domain.repository.LoanRepository;
 import org.asvosonk.bank.domain.repository.SavingRepository;
+import org.asvosonk.member.domain.repository.MemberRepository;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -16,6 +17,7 @@ public class GetMemberBankSummaryUseCase {
 
     private final SavingRepository savingRepository;
     private final LoanRepository loanRepository;
+    private final MemberRepository memberRepository;
 
     public MemberBankSummary execute(Long memberId) {
         BigDecimal totalSavings = savingRepository.getTotalSavingsByMemberId(memberId);
@@ -23,7 +25,14 @@ public class GetMemberBankSummaryUseCase {
         List<Loan> activeLoans = allLoans.stream()
             .filter(Loan::isOutstanding)
             .toList();
-        boolean eligibleForLoan = totalSavings.compareTo(BigDecimal.ZERO) > 0
+        // F-47 — mirror the actual rule in CreateLoanUseCase: the member must be
+        // active. Omitting it let the UI advertise eligibility for a member the
+        // loan use case would then reject.
+        boolean isActive = memberRepository.findById(memberId)
+            .map(org.asvosonk.member.domain.model.Member::isActive)
+            .orElse(false);
+        boolean eligibleForLoan = isActive
+            && totalSavings.compareTo(BigDecimal.ZERO) > 0
             && activeLoans.size() < 2;
 
         return new MemberBankSummary(totalSavings, activeLoans, allLoans, eligibleForLoan);

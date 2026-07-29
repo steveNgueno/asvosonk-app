@@ -7,34 +7,35 @@ import org.asvosonk.presence.domain.repository.PresenceTourRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * F-09 — Pure read of the next presence beneficiary.
+ *
+ * <p>This used to be a read-write {@code @Transactional} use case that
+ * auto-closed the tour as a side effect when everyone had benefited. Because it
+ * was invoked from the session-detail GET (a plain page view), simply opening
+ * the page could silently close a tour. The close is now owned exclusively by
+ * the explicit write flow {@link MarkPresenceBenefitedUseCase}, which closes the
+ * tour when the last participant is marked. This use case only reads.
+ */
 @Service
 @RequiredArgsConstructor
-@Transactional
+@Transactional(readOnly = true)
 public class GetCurrentPresenceBeneficiaryUseCase {
 
     private final PresenceTourRepository tourRepository;
     private final PresenceTourParticipantRepository participantRepository;
-    private final ClosePresenceTourUseCase closePresenceTourUseCase;
 
     /**
-     * Returns the next participant who should be the beneficiary.
-     * If all participants have benefited, auto-closes the tour and returns null.
+     * Returns the next participant who should be the beneficiary of the current
+     * open tour, or {@code null} if there is no open tour or everyone has already
+     * benefited. Never mutates state.
      */
-    public PresenceTourParticipant execute() {
+    public PresenceTourParticipant peekNextBeneficiary() {
         var openTour = tourRepository.findCurrentOpenTour();
         if (openTour.isEmpty()) {
             return null;
         }
-
-        Long tourId = openTour.get().getId();
-        var next = participantRepository.findNextBeneficiary(tourId);
-
-        if (next.isPresent()) {
-            return next.get();
-        }
-
-        // All have benefited → auto-close the tour
-        closePresenceTourUseCase.execute(tourId);
-        return null;
+        return participantRepository.findNextBeneficiary(openTour.get().getId())
+            .orElse(null);
     }
 }

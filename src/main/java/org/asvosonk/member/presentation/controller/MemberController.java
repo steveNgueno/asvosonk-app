@@ -18,6 +18,9 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.util.Set;
+import java.util.stream.Collectors;
+
 @Controller
 @RequestMapping("/members")
 @RequiredArgsConstructor
@@ -36,6 +39,12 @@ public class MemberController {
     @PreAuthorize("hasAuthority('MEMBER_VIEW')")
     public String list(Model model) {
         model.addAttribute("members", searchMemberUseCase.findAll());
+        // Membres ayant des frais d'adhésion non soldés (UI-004) — 1 seule requête.
+        Set<Long> membersWithPendingFees = feeRepository.findAll().stream()
+                .filter(fee -> !fee.isFullyPaid())
+                .map(fee -> fee.getMember().getId())
+                .collect(Collectors.toSet());
+        model.addAttribute("membersWithPendingFees", membersWithPendingFees);
         model.addAttribute("pageTitle", "Membres");
         return "members/list";
     }

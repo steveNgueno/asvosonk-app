@@ -298,8 +298,13 @@ public class RevolvingFundService {
             }
 
         } else if (amountPaid.compareTo(PARTIAL_FUND_AMT) == 0) {
-            // Compromis: 1 000 FCFA — fund is exhausted
-            fund.setBalance(BigDecimal.ZERO);
+            // Compromis 1 000 FCFA. F-03 : on SOUSTRAIT le montant complété par le
+            // fonds (borné à 0), au lieu d'écraser TOUT le solde à zéro — l'ancien
+            // setBalance(ZERO) détruisait le capital des autres membres.
+            // @TODO-BUREAU : confirmer le montant réellement avancé par le fonds
+            // dans ce scénario (hypothèse sûre : PARTIAL_FUND_AMT = 1 000 FCFA).
+            BigDecimal fundContribution = PARTIAL_FUND_AMT;
+            fund.setBalance(fund.getBalance().subtract(fundContribution).max(BigDecimal.ZERO));
             entityManager.merge(fund);
             attendance.setAttendanceStatus(AttendanceStatus.covered_by_fund);
             result.setStatus(AttendanceStatus.covered_by_fund);
@@ -308,6 +313,9 @@ public class RevolvingFundService {
             result.setContributionToTontine(new BigDecimal("500"));
             result.setContributionToBeverage(new BigDecimal("250"));
             result.setContributionToDevelopment(new BigDecimal("250"));
+            cashboxService.credit(CashboxType.development, new BigDecimal("250"),
+                "Présence (fond partiel) séance " + session.getSessionDate(), MovementOrigin.presence,
+                session, toEntity(member), attendance.getId(), user);
 
         } else {
             // Full default

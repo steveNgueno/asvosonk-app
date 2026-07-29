@@ -18,8 +18,6 @@
 }
 .summary-card.presence { border-left-color: #198754; }
 .summary-card.tontine  { border-left-color: #0d6efd; }
-.summary-card.banque-projet { border-left-color: #6f42c1; }
-.summary-card.banque-annuelle { border-left-color: #fd7e14; }
 .summary-card.synthesis { border-left-color: #dc3545; }
 
 /* ── Animated stat boxes ──────────────────────────── */
@@ -67,28 +65,31 @@
     </a>
 </div>
 
-<!-- ── Stepper 5 étapes (sans Agenda) ────────────── -->
-<div class="card border-0 shadow-sm mb-4">
-    <div class="card-body py-3">
-        <div class="stepper">
-            <th:block th:each="ds, iter : ${displaySteps}">
-                <th:block th:if="${iter.index > 0}">
-                    <th:block th:if="${iter.index > 1}">
-                        <div class="stepper-divider">›</div>
-                    </th:block>
-                    <div class="stepper-step"
-                         th:classappend="${iter.index < currentDisplayStepIdx} ? 'done' :
-                                         (${iter.index == currentDisplayStepIdx} ? 'active' : '')">
-                        <span class="icon">
-                            <i class="bi"
-                               th:classappend="${iter.index < currentDisplayStepIdx} ? 'bi-check-circle-fill' : ${ds.icon}"></i>
-                        </span>
-                        <span th:text="${ds.label}">Step</span>
-                    </div>
-                </th:block>
-            </th:block>
+<!-- ── Stepper ─────────────────────────────────────── -->
+<div class="stepper-wrapper">
+  <div class="stepper">
+    <th:block th:each="ds, iter : ${displaySteps}">
+
+      <!-- Connector avant chaque step (sauf le premier) -->
+      <div th:unless="${iter.first}" class="stepper-connector"
+           th:classappend="${iter.index <= currentDisplayStepIdx} ? 'done' : ''">
+      </div>
+
+      <!-- Step circle + label -->
+      <div class="stepper-step"
+           th:classappend="${iter.index < currentDisplayStepIdx} ? 'done' :
+                           (${iter.index == currentDisplayStepIdx} ? 'active' : '')">
+        <div class="step-circle">
+          <i class="bi"
+             th:classappend="${iter.index < currentDisplayStepIdx}
+                              ? 'bi-check-lg'
+                              : ${ds.icon}"></i>
         </div>
-    </div>
+        <span class="step-label" th:text="${ds.label}"></span>
+      </div>
+
+    </th:block>
+  </div>
 </div>
 
 <!-- ══════════════════════════════════════════════════ -->
@@ -474,287 +475,6 @@
             </th:block>
         </div>
     </div>
-    <div class="d-flex justify-content-end gap-2" sec:authorize="hasAuthority('BANK_VIEW')">
-        <form th:action="@{/sessions/{id}/banque-projet/open(id=${meetingSession.id})}" method="post">
-            <button type="submit" class="btn btn-primary btn-lg">
-                <i class="bi bi-building me-1"></i>Passer à la Banque Projet →
-            </button>
-        </form>
-    </div>
-</div>
-
-<!-- ── ÉTAPE 5 : BANQUE_PROJET_OPEN ────────────────── -->
-<div class="step-content" th:classappend="${stepName == 'BANQUE_PROJET_OPEN' ? 'active' : ''}">
-    <div class="card border-0 shadow-sm mb-3">
-        <div class="card-header bg-dark text-white fw-semibold">
-            <i class="bi bi-building me-1"></i>Banque Projet
-        </div>
-        <div class="card-body text-center py-5">
-            <i class="bi bi-building" style="font-size:3rem;color:#0d6efd"></i>
-            <p class="mt-2 fw-bold">Saisie de la Banque Projet</p>
-            <p class="text-muted">Module à implémenter.</p>
-        </div>
-    </div>
-    <div class="d-flex justify-content-end gap-2" sec:authorize="hasAuthority('BANK_VIEW')">
-        <form th:action="@{/sessions/{id}/banque-projet/close(id=${meetingSession.id})}" method="post"
-              onsubmit="return confirm('Clôturer la Banque Projet ?')">
-            <button type="submit" class="btn btn-danger btn-lg">
-                <i class="bi bi-lock me-1"></i>Clôturer la Banque Projet
-            </button>
-        </form>
-    </div>
-</div>
-
-<!-- ── ÉTAPE 6 : BANQUE_PROJET_CLOSED (résumé collecte) ── -->
-<div class="step-content" th:classappend="${stepName == 'BANQUE_PROJET_CLOSED' ? 'active' : ''}">
-    <div class="card border-0 shadow-sm mb-3 summary-card banque-projet">
-        <div class="card-header text-white fw-semibold" style="background-color:#6f42c1">
-            <i class="bi bi-building me-1"></i>Banque Projet — Récapitulatif
-        </div>
-        <div class="card-body">
-            <th:block th:if="${sessionReport != null}">
-                <div class="row g-3 mb-3">
-                    <div class="col-md-6 text-center py-3 rounded bg-light stat-box">
-                        <i class="bi bi-building fs-2" style="color:#6f42c1"></i>
-                        <div class="fs-2 fw-bold" style="color:#6f42c1"
-                             th:text="${#numbers.formatDecimal(sessionReport.banqueProjetCollected,1,'COMMA',0,'POINT')} + ' FCFA'">0 FCFA</div>
-                        <small class="text-muted">Collecté</small>
-                    </div>
-                    <div class="col-md-6 text-center py-3 rounded bg-light stat-box">
-                        <i class="bi bi-arrow-right-circle fs-2 text-secondary"></i>
-                        <p class="text-muted mt-2 mb-0"><em>Module d'enregistrement à implémenter.</em></p>
-                    </div>
-                </div>
-            </th:block>
-            <th:block th:if="${sessionReport == null}">
-                <p class="text-muted mb-0 text-center py-3">
-                    <i class="bi bi-info-circle me-1"></i>Données non disponibles.
-                </p>
-            </th:block>
-        </div>
-    </div>
-
-    <!-- ── Cumulative progress so far ──────────────────── -->
-    <div class="card border-0 shadow-sm mb-3" style="border-left:4px solid #6f42c1">
-        <div class="card-body py-2">
-            <small class="text-muted">Étapes réalisées</small>
-            <div class="d-flex flex-wrap gap-2 mt-1">
-                <span class="badge bg-success"><i class="bi bi-check me-1"></i>Présence</span>
-                <span class="badge bg-primary"><i class="bi bi-check me-1"></i>Grande Tontine</span>
-                <span class="badge" style="background-color:#6f42c1"><i class="bi bi-check me-1"></i>Banque Projet</span>
-                <span class="badge bg-secondary"><i class="bi bi-hourglass me-1"></i>Banque Annuelle</span>
-            </div>
-        </div>
-    </div>
-
-    <div class="d-flex justify-content-end gap-2" sec:authorize="hasAuthority('BANK_VIEW')">
-        <form th:action="@{/sessions/{id}/banque-annuelle/open(id=${meetingSession.id})}" method="post">
-            <button type="submit" class="btn btn-primary btn-lg">
-                <i class="bi bi-bank me-1"></i>Passer à la Banque Annuelle →
-            </button>
-        </form>
-    </div>
-</div>
-
-<!-- ── ÉTAPE 7 : BANQUE_ANNUELLE_OPEN ──────────────── -->
-<div class="step-content" th:classappend="${stepName == 'BANQUE_ANNUELLE_OPEN' ? 'active' : ''}">
-    <div class="card border-0 shadow-sm mb-3">
-        <div class="card-header bg-dark text-white fw-semibold">
-            <i class="bi bi-bank me-1"></i>Banque Annuelle
-        </div>
-        <div class="card-body text-center py-5">
-            <i class="bi bi-bank" style="font-size:3rem;color:#0d6efd"></i>
-            <p class="mt-2 fw-bold">Saisie de la Banque Annuelle</p>
-            <p class="text-muted">Module à implémenter.</p>
-        </div>
-    </div>
-    <div class="d-flex justify-content-end gap-2" sec:authorize="hasAuthority('BANK_VIEW')">
-        <form th:action="@{/sessions/{id}/banque-annuelle/close(id=${meetingSession.id})}" method="post"
-              onsubmit="return confirm('Clôturer la Banque Annuelle ?')">
-            <button type="submit" class="btn btn-danger btn-lg">
-                <i class="bi bi-lock me-1"></i>Clôturer la Banque Annuelle
-            </button>
-        </form>
-    </div>
-</div>
-
-<!-- ── ÉTAPE 8 : BANQUE_ANNUELLE_CLOSED (résumé + synthèse cumulée) ── -->
-<div class="step-content" th:classappend="${stepName == 'BANQUE_ANNUELLE_CLOSED' ? 'active' : ''}">
-
-    <!-- Banque Annuelle summary -->
-    <div class="card border-0 shadow-sm mb-3 summary-card banque-annuelle">
-        <div class="card-header text-white fw-semibold" style="background-color:#fd7e14">
-            <i class="bi bi-bank me-1"></i>Banque Annuelle — Récapitulatif
-        </div>
-        <div class="card-body">
-            <th:block th:if="${sessionReport != null}">
-                <div class="row g-3">
-                    <div class="col-md-6 text-center py-3 rounded bg-light stat-box">
-                        <i class="bi bi-piggy-bank fs-2" style="color:#fd7e14"></i>
-                        <div class="fs-2 fw-bold" style="color:#fd7e14"
-                             th:text="${#numbers.formatDecimal(sessionReport.banqueAnnuelleSavings,1,'COMMA',0,'POINT')} + ' FCFA'">0 FCFA</div>
-                        <small class="text-muted">Épargne collectée</small>
-                    </div>
-                    <div class="col-md-6 text-center py-3 rounded bg-light stat-box">
-                        <i class="bi bi-arrow-return-left fs-2 text-info"></i>
-                        <div class="fs-2 fw-bold text-info"
-                             th:text="${#numbers.formatDecimal(sessionReport.banqueAnnuelleRepayments,1,'COMMA',0,'POINT')} + ' FCFA'">0 FCFA</div>
-                        <small class="text-muted">Remboursements</small>
-                    </div>
-                </div>
-                <p class="text-muted small mt-2 mb-0 text-center"><em>Module d'enregistrement à implémenter.</em></p>
-            </th:block>
-            <th:block th:if="${sessionReport == null}">
-                <p class="text-muted mb-0 text-center py-3">
-                    <i class="bi bi-info-circle me-1"></i>Données non disponibles.
-                </p>
-            </th:block>
-        </div>
-    </div>
-
-    <!-- ══════════════════════════════════════════════════ -->
-    <!-- SYNTHÈSE CUMULÉE DES ÉTAPES FINANCIÈRES           -->
-    <!-- ══════════════════════════════════════════════════ -->
-    <div th:if="${sessionReport != null}" class="card border-0 shadow-sm mb-3 summary-card synthesis border-danger">
-        <div class="card-header bg-danger text-white fw-semibold">
-            <i class="bi bi-cash-stack me-1"></i>Synthèse des étapes financières
-        </div>
-        <div class="card-body">
-            <!-- Cumulative bar chart -->
-            <th:block th:with="
-                presenceAmt = ${sessionReport.presenceNetTontine != null ? sessionReport.presenceNetTontine : 0},
-                tontineAmt = ${sessionReport.tontineNetPaid != null ? sessionReport.tontineNetPaid : 0},
-                banqueProjetAmt = ${sessionReport.banqueProjetCollected != null ? sessionReport.banqueProjetCollected : 0},
-                banqueAnnuelleSavings = ${sessionReport.banqueAnnuelleSavings != null ? sessionReport.banqueAnnuelleSavings : 0},
-                banqueAnnuelleRepayments = ${sessionReport.banqueAnnuelleRepayments != null ? sessionReport.banqueAnnuelleRepayments : 0},
-                devAmt = ${sessionReport.presenceDevelopmentTotal != null ? sessionReport.presenceDevelopmentTotal : 0},
-                totalSteps = ${presenceAmt + tontineAmt + banqueProjetAmt + banqueAnnuelleSavings + banqueAnnuelleRepayments + devAmt}">
-
-                <div class="table-responsive">
-                    <table class="table table-sm mb-0">
-                        <thead>
-                            <tr>
-                                <th>Étape</th>
-                                <th class="text-end">Montant</th>
-                                <th style="width:40%"></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td>
-                                    <i class="bi bi-person-check text-success me-1"></i>Présence — Tontine nette
-                                </td>
-                                <td class="fw-bold text-end"
-                                    th:text="${#numbers.formatDecimal(presenceAmt,1,'COMMA',0,'POINT')} + ' FCFA'"></td>
-                                <td>
-                                    <div class="progress" style="height:1.25rem">
-                                        <div class="progress-bar bg-success"
-                                             th:style="|width:${totalSteps gt 0 ? presenceAmt * 100.0 / totalSteps : 0}%|"></div>
-                                    </div>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>
-                                    <i class="bi bi-cash-coin text-primary me-1"></i>Grande Tontine
-                                </td>
-                                <td class="fw-bold text-end"
-                                    th:text="${#numbers.formatDecimal(tontineAmt,1,'COMMA',0,'POINT')} + ' FCFA'"></td>
-                                <td>
-                                    <div class="progress" style="height:1.25rem">
-                                        <div class="progress-bar bg-primary"
-                                             th:style="|width:${totalSteps gt 0 ? tontineAmt * 100.0 / totalSteps : 0}%|"></div>
-                                    </div>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>
-                                    <i class="bi bi-cash text-success me-1"></i>Présence — Développement
-                                </td>
-                                <td class="fw-bold text-end"
-                                    th:text="${#numbers.formatDecimal(devAmt,1,'COMMA',0,'POINT')} + ' FCFA'"></td>
-                                <td>
-                                    <div class="progress" style="height:1.25rem">
-                                        <div class="progress-bar bg-info"
-                                             th:style="|width:${totalSteps gt 0 ? devAmt * 100.0 / totalSteps : 0}%|"></div>
-                                    </div>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>
-                                    <i class="bi bi-building me-1" style="color:#6f42c1"></i>Banque Projet
-                                </td>
-                                <td class="fw-bold text-end"
-                                    th:text="${#numbers.formatDecimal(banqueProjetAmt,1,'COMMA',0,'POINT')} + ' FCFA'"></td>
-                                <td>
-                                    <div class="progress" style="height:1.25rem">
-                                        <div class="progress-bar"
-                                             th:style="|width:${totalSteps gt 0 ? banqueProjetAmt * 100.0 / totalSteps : 0}%; background-color: #6f42c1|"></div>
-                                    </div>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>
-                                    <i class="bi bi-piggy-bank me-1" style="color:#fd7e14"></i>Banque Annuelle (épargne)
-                                </td>
-                                <td class="fw-bold text-end"
-                                    th:text="${#numbers.formatDecimal(banqueAnnuelleSavings,1,'COMMA',0,'POINT')} + ' FCFA'"></td>
-                                <td>
-                                    <div class="progress" style="height:1.25rem">
-                                        <div class="progress-bar"
-                                             th:style="|width:${totalSteps gt 0 ? banqueAnnuelleSavings * 100.0 / totalSteps : 0}%; background-color: #fd7e14|"></div>
-                                    </div>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>
-                                    <i class="bi bi-arrow-return-left text-info me-1"></i>Banque Annuelle (remboursements)
-                                </td>
-                                <td class="fw-bold text-end"
-                                    th:text="${#numbers.formatDecimal(banqueAnnuelleRepayments,1,'COMMA',0,'POINT')} + ' FCFA'"></td>
-                                <td>
-                                    <div class="progress" style="height:1.25rem">
-                                        <div class="progress-bar bg-info"
-                                             th:style="|width:${totalSteps gt 0 ? banqueAnnuelleRepayments * 100.0 / totalSteps : 0}%|"></div>
-                                    </div>
-                                </td>
-                            </tr>
-                            <tr class="table-danger fw-bold">
-                                <td>
-                                    <i class="bi bi-cash-stack me-1"></i>Total  séance
-                                </td>
-                                <td class="fw-bold text-end fs-5"
-                                    th:text="${#numbers.formatDecimal(totalSteps,1,'COMMA',0,'POINT')} + ' FCFA'"></td>
-                                <td></td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <!-- Cumulative bar -->
-                <div class="cumul-bar mt-3" th:if="${totalSteps gt 0}">
-                    <div class="cumul-bar-segment bg-success"
-                         th:style="|width:${presenceAmt * 100.0 / totalSteps}%|"
-                         th:title="|Présence: ${presenceAmt}|">P</div>
-                    <div class="cumul-bar-segment bg-primary"
-                         th:style="|width:${tontineAmt * 100.0 / totalSteps}%|"
-                         th:title="|Tontine: ${tontineAmt}|">T</div>
-                    <div class="cumul-bar-segment bg-info"
-                         th:style="|width:${devAmt * 100.0 / totalSteps}%|"
-                         th:title="|Développement: ${devAmt}|">D</div>
-                    <div class="cumul-bar-segment"
-                         th:style="|width:${banqueProjetAmt * 100.0 / totalSteps}%; background-color: #6f42c1|"
-                         th:title="|Banque Projet: ${banqueProjetAmt}|">BP</div>
-                    <div class="cumul-bar-segment"
-                         th:style="|width:${banqueAnnuelleSavings * 100.0 / totalSteps}%; background-color: #fd7e14|"
-                         th:title="|Banque Annuelle épargne: ${banqueAnnuelleSavings}|">BA</div>
-                    <div class="cumul-bar-segment bg-info"
-                         th:style="|width:${banqueAnnuelleRepayments * 100.0 / totalSteps}%|"
-                         th:title="|Banque Annuelle remb.: ${banqueAnnuelleRepayments}|">R</div>
-                </div>
-            </th:block>
-        </div>
-    </div>
-
     <div class="d-flex justify-content-end gap-2" sec:authorize="hasAuthority('SESSION_CLOSE')">
         <form th:action="@{/sessions/{id}/report/generate(id=${meetingSession.id})}" method="post"
               onsubmit="return confirm('Générer le rapport final de la séance ?')">

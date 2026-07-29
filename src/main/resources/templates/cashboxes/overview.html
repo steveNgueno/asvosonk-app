@@ -18,7 +18,7 @@
              th:classappend="'cashbox-card ' + ${type.name()}">
             <div class="card-body text-center">
                 <div class="text-muted small mb-1" th:text="${type.label()}">Caisse</div>
-                <div class="balance" th:text="${#numbers.formatDecimal(balances[type], 1, 'COMMA', 0, 'POINT')} + ' FCFA'">0</div>
+                <div class="balance" th:text="${#numbers.formatDecimal(balances.get(type), 1, 'COMMA', 0, 'POINT')} + ' FCFA'">0</div>
                 <div class="mt-2 d-flex justify-content-center gap-1">
                     <button type="button" class="btn btn-sm btn-outline-success"
                             data-bs-toggle="modal"

@@ -12,7 +12,6 @@
 .report-section { border-left: 4px solid var(--bs-primary); margin-bottom: 1.5rem; }
 .report-section.presence { border-left-color: #198754; }
 .report-section.tontine  { border-left-color: #0d6efd; }
-.report-section.banque   { border-left-color: #6f42c1; }
 .report-section.soldes   { border-left-color: #fd7e14; }
 .report-section.synth    { border-left-color: #dc3545; }
 </style>
@@ -36,26 +35,46 @@
 </div>
 
 <!-- ── Stepper 5 étapes (sans Agenda) ────────────── -->
-<div class="stepper mb-4 no-print">
+<div class="stepper-wrapper no-print">
+  <div class="stepper">
     <th:block th:each="ds, iter : ${displaySteps}">
-        <th:block th:if="${iter.index > 0}">
-            <th:block th:if="${iter.index > 1}">
-                <div class="stepper-divider">›</div>
-            </th:block>
-            <div class="stepper-step"
-                 th:classappend="${iter.index < currentDisplayStepIdx} ? 'done' :
-                                 (${iter.index == currentDisplayStepIdx} ? 'active' : '')">
-                <span class="icon">
-                    <i class="bi"
-                       th:classappend="${iter.index < currentDisplayStepIdx} ? 'bi-check-circle-fill' : ${ds.icon}"></i>
-                </span>
-                <span th:text="${ds.label}">Step</span>
-            </div>
-        </th:block>
+
+      <!-- Connector avant chaque step (sauf le premier) -->
+      <div th:unless="${iter.first}" class="stepper-connector"
+           th:classappend="${iter.index <= currentDisplayStepIdx} ? 'done' : ''">
+      </div>
+
+      <!-- Step circle + label -->
+      <div class="stepper-step"
+           th:classappend="${iter.index < currentDisplayStepIdx} ? 'done' :
+                           (${iter.index == currentDisplayStepIdx} ? 'active' : '')">
+        <div class="step-circle">
+          <i class="bi"
+             th:classappend="${iter.index < currentDisplayStepIdx}
+                              ? 'bi-check-lg'
+                              : ${ds.icon}"></i>
+        </div>
+        <span class="step-label" th:text="${ds.label}"></span>
+      </div>
+
     </th:block>
+  </div>
 </div>
 
 <th:block th:if="${closeResult != null && sessionReport != null}">
+
+<!-- ── Bloc synthèse en haut — toujours visible (UI-010) ── -->
+<div class="card mb-3" style="border-left:5px solid var(--color-accent)">
+    <div class="card-body d-flex justify-content-between align-items-center">
+        <div>
+            <div class="text-muted small">MONTANT NET À REMETTRE AU TRÉSORIER</div>
+            <div class="display-6 fw-bold amount amount-in"
+                 th:text="${#numbers.formatDecimal(closeResult.netAmountToTreasurer,1,'COMMA',0,'POINT')} + ' FCFA'">
+            </div>
+        </div>
+        <i class="bi bi-cash-coin text-warning" style="font-size:3rem"></i>
+    </div>
+</div>
 
 <!-- ══════════════════════════════════════════════════ -->
 <!-- PRÉSENCE                                           -->
@@ -128,30 +147,6 @@
     </div>
     <div class="card-body">
         <p class="text-muted mb-0"><em>Données non disponibles — module en cours d'intégration.</em></p>
-    </div>
-</div>
-
-<!-- ══════════════════════════════════════════════════ -->
-<!-- BANQUE PROJET                                      -->
-<!-- ══════════════════════════════════════════════════ -->
-<div class="card border-0 shadow-sm mb-4 report-section banque">
-    <div class="card-header bg-purple text-white fw-semibold" style="background-color:#6f42c1">
-        <i class="bi bi-building me-1"></i>BANQUE PROJET
-    </div>
-    <div class="card-body">
-        <p class="text-muted mb-0"><em>Module à implémenter.</em></p>
-    </div>
-</div>
-
-<!-- ══════════════════════════════════════════════════ -->
-<!-- BANQUE ANNUELLE                                    -->
-<!-- ══════════════════════════════════════════════════ -->
-<div class="card border-0 shadow-sm mb-4 report-section banque">
-    <div class="card-header text-white fw-semibold" style="background-color:#6f42c1">
-        <i class="bi bi-bank me-1"></i>BANQUE ANNUELLE
-    </div>
-    <div class="card-body">
-        <p class="text-muted mb-0"><em>Module à implémenter.</em></p>
     </div>
 </div>
 

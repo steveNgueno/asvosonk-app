@@ -3,6 +3,7 @@ package org.asvosonk.session.domain.model;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import org.asvosonk.session.domain.valueobject.SessionStatus;
+import org.asvosonk.session.domain.valueobject.SessionStep;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -24,6 +25,7 @@ public class MeetingSession {
     private Long createdByUserId;
     private final LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private SessionStep currentStep;
 
     public boolean isClosed()  { return status == SessionStatus.closed; }
     public boolean isOpen()    { return status == SessionStatus.open; }

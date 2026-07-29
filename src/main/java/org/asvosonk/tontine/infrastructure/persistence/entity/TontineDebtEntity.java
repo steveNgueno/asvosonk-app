@@ -10,8 +10,11 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "tontine_debt",
-       uniqueConstraints = @UniqueConstraint(columnNames = {"tour_id", "debtor_id", "creditor_id"}))
+// F-61 — The unique constraint lives in the DB migration (V1). Declaring it here
+// too only affects Hibernate schema generation (create/update), which this app
+// never uses (ddl-auto=validate). Keeping it was dead config that would become a
+// trap if ddl-auto were ever switched to update.
+@Table(name = "tontine_debt")
 @Getter @Setter
 @NoArgsConstructor
 @EqualsAndHashCode(of = "id")

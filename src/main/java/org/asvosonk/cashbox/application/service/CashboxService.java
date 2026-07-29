@@ -8,6 +8,7 @@ import org.asvosonk.cashbox.domain.repository.CashboxMovementRepository;
 import org.asvosonk.cashbox.domain.valueobject.CashboxType;
 import org.asvosonk.cashbox.domain.valueobject.MovementDirection;
 import org.asvosonk.cashbox.domain.valueobject.MovementOrigin;
+import org.asvosonk.common.domain.exception.BusinessRuleException;
 import org.asvosonk.cashbox.infrastructure.persistence.entity.CashboxEntity;
 import org.asvosonk.cashbox.infrastructure.persistence.entity.CashboxMovementEntity;
 import org.asvosonk.member.infrastructure.persistence.entity.MemberEntity;
@@ -52,19 +53,36 @@ public class CashboxService {
                                   Long referenceId,
                                   AppUser createdBy) {
 
-        if (amount.compareTo(BigDecimal.ZERO) <= 0) return null;
+        // F-38 : un montant nul ou négatif est une erreur explicite, jamais un no-op silencieux.
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessRuleException("Le montant du mouvement doit être strictement positif.");
+        }
 
         Cashbox cashbox = cashboxRepository.findByType(type)
             .orElseThrow(() -> new IllegalStateException("Cashbox not found: " + type));
 
-        // Update balance via domain model - we need to create an updated domain model
-        // Since Cashbox domain model is immutable, we save the updated state through entity
-        CashboxEntity cashboxEntity = entityManager.getReference(CashboxEntity.class, cashbox.getId());
-        if (direction == MovementDirection.in) {
-            cashboxEntity.setBalance(cashboxEntity.getBalance().add(amount));
-        } else {
-            cashboxEntity.setBalance(cashboxEntity.getBalance().subtract(amount));
+        // On charge l'état réel (et non un simple proxy) : nécessaire pour lire le solde
+        // courant, appliquer la garde F-04, et laisser @Version détecter un accès concurrent (F-16).
+        CashboxEntity cashboxEntity = entityManager.find(CashboxEntity.class, cashbox.getId());
+        if (cashboxEntity == null) {
+            throw new IllegalStateException("Cashbox not found: " + type);
         }
+
+        BigDecimal newBalance;
+        if (direction == MovementDirection.in) {
+            newBalance = cashboxEntity.getBalance().add(amount);
+        } else {
+            newBalance = cashboxEntity.getBalance().subtract(amount);
+            // F-04 : une caisse ne peut jamais passer sous zéro (garde applicative,
+            // doublée d'un CHECK en base). Bloque retraits et décaissements insuffisants.
+            if (newBalance.compareTo(BigDecimal.ZERO) < 0) {
+                throw new BusinessRuleException(
+                    "Solde insuffisant dans la caisse " + type.label()
+                        + " : solde " + cashboxEntity.getBalance()
+                        + " FCFA, sortie demandée " + amount + " FCFA.");
+            }
+        }
+        cashboxEntity.setBalance(newBalance);
         entityManager.merge(cashboxEntity);
 
         // Record movement via entity (CashboxMovement domain model is read-only)
@@ -80,8 +98,14 @@ public class CashboxService {
         movement.setCreatedBy(toEntity(createdBy));
 
         entityManager.persist(movement);
+
+        // F-35 : le mouvement renvoyé doit porter le solde RÉEL après écriture,
+        // pas l'ancien état lu au début. On reconstruit un Cashbox à jour.
+        Cashbox updatedCashbox = new Cashbox(
+            cashboxEntity.getId(), cashboxEntity.getType(),
+            cashboxEntity.getBalance(), cashboxEntity.getUpdatedAt());
         return new CashboxMovement(
-            movement.getId(), cashbox, movement.getMovementDate(),
+            movement.getId(), updatedCashbox, movement.getMovementDate(),
             direction, amount, reason, origin,
             member != null ? member.getId() : null,
             session != null ? session.getId() : null,

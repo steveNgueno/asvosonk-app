@@ -30,11 +30,14 @@ body {
 .navbar { background-color: var(--color-primary) !important; }
 .navbar-brand { font-size: 1.1rem; letter-spacing: 0.05em; }
 
-/* Active nav link highlight (héritage conservé) */
-.navbar-nav .nav-link.active,
-.navbar-nav .nav-link:focus {
-    color: #fff !important;
+/* Active nav link highlight (UI-003) */
+.navbar-nav .nav-link.active {
+    color: var(--color-accent) !important;
     font-weight: 600;
+    border-bottom: 2px solid var(--color-accent);
+}
+.navbar-nav .nav-link:focus {
+    color: #fff;
 }
 
 /* ── Cartes ─────────────────────────────────────────── */
@@ -103,19 +106,200 @@ body {
 .alert-success { border-left-color: var(--color-success); }
 .alert-danger  { border-left-color: var(--color-danger); }
 
-/* ── Stepper ─────────────────────────────────────────── */
-.stepper { display: flex; align-items: center; gap: 0; margin-bottom: 1.5rem; overflow-x: auto; }
-.stepper-step {
-  display: flex; align-items: center; gap: .4rem;
-  padding: .5rem 1rem; font-size: .8rem;
-  background: #e8edf2; color: var(--color-muted);
-  flex-shrink: 0;
+/* ══════════════════════════════════════════════
+   STEPPER
+   ══════════════════════════════════════════════ */
+.stepper-wrapper {
+  background: #fff;
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,.06);
+  margin-bottom: 1.5rem;
+  overflow-x: auto;
 }
-.stepper-step:first-child { border-radius: 8px 0 0 8px; }
-.stepper-step:last-child  { border-radius: 0 8px 8px 0; }
-.stepper-step.done    { background: var(--color-success); color: #fff; }
-.stepper-step.active  { background: var(--color-primary); color: #fff; font-weight: 600; }
-.stepper-step .icon   { font-size: 1rem; }
+
+.stepper {
+  display: flex;
+  align-items: center;
+  min-width: max-content;
+  gap: 0;
+}
+
+.stepper-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 90px;
+  position: relative;
+}
+
+.stepper-step .step-circle {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  border: 3px solid #dee2e6;
+  background: #fff;
+  color: #adb5bd;
+  transition: all .25s ease;
+  z-index: 1;
+}
+
+.stepper-step .step-label {
+  font-size: .72rem;
+  font-weight: 500;
+  color: #adb5bd;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* Completed step */
+.stepper-step.done .step-circle {
+  background: #198754;
+  border-color: #198754;
+  color: #fff;
+}
+.stepper-step.done .step-label { color: #198754; font-weight: 600; }
+
+/* Active step */
+.stepper-step.active .step-circle {
+  background: #1a5276;
+  border-color: #1a5276;
+  color: #fff;
+  box-shadow: 0 0 0 4px rgba(26,82,118,.2);
+  transform: scale(1.1);
+}
+.stepper-step.active .step-label {
+  color: #1a5276;
+  font-weight: 700;
+}
+
+/* Connector line between steps */
+.stepper-connector {
+  flex: 1;
+  height: 3px;
+  background: #dee2e6;
+  min-width: 40px;
+  max-width: 80px;
+  margin-bottom: 22px; /* align with circle centers */
+  transition: background .25s ease;
+}
+.stepper-connector.done { background: #198754; }
+
+/* ══════════════════════════════════════════════
+   SESSION DETAIL — STEP CONTENT CARDS
+   ══════════════════════════════════════════════ */
+
+/* Bénéficiaire highlight */
+.beneficiary-banner {
+  background: linear-gradient(135deg, #fff8e1, #fff3cd);
+  border: 1px solid #ffe082;
+  border-left: 5px solid #f39c12;
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+}
+
+/* Step action card (le bouton "Passer à..." ou "Clôturer") */
+.step-action-bar {
+  background: #f8f9fa;
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid #e9ecef;
+}
+.step-action-bar .action-info p { margin: 0; font-size: .85rem; color: #6c757d; }
+
+/* Summary card after step completion */
+.step-summary {
+  border-radius: 12px;
+  border: none;
+  box-shadow: 0 2px 12px rgba(0,0,0,.08);
+}
+.step-summary .summary-header {
+  border-radius: 12px 12px 0 0;
+  padding: .75rem 1.25rem;
+  font-weight: 600;
+}
+.step-summary.presence .summary-header { background: #d1e7dd; color: #0f5132; }
+.step-summary.tontine  .summary-header { background: #cfe2ff; color: #084298; }
+
+/* Key metric boxes */
+.metric-box {
+  background: #f8f9fa;
+  border-radius: 10px;
+  padding: 1rem;
+  text-align: center;
+}
+.metric-box .metric-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+.metric-box .metric-label {
+  font-size: .75rem;
+  color: #6c757d;
+  margin-top: 2px;
+}
+
+/* ══════════════════════════════════════════════
+   ATTENDANCE TABLE
+   ══════════════════════════════════════════════ */
+.attendance-table thead th {
+  background: #1a5276 !important;
+  color: #fff !important;
+  font-size: .8rem;
+  font-weight: 500;
+  white-space: nowrap;
+  padding: .6rem .75rem;
+}
+.attendance-table tbody tr { transition: background .1s; }
+.attendance-table tbody tr:hover { background: #f0f6ff; }
+.attendance-table tbody tr.beneficiary-row {
+  background: #fff8e1 !important;
+  border-left: 4px solid #f39c12;
+}
+.attendance-table .fund-ok      { color: #198754; font-size: .82rem; font-weight: 600; }
+.attendance-table .fund-warning { color: #856404; font-size: .82rem; font-weight: 600; }
+.attendance-table .fund-danger  { color: #842029; font-size: .82rem; font-weight: 600; }
+
+.attendance-footer {
+  background: #1a5276;
+  color: #fff;
+  border-radius: 0 0 10px 10px;
+  padding: .75rem 1rem;
+}
+.attendance-footer .total-item { text-align: center; }
+.attendance-footer .total-label { font-size: .7rem; opacity: .8; }
+.attendance-footer .total-value { font-size: 1rem; font-weight: 700; }
+
+/* ══════════════════════════════════════════════
+   SESSION LIST
+   ══════════════════════════════════════════════ */
+.session-list-row { cursor: pointer; transition: background .12s; }
+.session-list-row:hover { background: #f0f6ff !important; }
+
+.mini-dots {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.mini-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  border: 2px solid #dee2e6;
+  background: #fff;
+}
+.mini-dot.done    { background: #198754; border-color: #198754; }
+.mini-dot.active  { background: #f39c12; border-color: #f39c12;
+                    box-shadow: 0 0 0 2px rgba(243,156,18,.3); }
+.mini-connector   { width: 12px; height: 2px; background: #dee2e6; }
+.mini-connector.done { background: #198754; }
 
 /* ── Fond de roulement status ────────────────────────── */
 .fund-ok      { color: var(--color-success); font-weight: 600; }
@@ -141,13 +325,37 @@ footer { font-size: .78rem; }
 /* ── Scrollable table wrapper (long lists) ────────────── */
 .table-responsive { border-radius: 8px; }
 
-/* ── Stepper divider arrow ─────────────────────────── */
-.stepper-divider {
+/* ── Nav tabs (fiche membre) ──────────────────────────── */
+.nav-tabs .nav-link {
   color: var(--color-muted);
+  font-weight: 500;
+  border: none;
+  border-bottom: 2px solid transparent;
+}
+.nav-tabs .nav-link.active {
+  color: var(--color-primary);
+  background: transparent;
+  border-bottom: 2px solid var(--color-primary);
+}
+.nav-tabs .nav-link:hover:not(.active) {
+  border-bottom-color: var(--color-border);
+}
+
+/* ── Avatar initiales ─────────────────────────────────── */
+.avatar-circle {
+  width: 56px; height: 56px;
   font-size: 1.2rem;
-  line-height: 1;
-  padding: 0 .25rem;
-  align-self: center;
+  flex-shrink: 0;
+}
+
+/* ── Impression (UI-010) — global ─────────────────────── */
+@media print {
+  .navbar, .no-print, footer, .btn { display: none !important; }
+  .card { box-shadow: none !important; border: 1px solid #ddd !important; }
+  .card:hover { box-shadow: none !important; }
+  .page-header { border-left: none; padding-left: 0; }
+  body { font-size: 11px; background: #fff !important; }
+  a[href]::after { content: ""; }
 }
 
 /* ── Responsive ──────────────────────────────────────── */

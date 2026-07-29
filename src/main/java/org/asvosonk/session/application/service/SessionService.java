@@ -4,20 +4,15 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.TypedQuery;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.asvosonk.cashbox.domain.valueobject.CashboxType;
-import org.asvosonk.cashbox.domain.valueobject.MovementOrigin;
-import org.asvosonk.cashbox.application.service.CashboxService;
+import org.asvosonk.session.presentation.response.SessionCloseResult;
 import org.asvosonk.member.domain.model.Member;
 import org.asvosonk.member.domain.repository.MemberRepository;
 import org.asvosonk.member.infrastructure.persistence.entity.MemberEntity;
-import org.asvosonk.sanction.domain.valueobject.SanctionStatus;
-import org.asvosonk.sanction.infrastructure.persistence.entity.SanctionEntity;
+
 import org.asvosonk.security.domain.model.AppUser;
 import org.asvosonk.security.infrastructure.persistence.entity.AppUserEntity;
 import org.asvosonk.session.presentation.request.AttendanceEntryForm;
-import org.asvosonk.session.presentation.response.SessionCloseResult;
 import org.asvosonk.session.presentation.request.SessionForm;
-import org.asvosonk.session.domain.valueobject.AttendanceStatus;
 import org.asvosonk.session.domain.valueobject.SessionStatus;
 import org.asvosonk.session.infrastructure.persistence.entity.MeetingSessionEntity;
 import org.asvosonk.session.infrastructure.persistence.entity.SessionAttendanceEntity;
@@ -25,9 +20,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 
 @Slf4j
@@ -35,24 +27,11 @@ import java.util.List;
 @RequiredArgsConstructor
 public class SessionService {
 
-    // Constants
-    private static final BigDecimal PRESENCE_FEE      = new BigDecimal("2000");
-    private static final BigDecimal TONTINE_SHARE     = new BigDecimal("1000");
-    private static final BigDecimal BEVERAGE_SHARE    = new BigDecimal("500");
-    private static final BigDecimal DEVELOPMENT_SHARE = new BigDecimal("500");
-    private static final BigDecimal BEVERAGE_COST_PER_PERSON = new BigDecimal("500");
-
     private final MemberRepository      memberRepository;
-    private final RevolvingFundService   revolvingFundService;
-    private final CashboxService         cashboxService;
     private final EntityManager          entityManager;
 
     private MemberEntity toEntity(Member m) {
         return m != null ? entityManager.getReference(MemberEntity.class, m.getId()) : null;
-    }
-
-    private Member toDomain(MemberEntity e) {
-        return e != null ? memberRepository.findById(e.getId()).orElse(null) : null;
     }
 
     // ── Queries ──────────────────────────────────────────────
@@ -74,6 +53,22 @@ public class SessionService {
         } catch (jakarta.persistence.NoResultException e) {
             throw new IllegalArgumentException("Séance introuvable : " + id);
         }
+    }
+
+    /**
+     * Loads a session under a PESSIMISTIC_WRITE lock (F-10). Concurrent step
+     * transitions on the same session are then serialized at the DB row level:
+     * the second request blocks until the first commits, and only then re-reads
+     * the (now advanced) current step — so a double submit can never replay the
+     * same financial transition twice. Must run inside a transaction.
+     */
+    public MeetingSessionEntity findByIdForUpdate(Long id) {
+        MeetingSessionEntity session = entityManager.find(
+            MeetingSessionEntity.class, id, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        if (session == null) {
+            throw new IllegalArgumentException("Séance introuvable : " + id);
+        }
+        return session;
     }
 
     public List<SessionAttendanceEntity> findAttendances(Long sessionId) {
@@ -158,124 +153,15 @@ public class SessionService {
         entityManager.merge(att);
     }
 
-    // ── CLOSE SESSION — core @Transactional operation ────────
-
     /**
-     * Closes the session and triggers ALL automatic calculations in one atomic transaction:
-     * 1. Process each member's attendance via RevolvingFundService (scenarios 1/2/3)
-     * 2. Calculate tontine total for the beneficiary (minus unpaid sanctions if any)
-     * 3. Calculate beverage reliquat
-     * 4. Credit cashboxes (development, beverage)
-     * 5. Mark session as closed
-     *
-     * If ANY step fails → full rollback, no partial state.
+     * @deprecated The session workflow is now managed by SessionStepService.
+     * This legacy method duplicates logic from SessionStepService.closePresence().
+     * Do NOT call this method for new development — use SessionStepService instead.
+     * Will be removed in a future release.
      */
-    @Transactional
+    @Deprecated(since = "1.0.0", forRemoval = true)
     public SessionCloseResult closeSession(Long sessionId, AppUser user) {
-        MeetingSessionEntity session = findById(sessionId);
-
-        if (session.isClosed()) throw new IllegalStateException("Séance déjà clôturée");
-        if (session.getPresenceBeneficiary() == null)
-            throw new IllegalStateException("Le bénéficiaire du jour n'a pas été désigné");
-
-        List<SessionAttendanceEntity> attendances = findAttendances(sessionId);
-
-        // Accumulators for session report
-        BigDecimal totalTontine        = BigDecimal.ZERO;
-        BigDecimal totalBeveragePool   = BigDecimal.ZERO;
-        BigDecimal totalDevelopment    = BigDecimal.ZERO;
-        int        presentCount        = 0;
-        int        fundCoveredCount    = 0;
-        int        defaultCount        = 0;
-        List<RevolvingFundService.AttendanceResult> results = new ArrayList<>();
-
-        // ── Process each member ───────────────────────────────
-        for (SessionAttendanceEntity att : attendances) {
-            RevolvingFundService.AttendanceResult r =
-                revolvingFundService.process(
-                    toDomain(att.getMember()),
-                    att.getAmountPaid(),
-                    session,
-                    att,
-                    user
-                );
-            results.add(r);
-            entityManager.merge(att);
-
-            totalTontine      = totalTontine.add(r.getContributionToTontine());
-            totalBeveragePool = totalBeveragePool.add(r.getContributionToBeverage());
-            totalDevelopment  = totalDevelopment.add(r.getContributionToDevelopment());
-
-            if (att.isPresent())                                      presentCount++;
-            if (r.isCoveredByFund())                                  fundCoveredCount++;
-            if (r.isDefault())                                        defaultCount++;
-        }
-
-        // ── Beverage reliquat calculation ─────────────────────
-        BigDecimal actualBeverageCost =
-            BEVERAGE_COST_PER_PERSON.multiply(BigDecimal.valueOf(presentCount));
-        BigDecimal beverageReliquat =
-            totalBeveragePool.subtract(actualBeverageCost).max(BigDecimal.ZERO);
-
-        if (beverageReliquat.compareTo(BigDecimal.ZERO) > 0) {
-            cashboxService.credit(CashboxType.beverage, beverageReliquat,
-                "Reliquat boisson séance " + session.getSessionDate(),
-                MovementOrigin.presence, session, null, null, user);
-        }
-
-        // ── Sanctions check on beneficiary ────────────────────
-        MemberEntity beneficiaryEntity = session.getPresenceBeneficiary();
-        Member beneficiary = toDomain(beneficiaryEntity);
-
-        TypedQuery<SanctionEntity> sanctionsQuery = entityManager.createQuery(
-                "SELECT s FROM SanctionEntity s WHERE s.member.id = :memberId AND s.status = :status ORDER BY s.sanctionDate DESC",
-                SanctionEntity.class);
-        sanctionsQuery.setParameter("memberId", beneficiary.getId());
-        sanctionsQuery.setParameter("status", SanctionStatus.unpaid);
-        List<SanctionEntity> unpaidSanctions = sanctionsQuery.getResultList();
-
-        BigDecimal totalSanctionDeductions = unpaidSanctions.stream()
-            .map(SanctionEntity::getAmount)
-            .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        BigDecimal netTontine = totalTontine.subtract(totalSanctionDeductions).max(BigDecimal.ZERO);
-
-        // Mark deducted sanctions as paid and record in sanction cashbox
-        if (totalSanctionDeductions.compareTo(BigDecimal.ZERO) > 0) {
-            for (SanctionEntity s : unpaidSanctions) {
-                s.setStatus(SanctionStatus.paid);
-                s.setPaymentDate(LocalDate.now());
-                entityManager.merge(s);
-            }
-            cashboxService.credit(CashboxType.sanction, totalSanctionDeductions,
-                "Sanctions retenues sur tontine de présence — " + beneficiary.getFullName(),
-                MovementOrigin.sanction, session, beneficiaryEntity, null, user);
-        }
-
-        // ── Close session ─────────────────────────────────────
-        session.setStatus(SessionStatus.closed);
-        session.setClosedAt(LocalDateTime.now());
-        entityManager.merge(session);
-
-        log.info("Session {} closed — tontine net={} FCFA, beverage reliquat={} FCFA, defaults={}",
-                 session.getSessionDate(), netTontine, beverageReliquat, defaultCount);
-
-        // ── Build report ──────────────────────────────────────
-        return SessionCloseResult.builder()
-            .session(session)
-            .beneficiary(beneficiary)
-            .totalCotisants(attendances.size())
-            .presentCount(presentCount)
-            .fundCoveredCount(fundCoveredCount)
-            .defaultCount(defaultCount)
-            .grossTontine(totalTontine)
-            .sanctionDeductions(totalSanctionDeductions)
-            .netTontine(netTontine)
-            .totalDevelopment(totalDevelopment)
-            .totalBeveragePool(totalBeveragePool)
-            .actualBeverageCost(actualBeverageCost)
-            .beverageReliquat(beverageReliquat)
-            .attendanceResults(results)
-            .build();
+        throw new UnsupportedOperationException(
+            "SessionService.closeSession() is deprecated. Use SessionStepService.transitionToNext() instead.");
     }
 }

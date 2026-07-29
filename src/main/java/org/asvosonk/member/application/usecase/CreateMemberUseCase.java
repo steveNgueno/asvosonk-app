@@ -22,7 +22,9 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 public class CreateMemberUseCase {
 
-    private static final BigDecimal REVOLVING_FUND_INITIAL = new BigDecimal("5000");
+    // F-03 : le fonds démarre à 0 ; il sera alimenté par le paiement réel
+    // du frais d'adhésion 'revolving_fund' (RecordFeePaymentUseCase).
+    private static final BigDecimal REVOLVING_FUND_INITIAL = BigDecimal.ZERO;
 
     private final MemberRepository        memberRepository;
     private final MembershipFeeRepository feeRepository;

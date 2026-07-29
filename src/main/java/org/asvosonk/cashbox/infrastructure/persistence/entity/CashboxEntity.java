@@ -28,6 +28,11 @@ public class CashboxEntity {
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal balance = BigDecimal.ZERO;
 
+    /** Optimistic-lock guard against concurrent balance updates (F-16). */
+    @Version
+    @Column(nullable = false)
+    private long version;
+
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt = LocalDateTime.now();
 

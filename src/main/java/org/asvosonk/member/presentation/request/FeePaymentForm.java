@@ -10,7 +10,8 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 public class FeePaymentForm {
 
-    @NotNull
+    // Renseigné côté serveur à partir du {id} de l'URL (jamais soumis par le
+    // formulaire) : ne pas le valider, sous peine de rejeter tout paiement.
     private Long memberId;
 
     @NotNull(message = "Le type de frais est obligatoire")

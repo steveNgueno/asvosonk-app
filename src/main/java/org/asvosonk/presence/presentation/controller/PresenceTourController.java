@@ -5,7 +5,6 @@ import lombok.RequiredArgsConstructor;
 import org.asvosonk.member.application.usecase.SearchMemberUseCase;
 import org.asvosonk.presence.application.usecase.ClosePresenceTourUseCase;
 import org.asvosonk.presence.application.usecase.CreatePresenceTourUseCase;
-import org.asvosonk.presence.application.usecase.GetCurrentPresenceBeneficiaryUseCase;
 import org.asvosonk.presence.application.usecase.GetPresenceTourSummaryUseCase;
 import org.asvosonk.presence.application.usecase.MarkPresenceBenefitedUseCase;
 import org.asvosonk.presence.domain.model.PresenceTour;
@@ -30,7 +29,6 @@ public class PresenceTourController {
 
     private final GetPresenceTourSummaryUseCase     getPresenceTourSummaryUseCase;
     private final CreatePresenceTourUseCase         createPresenceTourUseCase;
-    private final GetCurrentPresenceBeneficiaryUseCase getCurrentPresenceBeneficiaryUseCase;
     private final MarkPresenceBenefitedUseCase      markPresenceBenefitedUseCase;
     private final ClosePresenceTourUseCase          closePresenceTourUseCase;
     private final SearchMemberUseCase               searchMemberUseCase;

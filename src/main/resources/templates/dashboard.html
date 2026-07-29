@@ -30,6 +30,111 @@
         </span>
     </div>
 
+    <!-- ── Bandeau de statut : séance en cours ──────────────── -->
+    <div class="card border-0 shadow-sm mb-3" th:if="${openSession != null}"
+         style="border-left:5px solid var(--color-accent)">
+        <div class="card-body d-flex flex-wrap align-items-center justify-content-between gap-2 py-3">
+            <div>
+                <div class="fw-semibold">
+                    <i class="bi bi-calendar-event text-primary me-1"></i>
+                    Séance en cours :
+                    <span th:text="${#temporals.format(openSession.sessionDate,'EEEE dd MMMM yyyy')}">—</span>
+                </div>
+                <div class="small text-muted" th:if="${nextPresenceBeneficiary != null}">
+                    <i class="bi bi-trophy-fill text-warning me-1"></i>
+                    <span th:if="${presenceTourNumber != null}">Tour de présence N°<span th:text="${presenceTourNumber}"></span> — </span>
+                    Prochain bénéficiaire : <strong th:text="${nextPresenceBeneficiary}"></strong>
+                </div>
+            </div>
+            <a th:href="@{/sessions/{id}(id=${openSession.id})}" class="btn btn-primary"
+               sec:authorize="hasAuthority('SESSION_VIEW')">
+                Ouvrir <i class="bi bi-arrow-right ms-1"></i>
+            </a>
+        </div>
+    </div>
+    <div class="alert alert-secondary d-flex align-items-center gap-2 mb-3" th:if="${openSession == null}">
+        <i class="bi bi-calendar-x fs-5"></i>
+        <span>Aucune séance ouverte actuellement.</span>
+        <a th:href="@{/sessions}" class="ms-auto btn btn-sm btn-outline-secondary"
+           sec:authorize="hasAuthority('SESSION_VIEW')">Voir les séances</a>
+    </div>
+
+    <!-- ── Soldes des 4 caisses (UI-011) ────────────────────── -->
+    <th:block sec:authorize="hasAuthority('CASHBOX_VIEW')">
+        <h6 class="text-muted text-uppercase small fw-bold mb-2">
+            <i class="bi bi-safe me-1"></i>Soldes des caisses
+        </h6>
+        <div th:replace="~{fragments/_cashbox-summary :: cashboxSummary(${cashboxTypes}, ${balances})}"></div>
+    </th:block>
+
+    <div class="row g-3 mb-3">
+        <!-- ── Dernière séance clôturée ─────────────────────── -->
+        <div class="col-lg-8" sec:authorize="hasAuthority('SESSION_VIEW')">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header">
+                    <i class="bi bi-clock-history me-1"></i>Dernière séance clôturée
+                </div>
+                <div class="card-body">
+                    <th:block th:if="${lastSession != null}">
+                        <p class="mb-1">
+                            <strong th:text="${#temporals.format(lastSession.sessionDate,'EEEE dd MMMM yyyy')}">—</strong>
+                            <span th:if="${lastBeneficiaryName != null}" class="text-muted">
+                                &nbsp;·&nbsp; Bénéficiaire présence :
+                                <span class="fw-semibold" th:text="${lastBeneficiaryName}"></span>
+                            </span>
+                        </p>
+                        <p class="mb-0 small" th:if="${lastReport != null}">
+                            Tontine remise :
+                            <span class="amount amount-in"
+                                  th:text="${#numbers.formatDecimal(lastReport.presenceNetTontine,1,'COMMA',0,'POINT')} + ' FCFA'"></span>
+                            &nbsp;·&nbsp; Développement :
+                            <span class="amount amount-in"
+                                  th:text="'+' + ${#numbers.formatDecimal(lastReport.presenceDevelopmentTotal,1,'COMMA',0,'POINT')} + ' FCFA'"></span>
+                        </p>
+                        <a th:href="@{/sessions/{id}/report(id=${lastSession.id})}"
+                           class="btn btn-sm btn-outline-secondary mt-2">
+                            <i class="bi bi-file-text me-1"></i>Voir le rapport
+                        </a>
+                    </th:block>
+                    <p class="text-muted mb-0" th:if="${lastSession == null}">
+                        <i class="bi bi-info-circle me-1"></i>Aucune séance clôturée pour l'instant.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Alerte sanctions impayées ────────────────────── -->
+        <div class="col-lg-4" sec:authorize="hasAuthority('SANCTION_VIEW')">
+            <div class="card border-0 shadow-sm h-100"
+                 th:classappend="${unpaidSanctionsCount != null and unpaidSanctionsCount > 0} ? '' : ''">
+                <div class="card-header">
+                    <i class="bi bi-exclamation-triangle me-1"></i>Sanctions impayées
+                </div>
+                <div class="card-body d-flex flex-column justify-content-center">
+                    <th:block th:if="${unpaidSanctionsCount != null and unpaidSanctionsCount > 0}">
+                        <div class="alert alert-danger mb-2 py-2">
+                            <i class="bi bi-exclamation-circle-fill me-1"></i>
+                            <strong th:text="${unpaidSanctionsCount}">0</strong> sanction(s) impayée(s)
+                            — Total :
+                            <span class="amount"
+                                  th:text="${#numbers.formatDecimal(unpaidSanctionsTotal,1,'COMMA',0,'POINT')} + ' FCFA'"></span>
+                        </div>
+                        <a th:href="@{/sanctions}" class="btn btn-sm btn-outline-danger">
+                            Voir <i class="bi bi-arrow-right ms-1"></i>
+                        </a>
+                    </th:block>
+                    <p class="text-success mb-0" th:unless="${unpaidSanctionsCount != null and unpaidSanctionsCount > 0}">
+                        <i class="bi bi-check-circle-fill me-1"></i>Aucune sanction impayée.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Navigation rapide ────────────────────────────────── -->
+    <h6 class="text-muted text-uppercase small fw-bold mb-2">
+        <i class="bi bi-grid me-1"></i>Navigation rapide
+    </h6>
     <!-- Module cards (visibility controlled by permission) -->
     <div class="row g-3">
 

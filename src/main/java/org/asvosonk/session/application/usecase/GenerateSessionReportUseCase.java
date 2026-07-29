@@ -20,8 +20,8 @@ import java.time.LocalDateTime;
  * Aggregates all session financial data and persists the final session report.
  * Called when transitioning to REPORT_GENERATED step.
  * The presence data is already saved by closePresence();
- * this use case updates the report with tontine, banque projet,
- * and banque annuelle data, then generates the synthesis.
+ * this use case updates the report with tontine data, then generates
+ * the synthesis.
  */
 @Slf4j
 @Service
@@ -64,15 +64,6 @@ public class GenerateSessionReportUseCase {
         }
         report.setTontineGrossCollected(tontineGross);
         report.setTontineNetPaid(tontineGross);
-
-        // ── Update banque projet data ────────────────────────
-        // (placeholder)
-        // report.setBanqueProjetCollected(...);
-
-        // ── Update banque annuelle data ──────────────────────
-        // (placeholder)
-        // report.setBanqueAnnuelleSavings(...);
-        // report.setBanqueAnnuelleRepayments(...);
 
         // ── Calculate synthesis ──────────────────────────────
         BigDecimal presenceNet = report.getPresenceNetTontine() != null

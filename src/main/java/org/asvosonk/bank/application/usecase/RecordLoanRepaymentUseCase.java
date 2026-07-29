@@ -42,13 +42,24 @@ public class RecordLoanRepaymentUseCase {
             throw new BusinessRuleException("Cet emprunt est déjà remboursé.");
         }
 
+        // F-19 — Reject over-repayment. Without this, any positive amount was
+        // accepted and deposited into the bank cashbox, so a repayment larger
+        // than what remains due over-credited the treasury and left the loan
+        // "repaid" while the books showed more cash than was actually owed.
+        BigDecimal alreadyRepaid = repaymentRepository.getTotalRepaidByLoanId(loanId);
+        BigDecimal remaining = loan.getRemainingBalance(alreadyRepaid);
+        if (amount.compareTo(remaining) > 0) {
+            throw new BusinessRuleException(
+                "Le remboursement dépasse le solde restant dû (" + remaining + " FCFA).");
+        }
+
         // Record repayment
         LoanRepayment repayment = new LoanRepayment(
             null, loanId, LocalDate.now(), amount, LocalDateTime.now());
         LoanRepayment saved = repaymentRepository.save(repayment);
 
         // Check if fully repaid
-        BigDecimal totalRepaid = repaymentRepository.getTotalRepaidByLoanId(loanId);
+        BigDecimal totalRepaid = alreadyRepaid.add(amount);
         if (totalRepaid.compareTo(loan.getTotalDue()) >= 0) {
             loan.markAsRepaid();
             loanRepository.save(loan);

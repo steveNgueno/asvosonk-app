@@ -2,9 +2,6 @@ package org.asvosonk.sanction.presentation.controller;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.asvosonk.cashbox.application.usecase.DepositMoneyUseCase;
-import org.asvosonk.cashbox.domain.valueobject.CashboxType;
-import org.asvosonk.cashbox.domain.valueobject.MovementOrigin;
 import org.asvosonk.member.application.usecase.SearchMemberUseCase;
 import org.asvosonk.sanction.application.usecase.CancelSanctionUseCase;
 import org.asvosonk.sanction.application.usecase.CreateSanctionUseCase;
@@ -38,7 +35,6 @@ public class SanctionController {
     private final CreateSanctionUseCase createSanctionUseCase;
     private final PaySanctionUseCase    paySanctionUseCase;
     private final CancelSanctionUseCase cancelSanctionUseCase;
-    private final DepositMoneyUseCase   depositMoneyUseCase;
     private final SearchMemberUseCase   searchMemberUseCase;
 
     @GetMapping
@@ -121,18 +117,13 @@ public class SanctionController {
     public String pay(@PathVariable Long id,
                       @AuthenticationPrincipal UserDetailsImpl principal,
                       RedirectAttributes ra) {
-        try {
-            Sanction sanction = paySanctionUseCase.execute(id);
-
-            depositMoneyUseCase.execute(CashboxType.sanction, sanction.getAmount(),
-                "Paiement cash sanction #" + id + " — " + sanction.getReason(),
-                MovementOrigin.sanction, null, null, null, principal.getAppUser());
-
-            ra.addFlashAttribute("successMessage",
-                "Paiement de " + sanction.getAmount() + " FCFA enregistré pour la sanction #" + id + ".");
-        } catch (Exception e) {
-            ra.addFlashAttribute("errorMessage", e.getMessage());
-        }
+        // F-05 : le changement de statut ET le crédit de la caisse sanction sont
+        // désormais réalisés dans une seule transaction (PaySanctionUseCase). Si le
+        // crédit échoue, le statut est annulé par rollback — plus de sanction « payée »
+        // sans encaissement. Les erreurs métier sont traduites par GlobalExceptionHandler.
+        Sanction sanction = paySanctionUseCase.execute(id, principal.getAppUser());
+        ra.addFlashAttribute("successMessage",
+            "Paiement de " + sanction.getAmount() + " FCFA enregistré pour la sanction #" + id + ".");
         return "redirect:/sanctions";
     }
 

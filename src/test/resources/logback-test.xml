@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <!-- Reduce noise during tests -->
+    <root level="WARN"/>
+    <logger name="org.asvosonk" level="INFO"/>
+    <logger name="org.springframework.test" level="WARN"/>
+    <logger name="org.springframework.boot.test" level="WARN"/>
+    <logger name="org.flywaydb" level="WARN"/>
+    <logger name="org.hibernate.SQL" level="WARN"/>
+    <logger name="com.zaxxer.hikari" level="WARN"/>
+</configuration>

@@ -4,15 +4,27 @@
       th:replace="~{layout :: layout(pageTitle=${pageTitle}, content=~{::main-content}, extraHead=~{}, extraScripts=~{})}">
 <body><th:block th:fragment="main-content">
 
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <div class="page-header">
-        <h2 th:text="${member.fullName}"></h2>
-        <p>
-            <span class="badge"
-                  th:classappend="${member.status.name()=='active'?'bg-success':'bg-secondary'}"
-                  th:text="${member.statusLabel}"></span>
-            &nbsp;·&nbsp; Membre depuis <span th:text="${#temporals.format(member.joinDate,'dd/MM/yyyy')}"></span>
-        </p>
+<!-- ── En-tête fiche membre (UI-005) ────────────────────── -->
+<div class="d-flex justify-content-between align-items-start mb-3">
+    <div class="d-flex align-items-center gap-3">
+        <!-- Avatar avec initiales -->
+        <div class="rounded-circle bg-primary text-white d-flex align-items-center
+                    justify-content-center fw-bold avatar-circle"
+             th:text="${#strings.substring(member.fullName,0,1).toUpperCase()
+                        + (member.fullName.contains(' ')
+                           ? #strings.substring(member.fullName, member.fullName.lastIndexOf(' ')+1, member.fullName.lastIndexOf(' ')+2).toUpperCase()
+                           : '')}">JD</div>
+        <div>
+            <h4 class="mb-0" th:text="${member.fullName}"></h4>
+            <small class="text-muted">
+                <span th:text="'Membre depuis ' + ${#temporals.format(member.joinDate,'dd/MM/yyyy')}"></span>
+                &nbsp;·&nbsp;
+                <span class="badge"
+                      th:classappend="${member.status.name()=='active' ? 'bg-success' :
+                                      (member.status.name()=='suspended' ? 'bg-warning text-dark' : 'bg-secondary')}"
+                      th:text="${member.statusLabel}"></span>
+            </small>
+        </div>
     </div>
     <div class="d-flex gap-2">
         <a th:href="@{/members/{id}/edit(id=${member.id})}" class="btn btn-outline-primary btn-sm"
@@ -25,97 +37,152 @@
     </div>
 </div>
 
-<div class="row g-3">
+<!-- ── Onglets ──────────────────────────────────────────── -->
+<ul class="nav nav-tabs mt-3 mb-0" id="memberTabs" role="tablist">
+    <li class="nav-item">
+        <a class="nav-link active" data-bs-toggle="tab" href="#info">
+            <i class="bi bi-info-circle me-1"></i>Informations
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" data-bs-toggle="tab" href="#fees">
+            <i class="bi bi-cash-coin me-1"></i>Frais d'adhésion
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" data-bs-toggle="tab" href="#history">
+            <i class="bi bi-clock-history me-1"></i>Historique présences
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" data-bs-toggle="tab" href="#sanctions">
+            <i class="bi bi-exclamation-triangle me-1"></i>Sanctions
+        </a>
+    </li>
+    <li class="nav-item" sec:authorize="hasAuthority('BANK_VIEW')">
+        <a class="nav-link" data-bs-toggle="tab" href="#bank">
+            <i class="bi bi-bank me-1"></i>Banque
+        </a>
+    </li>
+</ul>
 
-    <!-- Member info -->
-    <div class="col-md-5">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-header bg-dark text-white fw-semibold">Informations</div>
-            <div class="card-body">
-                <dl class="row mb-0">
-                    <dt class="col-5">Téléphone</dt>
-                    <dd class="col-7" th:text="${member.phone ?: '—'}"></dd>
-                    <dt class="col-5">Résident</dt>
-                    <dd class="col-7" th:text="${member.resident ? 'Oui' : 'Non'}"></dd>
-                    <dt class="col-5">Adhésion</dt>
-                    <dd class="col-7" th:text="${#temporals.format(member.joinDate,'dd/MM/yyyy')}"></dd>
-                </dl>
-            </div>
+<div class="tab-content card border-0 shadow-sm p-3" style="border-top-left-radius:0">
+
+    <!-- ── Onglet Informations ──────────────────────────── -->
+    <div class="tab-pane fade show active" id="info">
+        <dl class="row mb-0" style="max-width:520px">
+            <dt class="col-5">Téléphone</dt>
+            <dd class="col-7" th:text="${member.phone ?: '—'}"></dd>
+            <dt class="col-5">Résident Nkou-Assi</dt>
+            <dd class="col-7" th:text="${member.resident ? 'Oui' : 'Non'}"></dd>
+            <dt class="col-5">Date d'adhésion</dt>
+            <dd class="col-7" th:text="${#temporals.format(member.joinDate,'dd/MM/yyyy')}"></dd>
+            <dt class="col-5">Statut</dt>
+            <dd class="col-7">
+                <span class="badge"
+                      th:classappend="${member.status.name()=='active' ? 'bg-success' :
+                                      (member.status.name()=='suspended' ? 'bg-warning text-dark' : 'bg-secondary')}"
+                      th:text="${member.statusLabel}"></span>
+            </dd>
+        </dl>
+
+        <!-- Changer le statut -->
+        <div sec:authorize="hasAuthority('MEMBER_CHANGE_STATUS')" class="mt-3 pt-3 border-top">
+            <label class="form-label fw-semibold small">Changer le statut</label>
+            <form th:action="@{/members/{id}/status(id=${member.id})}" method="post"
+                  class="d-flex gap-2 align-items-center">
+                <select name="newStatus" class="form-select form-select-sm w-auto">
+                    <option th:each="s : ${memberStatuses}"
+                            th:value="${s}" th:text="${s.name()}"
+                            th:selected="${s == member.status}"></option>
+                </select>
+                <button type="submit" class="btn btn-warning btn-sm">
+                    <i class="bi bi-arrow-repeat me-1"></i>Appliquer
+                </button>
+            </form>
         </div>
     </div>
 
-    <!-- Membership fees -->
-    <div class="col-md-7">
-        <div class="card border-0 shadow-sm">
-            <div class="card-header bg-dark text-white fw-semibold">Frais d'adhésion</div>
-            <div class="table-responsive">
-                <table class="table table-sm mb-0">
-                    <thead>
-                        <tr><th>Type</th><th>Dû</th><th>Payé</th><th>Reste</th><th>Statut</th></tr>
-                    </thead>
-                    <tbody>
-                        <tr th:each="fee : ${fees}">
-                            <td th:text="${fee.feeType.label()}"></td>
-                            <td class="amount" th:text="${#numbers.formatDecimal(fee.amountDue,1,'COMMA',0,'POINT')} + ' FCFA'"></td>
-                            <td class="amount amount-in" th:text="${#numbers.formatDecimal(fee.amountPaid,1,'COMMA',0,'POINT')} + ' FCFA'"></td>
-                            <td class="amount" th:classappend="${fee.balance.compareTo(T(java.math.BigDecimal).ZERO) > 0 ? 'amount-out' : 'amount-in'}"
-                                th:text="${#numbers.formatDecimal(fee.balance,1,'COMMA',0,'POINT')} + ' FCFA'"></td>
-                            <td>
-                                <span th:if="${fee.fullyPaid}" class="badge bg-success">Payé</span>
-                                <span th:unless="${fee.fullyPaid}" class="badge bg-warning text-dark">En cours</span>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
+    <!-- ── Onglet Frais d'adhésion ──────────────────────── -->
+    <div class="tab-pane fade" id="fees">
+        <div class="table-responsive">
+            <table class="table table-sm mb-0">
+                <thead>
+                    <tr><th>Type</th><th>Dû</th><th>Payé</th><th>Reste</th><th>Statut</th></tr>
+                </thead>
+                <tbody>
+                    <tr th:if="${#lists.isEmpty(fees)}">
+                        <td colspan="5" class="text-center text-muted py-3">Aucun frais enregistré</td>
+                    </tr>
+                    <tr th:each="fee : ${fees}">
+                        <td th:text="${fee.feeType.label()}"></td>
+                        <td class="amount" th:text="${#numbers.formatDecimal(fee.amountDue,1,'COMMA',0,'POINT')} + ' FCFA'"></td>
+                        <td class="amount amount-in" th:text="${#numbers.formatDecimal(fee.amountPaid,1,'COMMA',0,'POINT')} + ' FCFA'"></td>
+                        <td class="amount" th:classappend="${fee.balance.compareTo(T(java.math.BigDecimal).ZERO) > 0 ? 'amount-out' : 'amount-in'}"
+                            th:text="${#numbers.formatDecimal(fee.balance,1,'COMMA',0,'POINT')} + ' FCFA'"></td>
+                        <td>
+                            <span th:if="${fee.fullyPaid}" class="badge bg-success">Payé</span>
+                            <span th:unless="${fee.fullyPaid}" class="badge bg-warning text-dark">En cours</span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
 
-        <!-- Record fee payment -->
-        <div class="card border-0 shadow-sm mt-3" sec:authorize="hasAuthority('MEMBERSHIP_FEE_RECORD')">
-            <div class="card-header bg-secondary text-white fw-semibold">Enregistrer un paiement</div>
-            <div class="card-body">
-                <form th:action="@{/members/{id}/fees(id=${member.id})}"
-                      th:object="${feePaymentForm}" method="post" class="row g-2 align-items-end">
-                    <div class="col-md-5">
-                        <label class="form-label fw-semibold small">Type de frais</label>
-                        <select class="form-select form-select-sm" th:field="*{feeType}">
-                            <option th:each="t : ${feeTypes}" th:value="${t}" th:text="${t.label()}"></option>
-                        </select>
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label fw-semibold small">Montant (FCFA)</label>
-                        <input type="number" class="form-control form-control-sm"
-                               th:field="*{amount}" min="1" placeholder="ex: 5000">
-                    </div>
-                    <div class="col-md-3">
-                        <button type="submit" class="btn btn-success btn-sm w-100">
-                            <i class="bi bi-plus-circle me-1"></i>Enregistrer
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Status change -->
-    <div class="col-12" sec:authorize="hasAuthority('MEMBER_CHANGE_STATUS')">
-        <div class="card border-0 shadow-sm">
-            <div class="card-header bg-secondary text-white fw-semibold">Changer le statut</div>
-            <div class="card-body">
-                <form th:action="@{/members/{id}/status(id=${member.id})}" method="post"
-                      class="d-flex gap-2 align-items-center">
-                    <select name="newStatus" class="form-select w-auto">
-                        <option th:each="s : ${memberStatuses}"
-                                th:value="${s}" th:text="${s.name()}"
-                                th:selected="${s == member.status}"></option>
+        <!-- Enregistrer un paiement -->
+        <div sec:authorize="hasAuthority('MEMBERSHIP_FEE_RECORD')" class="mt-3 pt-3 border-top">
+            <label class="form-label fw-semibold small">Enregistrer un paiement</label>
+            <form th:action="@{/members/{id}/fees(id=${member.id})}"
+                  th:object="${feePaymentForm}" method="post" class="row g-2 align-items-end">
+                <div class="col-md-5">
+                    <select class="form-select form-select-sm" th:field="*{feeType}">
+                        <option th:each="t : ${feeTypes}" th:value="${t}" th:text="${t.label()}"></option>
                     </select>
-                    <button type="submit" class="btn btn-warning">
-                        <i class="bi bi-arrow-repeat me-1"></i>Appliquer
+                </div>
+                <div class="col-md-4">
+                    <div class="input-group input-group-sm">
+                        <input type="number" class="form-control" th:field="*{amount}"
+                               min="1" placeholder="Montant">
+                        <span class="input-group-text">FCFA</span>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-success btn-sm w-100">
+                        <i class="bi bi-plus-circle me-1"></i>Enregistrer
                     </button>
-                </form>
-            </div>
+                </div>
+            </form>
         </div>
     </div>
 
-</div><!-- /row -->
+    <!-- ── Onglet Historique présences ──────────────────── -->
+    <div class="tab-pane fade" id="history">
+        <p class="text-muted mb-0 py-3 text-center">
+            <i class="bi bi-info-circle me-1"></i>
+            L'historique de présence détaillé par membre est consultable depuis les
+            <a th:href="@{/sessions}">séances</a> et les
+            <a th:href="@{/presence-tours}" sec:authorize="hasAuthority('SESSION_VIEW')">tours de présence</a>.
+        </p>
+    </div>
+
+    <!-- ── Onglet Sanctions ─────────────────────────────── -->
+    <div class="tab-pane fade" id="sanctions">
+        <p class="text-muted mb-0 py-3 text-center">
+            <i class="bi bi-info-circle me-1"></i>
+            Les sanctions de ce membre sont consultables depuis le module
+            <a th:href="@{/sanctions}" sec:authorize="hasAuthority('SANCTION_VIEW')">Sanctions</a>.
+        </p>
+    </div>
+
+    <!-- ── Onglet Banque ────────────────────────────────── -->
+    <div class="tab-pane fade" id="bank" sec:authorize="hasAuthority('BANK_VIEW')">
+        <p class="text-muted mb-0 py-3 text-center">
+            <i class="bi bi-info-circle me-1"></i>
+            Le compte bancaire de ce membre est consultable depuis le module
+            <a th:href="@{/bank}">Banque Annuelle</a>.
+        </p>
+    </div>
+
+</div>
+
 </th:block></body></html>

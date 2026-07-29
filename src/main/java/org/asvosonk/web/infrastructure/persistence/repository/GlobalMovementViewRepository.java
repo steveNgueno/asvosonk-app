@@ -42,9 +42,18 @@ public class GlobalMovementViewRepository {
 
     @SuppressWarnings("unchecked")
     public List<GlobalMovementView> searchByKeyword(Long memberId, String keyword) {
+        // F-17: the member clause must only contribute when an id is actually
+        // provided. The previous `(:memberId IS NULL OR member_id = :memberId) OR ...`
+        // made the whole predicate TRUE for the common text-search case
+        // (memberId null), returning every recent movement instead of matches.
+        // `:memberId IS NOT NULL AND ...` keeps the numeric cross-reference
+        // (a member's rows still surface) without swallowing the keyword filter.
+        // CAST(... AS bigint) is required: the named parameter appears in a
+        // bare `IS NOT NULL` position where PostgreSQL cannot infer its type
+        // ("could not determine data type of parameter").
         String sql = """
             SELECT * FROM global_movement_view
-            WHERE (:memberId IS NULL OR member_id = :memberId)
+            WHERE (CAST(:memberId AS bigint) IS NOT NULL AND member_id = :memberId)
                OR module ILIKE :keyword
                OR status ILIKE :keyword
             ORDER BY event_date DESC
@@ -58,13 +67,36 @@ public class GlobalMovementViewRepository {
 
     @SuppressWarnings("unchecked")
     private List<GlobalMovementView> mapResults(List<Object[]> rows) {
+        // View column order is: module, reference_id, member_id, event_date,
+        // amount, status. The constructor takes (referenceId, module, memberId,
+        // ...), so referenceId=row[1] and module=row[0] — they must NOT be
+        // read as row[0]/row[1] respectively (that threw ClassCastException on
+        // any non-empty result: module String read as a Number).
         return rows.stream().map(row -> new GlobalMovementView(
-            row[0] != null ? ((Number) row[0]).longValue() : null,
-            (String) row[1],
+            row[1] != null ? ((Number) row[1]).longValue() : null,
+            (String) row[0],
             row[2] != null ? ((Number) row[2]).longValue() : null,
-            row[3] != null ? ((java.sql.Date) row[3]).toLocalDate() : null,
-            row[4] != null ? ((Number) row[4]).doubleValue() != 0 ? BigDecimal.valueOf(((Number) row[4]).doubleValue()) : BigDecimal.ZERO : null,
+            row[3] != null ? toLocalDate(row[3]) : null,
+            row[4] != null ? BigDecimal.valueOf(((Number) row[4]).doubleValue()) : null,
             (String) row[5]
         )).toList();
+    }
+
+    /**
+     * Safely converts a raw query result to LocalDate, handling both
+     * java.sql.Date (older JDBC driver) and java.time.LocalDate (PG 42.x+).
+     */
+    private java.time.LocalDate toLocalDate(Object value) {
+        if (value instanceof java.time.LocalDate) {
+            return (java.time.LocalDate) value;
+        }
+        if (value instanceof java.sql.Date) {
+            return ((java.sql.Date) value).toLocalDate();
+        }
+        if (value instanceof java.sql.Timestamp) {
+            return ((java.sql.Timestamp) value).toLocalDateTime().toLocalDate();
+        }
+        throw new IllegalArgumentException(
+            "Cannot convert " + value.getClass().getName() + " to LocalDate: " + value);
     }
 }

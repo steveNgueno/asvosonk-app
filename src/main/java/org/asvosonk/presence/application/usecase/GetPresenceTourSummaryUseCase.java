@@ -49,8 +49,11 @@ public class GetPresenceTourSummaryUseCase {
     }
 
     public boolean allParticipantsBenefited(Long tourId) {
-        return participantRepository.findByTourIdOrderByDrawOrder(tourId).stream()
-            .allMatch(PresenceTourParticipant::isHasBenefited);
+        // F-57 — an empty tour has no beneficiaries; allMatch on an empty stream
+        // returns true, which would falsely report the tour as complete.
+        var participants = participantRepository.findByTourIdOrderByDrawOrder(tourId);
+        return !participants.isEmpty()
+            && participants.stream().allMatch(PresenceTourParticipant::isHasBenefited);
     }
 
     public long countBenefited(Long tourId) {

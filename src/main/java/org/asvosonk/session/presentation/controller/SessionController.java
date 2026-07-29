@@ -4,6 +4,7 @@ import jakarta.persistence.EntityManager;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.asvosonk.common.domain.exception.BusinessRuleException;
+import org.asvosonk.common.domain.exception.ResourceNotFoundException;
 import org.asvosonk.member.application.usecase.SearchMemberUseCase;
 import org.asvosonk.member.domain.model.Member;
 import org.asvosonk.presence.application.usecase.GetCurrentPresenceBeneficiaryUseCase;
@@ -90,7 +91,7 @@ public class SessionController {
         var openTour = getPresenceTourSummaryUseCase.findCurrentOpenTour();
         if (openTour != null) {
             model.addAttribute("presenceOpenTour", openTour);
-            var nextBeneficiary = getCurrentPresenceBeneficiaryUseCase.execute();
+            var nextBeneficiary = getCurrentPresenceBeneficiaryUseCase.peekNextBeneficiary();
             if (nextBeneficiary != null) {
                 model.addAttribute("nextPresenceBeneficiary",
                     searchMemberUseCase.findById(nextBeneficiary.getMemberId()));
@@ -173,16 +174,10 @@ public class SessionController {
      */
     private int computeDisplayStepIndex(SessionStep step) {
         return switch (step) {
-            case CREATED               -> 0; // Agenda
-            case PRESENCE_OPEN,
-                 PRESENCE_CLOSED       -> 1; // Présence
-            case TONTINE_OPEN,
-                 TONTINE_CLOSED        -> 2; // Grande Tontine
-            case BANQUE_PROJET_OPEN,
-                 BANQUE_PROJET_CLOSED  -> 3; // Banque Projet
-            case BANQUE_ANNUELLE_OPEN,
-                 BANQUE_ANNUELLE_CLOSED -> 4; // Banque Annuelle
-            case REPORT_GENERATED      -> 5; // Rapport
+            case CREATED                        -> 0; // Agenda
+            case PRESENCE_OPEN, PRESENCE_CLOSED -> 1; // Présence
+            case TONTINE_OPEN, TONTINE_CLOSED   -> 2; // Grande Tontine
+            case REPORT_GENERATED               -> 3; // Rapport
         };
     }
 
@@ -290,9 +285,12 @@ public class SessionController {
 
     private String transitionToNext(Long id, UserDetailsImpl user,
                                      RedirectAttributes ra, String successMsg,
-                                     String errorRedirect) {
+                                     String errorRedirect, SessionStep expectedCurrent) {
         try {
-            sessionStepService.transitionToNext(id, user.getAppUser());
+            // F-10 : each endpoint declares the step it expects the session to be
+            // on. A stale re-post (double-click, back button) whose step already
+            // advanced is rejected instead of replaying the financial transition.
+            sessionStepService.transitionToNext(id, user.getAppUser(), expectedCurrent);
             ra.addFlashAttribute("successMessage", successMsg);
         } catch (BusinessRuleException | IllegalStateException e) {
             ra.addFlashAttribute("errorMessage", e.getMessage());
@@ -308,7 +306,7 @@ public class SessionController {
                                 RedirectAttributes ra) {
         return transitionToNext(id, user, ra,
             "Saisie de présence ouverte.",
-            "/sessions/" + id);
+            "/sessions/" + id, SessionStep.CREATED);
     }
 
     @PostMapping("/{id}/presence/close")
@@ -317,7 +315,7 @@ public class SessionController {
                                  @AuthenticationPrincipal UserDetailsImpl user,
                                  RedirectAttributes ra) {
         try {
-            sessionStepService.transitionToNext(id, user.getAppUser());
+            sessionStepService.transitionToNext(id, user.getAppUser(), SessionStep.PRESENCE_OPEN);
             ra.addFlashAttribute("successMessage", "Présence clôturée avec succès.");
             return "redirect:/sessions/" + id;
         } catch (BusinessRuleException | IllegalStateException e) {
@@ -333,7 +331,7 @@ public class SessionController {
                                RedirectAttributes ra) {
         return transitionToNext(id, user, ra,
             "Grande tontine ouverte.",
-            "/sessions/" + id);
+            "/sessions/" + id, SessionStep.PRESENCE_CLOSED);
     }
 
     @PostMapping("/{id}/tontine/close")
@@ -343,47 +341,7 @@ public class SessionController {
                                 RedirectAttributes ra) {
         return transitionToNext(id, user, ra,
             "Grande tontine clôturée.",
-            "/sessions/" + id);
-    }
-
-    @PostMapping("/{id}/banque-projet/open")
-    @PreAuthorize("hasAuthority('BANK_VIEW')")
-    public String openBanqueProjet(@PathVariable Long id,
-                                    @AuthenticationPrincipal UserDetailsImpl user,
-                                    RedirectAttributes ra) {
-        return transitionToNext(id, user, ra,
-            "Banque projet ouverte.",
-            "/sessions/" + id);
-    }
-
-    @PostMapping("/{id}/banque-projet/close")
-    @PreAuthorize("hasAuthority('BANK_VIEW')")
-    public String closeBanqueProjet(@PathVariable Long id,
-                                     @AuthenticationPrincipal UserDetailsImpl user,
-                                     RedirectAttributes ra) {
-        return transitionToNext(id, user, ra,
-            "Banque projet clôturée.",
-            "/sessions/" + id);
-    }
-
-    @PostMapping("/{id}/banque-annuelle/open")
-    @PreAuthorize("hasAuthority('BANK_VIEW')")
-    public String openBanqueAnnuelle(@PathVariable Long id,
-                                      @AuthenticationPrincipal UserDetailsImpl user,
-                                      RedirectAttributes ra) {
-        return transitionToNext(id, user, ra,
-            "Banque annuelle ouverte.",
-            "/sessions/" + id);
-    }
-
-    @PostMapping("/{id}/banque-annuelle/close")
-    @PreAuthorize("hasAuthority('BANK_VIEW')")
-    public String closeBanqueAnnuelle(@PathVariable Long id,
-                                       @AuthenticationPrincipal UserDetailsImpl user,
-                                       RedirectAttributes ra) {
-        return transitionToNext(id, user, ra,
-            "Banque annuelle clôturée.",
-            "/sessions/" + id);
+            "/sessions/" + id, SessionStep.TONTINE_OPEN);
     }
 
     // ── Tontine contribution within session ────────────────
@@ -407,7 +365,10 @@ public class SessionController {
                     "Échec de cotisation enregistré.");
             }
             markBenefitedUseCase.execute(tourId, beneficiaryId);
-        } catch (Exception e) {
+        } catch (BusinessRuleException | ResourceNotFoundException | IllegalArgumentException e) {
+            // F-49 : n'exposer que des messages métier. Toute autre erreur technique
+            // (ex. violation SQL inattendue) remonte au GlobalExceptionHandler plutôt
+            // que d'afficher un message SQL brut à l'utilisateur.
             ra.addFlashAttribute("errorMessage", e.getMessage());
         }
         return "redirect:/sessions/" + id;
@@ -422,7 +383,7 @@ public class SessionController {
                                   RedirectAttributes ra) {
         return transitionToNext(id, user, ra,
             "Rapport de séance généré.",
-            "/sessions/" + id + "/report");
+            "/sessions/" + id + "/report", SessionStep.TONTINE_CLOSED);
     }
 
     // ── View Report ─────────────────────────────────────────

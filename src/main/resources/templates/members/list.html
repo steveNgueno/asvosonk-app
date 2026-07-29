@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="fr" xmlns:th="http://www.thymeleaf.org"
                xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
-      th:replace="~{layout :: layout(pageTitle='Membres', content=~{::main-content}, extraHead=~{}, extraScripts=~{})}">
+      th:replace="~{layout :: layout(pageTitle='Membres', content=~{::main-content}, extraHead=~{}, extraScripts=~{::extraScripts})}">
 <body><th:block th:fragment="main-content">
 
 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -15,6 +15,22 @@
     </a>
 </div>
 
+<!-- ── Barre de filtres (UI-004) ────────────────────────── -->
+<div class="d-flex flex-wrap gap-2 mb-3 align-items-center">
+    <input type="text" id="searchMember" class="form-control form-control-sm"
+           placeholder="🔍 Rechercher un membre..." style="max-width:250px">
+    <select id="filterStatus" class="form-select form-select-sm" style="width:auto">
+        <option value="">Tous les statuts</option>
+        <option value="active">Actifs</option>
+        <option value="suspended">Suspendus</option>
+        <option value="resigned">Démissionnés</option>
+        <option value="deceased">Décédés</option>
+    </select>
+    <span class="text-muted small ms-auto" id="memberCount">
+        <span th:text="${members.size()}">0</span> membre(s)
+    </span>
+</div>
+
 <div class="card border-0 shadow-sm">
     <div class="table-responsive">
         <table class="table table-hover mb-0">
@@ -24,20 +40,25 @@
                     <th>Téléphone</th>
                     <th>Date d'adhésion</th>
                     <th>Résident</th>
+                    <th>Frais</th>
                     <th>Statut</th>
                     <th></th>
                 </tr>
             </thead>
             <tbody>
                 <tr th:if="${members.empty}">
-                    <td colspan="6" class="text-center text-muted py-4">Aucun membre enregistré</td>
+                    <td colspan="7" class="text-center text-muted py-4">Aucun membre enregistré</td>
                 </tr>
-                <tr th:each="m : ${members}">
-                    <td class="fw-semibold" th:text="${m.fullName}"></td>
+                <tr th:each="m : ${members}" th:attr="data-status=${m.status.name()}">
+                    <td class="fw-semibold member-name" th:text="${m.fullName}"></td>
                     <td th:text="${m.phone ?: '—'}"></td>
                     <td th:text="${#temporals.format(m.joinDate, 'dd/MM/yyyy')}"></td>
                     <td>
                         <i class="bi" th:classappend="${m.resident ? 'bi-check-circle-fill text-success' : 'bi-dash-circle text-muted'}"></i>
+                    </td>
+                    <td>
+                        <span class="badge bg-danger" th:if="${membersWithPendingFees.contains(m.id)}">Frais dus</span>
+                        <span class="badge bg-success" th:unless="${membersWithPendingFees.contains(m.id)}">À jour</span>
                     </td>
                     <td>
                         <span class="badge"
@@ -56,4 +77,37 @@
     </div>
 </div>
 
-</th:block></body></html>
+</th:block>
+
+<th:block th:fragment="extraScripts">
+<script>
+// Filtrage côté client : recherche par nom + filtre par statut (UI-004)
+(function () {
+    var search = document.getElementById('searchMember');
+    var statusFilter = document.getElementById('filterStatus');
+    var counter = document.getElementById('memberCount');
+    var rows = Array.prototype.slice.call(
+        document.querySelectorAll('tbody tr[data-status]'));
+
+    function apply() {
+        var q = (search.value || '').toLowerCase();
+        var status = statusFilter.value;
+        var visible = 0;
+        rows.forEach(function (row) {
+            var nameEl = row.querySelector('.member-name');
+            var name = nameEl ? nameEl.textContent.toLowerCase() : '';
+            var matchName = name.indexOf(q) !== -1;
+            var matchStatus = !status || row.getAttribute('data-status') === status;
+            var show = matchName && matchStatus;
+            row.style.display = show ? '' : 'none';
+            if (show) visible++;
+        });
+        counter.innerHTML = visible + ' membre(s)';
+    }
+
+    search.addEventListener('input', apply);
+    statusFilter.addEventListener('change', apply);
+})();
+</script>
+</th:block>
+</body></html>

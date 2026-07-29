@@ -3,6 +3,11 @@ package org.asvosonk.session.domain.valueobject;
 /**
  * Defines the sequential workflow steps of a meeting session.
  * Each step must be completed before advancing to the next.
+ *
+ * <p>The Banque Projet / Banque Annuelle steps were removed (TICKET-SESSION-01):
+ * they were empty placeholders that blocked progression to the report and will
+ * be handled separately later. The workflow now goes directly from the Grande
+ * Tontine to the final report.
  */
 public enum SessionStep {
     CREATED,
@@ -10,10 +15,6 @@ public enum SessionStep {
     PRESENCE_CLOSED,
     TONTINE_OPEN,
     TONTINE_CLOSED,
-    BANQUE_PROJET_OPEN,
-    BANQUE_PROJET_CLOSED,
-    BANQUE_ANNUELLE_OPEN,
-    BANQUE_ANNUELLE_CLOSED,
     REPORT_GENERATED;
 
     /**
@@ -37,8 +38,7 @@ public enum SessionStep {
      * Whether this step is a financial "open" step that requires input.
      */
     public boolean isOpenStep() {
-        return this == PRESENCE_OPEN || this == TONTINE_OPEN
-            || this == BANQUE_PROJET_OPEN || this == BANQUE_ANNUELLE_OPEN;
+        return this == PRESENCE_OPEN || this == TONTINE_OPEN;
     }
 
     /**
@@ -58,10 +58,6 @@ public enum SessionStep {
             case PRESENCE_CLOSED    -> "Présence ✓";
             case TONTINE_OPEN       -> "Grande Tontine";
             case TONTINE_CLOSED     -> "Grande Tontine ✓";
-            case BANQUE_PROJET_OPEN -> "Banque Projet";
-            case BANQUE_PROJET_CLOSED -> "Banque Projet ✓";
-            case BANQUE_ANNUELLE_OPEN -> "Banque Annuelle";
-            case BANQUE_ANNUELLE_CLOSED -> "Banque Annuelle ✓";
             case REPORT_GENERATED   -> "Rapport";
         };
     }
@@ -76,10 +72,6 @@ public enum SessionStep {
             case PRESENCE_CLOSED    -> "Présence ✓";
             case TONTINE_OPEN       -> "Grande Tontine";
             case TONTINE_CLOSED     -> "Grande Tontine ✓";
-            case BANQUE_PROJET_OPEN -> "Banque Projet";
-            case BANQUE_PROJET_CLOSED -> "Banque Projet ✓";
-            case BANQUE_ANNUELLE_OPEN -> "Banque Annuelle";
-            case BANQUE_ANNUELLE_CLOSED -> "Banque Annuelle ✓";
             case REPORT_GENERATED   -> "Rapport";
         };
     }
@@ -94,16 +86,12 @@ public enum SessionStep {
             case PRESENCE_CLOSED    -> "bi-clipboard-check";
             case TONTINE_OPEN       -> "bi-cash-stack";
             case TONTINE_CLOSED     -> "bi-cash-stack";
-            case BANQUE_PROJET_OPEN -> "bi-building";
-            case BANQUE_PROJET_CLOSED -> "bi-building";
-            case BANQUE_ANNUELLE_OPEN -> "bi-bank";
-            case BANQUE_ANNUELLE_CLOSED -> "bi-bank";
             case REPORT_GENERATED   -> "bi-file-earmark-bar-graph";
         };
     }
 
     /**
-     * Returns the six display steps for the stepper (collapsing open/closed pairs).
+     * Returns the display steps for the stepper (collapsing open/closed pairs).
      */
     public static DisplayStep[] displaySteps() {
         return DisplayStep.values();
@@ -113,12 +101,10 @@ public enum SessionStep {
      * Simplified display steps for the stepper UI.
      */
     public enum DisplayStep {
-        AGENDA("Ordre du jour", "bi-calendar-check"),
-        PRESENCE("Présence", "bi-clipboard-check"),
+        AGENDA("Ordre du jour",   "bi-calendar-check"),
+        PRESENCE("Présence",      "bi-clipboard-check"),
         TONTINE("Grande Tontine", "bi-cash-stack"),
-        BANQUE_PROJET("Banque Projet", "bi-building"),
-        BANQUE_ANNUELLE("Banque Annuelle", "bi-bank"),
-        REPORT("Rapport", "bi-file-earmark-bar-graph");
+        REPORT("Rapport",         "bi-file-earmark-bar-graph");
 
         private final String label;
         private final String icon;

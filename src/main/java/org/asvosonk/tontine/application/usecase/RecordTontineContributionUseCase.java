@@ -59,6 +59,13 @@ public class RecordTontineContributionUseCase {
             throw new BusinessRuleException("Le tour de grande tontine est clôturé.");
         }
 
+        // F-32 — A member cannot contribute to themselves: that would create a
+        // self-referencing debt (debtor == creditor) and distort the rotation.
+        if (contributorId.equals(beneficiaryId)) {
+            throw new BusinessRuleException(
+                "Un membre ne peut pas cotiser pour lui-même.");
+        }
+
         // Both must be participants
         TontineParticipant contributor = participantRepository
             .findByTourIdAndMemberId(tourId, contributorId)
@@ -75,10 +82,36 @@ public class RecordTontineContributionUseCase {
             throw new BusinessRuleException("Le montant ne peut pas être négatif.");
         }
 
-        // Check if there's an existing debt from beneficiary to contributor
+        // F-49 : idempotence anti double-clic. La table impose UNIQUE(tour, session,
+        // contributor, beneficiary) ; sans détection préalable, un second envoi lèverait
+        // une violation d'unicité SQL exposée brute à l'utilisateur. On la traduit en
+        // message métier clair et on refuse le doublon.
+        boolean alreadyRecorded = contributionRepository
+            .findByTourIdAndSessionId(tourId, sessionId).stream()
+            .anyMatch(c -> contributorId.equals(c.getContributorId())
+                        && beneficiaryId.equals(c.getBeneficiaryId()));
+        if (alreadyRecorded) {
+            throw new BusinessRuleException(
+                "Cette cotisation a déjà été enregistrée pour cette séance.");
+        }
+
+        // F-07 — Debt orientation invariant:
+        //   A debt is stored as debtor = the member who RECEIVED (beneficiary),
+        //   creditor = the member who GAVE (contributor).  See Case 3 below,
+        //   which creates `new TontineDebt(..., beneficiaryId, contributorId, ...)`.
+        //
+        // To SETTLE a debt, the current contributor must be its DEBTOR: in a
+        // later session they pay back the member who previously funded them.
+        //   e.g. S1 benef=A, B pays  → debt (debtor=A, creditor=B)
+        //        S2 benef=B, A pays  → settles that debt: debtor=A, creditor=B
+        //
+        // The lookup therefore keys on (debtor = current contributor,
+        // creditor = current beneficiary). The previous code searched the SAME
+        // orientation as creation (debtor=beneficiary, creditor=contributor),
+        // never matched, and piled up a mirror debt that was never repaid.
         Optional<TontineDebt> existingDebt = debtRepository
             .findByTourIdAndDebtorIdAndCreditorIdAndStatus(
-                tourId, beneficiaryId, contributorId, DebtStatus.owed);
+                tourId, contributorId, beneficiaryId, DebtStatus.owed);
 
         // ── Case 1: Default (amount = 0) ─────────────────────
         if (amount.compareTo(BigDecimal.ZERO) == 0) {

@@ -19,7 +19,8 @@ public class MeetingSessionMapper {
             entity.getClosedAt(),
             entity.getCreatedBy() != null ? entity.getCreatedBy().getId() : null,
             entity.getCreatedAt(),
-            entity.getUpdatedAt()
+            entity.getUpdatedAt(),
+            entity.getCurrentStepEnum()
         );
     }
 
@@ -31,6 +32,9 @@ public class MeetingSessionMapper {
         entity.setStatus(domain.getStatus());
         entity.setAgenda(domain.getAgenda());
         entity.setClosedAt(domain.getClosedAt());
+        if (domain.getCurrentStep() != null) {
+            entity.setCurrentStepEnum(domain.getCurrentStep());
+        }
         return entity;
     }
 }

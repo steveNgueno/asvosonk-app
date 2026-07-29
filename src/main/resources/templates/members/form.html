@@ -15,7 +15,8 @@
             <div class="mb-3">
                 <label class="form-label fw-semibold">Nom complet *</label>
                 <input type="text" class="form-control" th:field="*{fullName}"
-                       th:classappend="${#fields.hasErrors('fullName')} ? 'is-invalid'">
+                       th:classappend="${#fields.hasErrors('fullName')} ? 'is-invalid'"
+                       placeholder="ex : DUPONT Jean-Pierre">
                 <div class="invalid-feedback" th:errors="*{fullName}"></div>
             </div>
 
@@ -29,6 +30,10 @@
                 <input type="date" class="form-control" th:field="*{joinDate}"
                        th:classappend="${#fields.hasErrors('joinDate')} ? 'is-invalid'">
                 <div class="invalid-feedback" th:errors="*{joinDate}"></div>
+                <div class="form-text">
+                    <i class="bi bi-info-circle me-1"></i>
+                    Date à laquelle le membre a intégré l'association
+                </div>
             </div>
 
             <div class="mb-3 form-check">

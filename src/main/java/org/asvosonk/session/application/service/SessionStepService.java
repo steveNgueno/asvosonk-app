@@ -60,10 +60,36 @@ public class SessionStepService {
      */
     @Transactional
     public MeetingSessionEntity transitionToNext(Long sessionId, AppUser user) {
-        MeetingSessionEntity session = sessionService.findById(sessionId);
-        SessionStep current = session.getCurrentStepEnum();
-        SessionStep next = current.next();
+        return transitionToNext(sessionId, user, null);
+    }
 
+    /**
+     * Advance the session to the next workflow step, idempotently (F-10).
+     *
+     * <p>Protections against replay / double-submit:
+     * <ul>
+     *   <li>the session row is loaded under a PESSIMISTIC_WRITE lock, so two
+     *       concurrent submits are serialized;</li>
+     *   <li>a session already at the final step is rejected;</li>
+     *   <li>if {@code expectedCurrent} is provided (PRG token from the form),
+     *       it must match the actual current step — a stale re-post whose step
+     *       has already advanced is rejected instead of triggering another
+     *       financial transition.</li>
+     * </ul>
+     */
+    @Transactional
+    public MeetingSessionEntity transitionToNext(Long sessionId, AppUser user, SessionStep expectedCurrent) {
+        // Pessimistic lock: serialize concurrent transitions on this session.
+        MeetingSessionEntity session = sessionService.findByIdForUpdate(sessionId);
+        SessionStep current = session.getCurrentStepEnum();
+
+        // Idempotence guard: reject a replay whose expected step no longer matches.
+        if (expectedCurrent != null && current != expectedCurrent) {
+            throw new BusinessRuleException(
+                "Cette étape a déjà été traitée (étape courante : " + current.label() + ").");
+        }
+
+        SessionStep next = current.next();
         if (next == null) {
             throw new BusinessRuleException("La séance a déjà atteint l'étape finale.");
         }
@@ -84,10 +110,6 @@ public class SessionStepService {
             case PRESENCE_CLOSED    -> closePresence(session, user);
             case TONTINE_OPEN       -> { }
             case TONTINE_CLOSED     -> closeTontine(session, user);
-            case BANQUE_PROJET_OPEN -> { }
-            case BANQUE_PROJET_CLOSED -> session.setBanqueProjetClosedAt(LocalDateTime.now());
-            case BANQUE_ANNUELLE_OPEN -> { }
-            case BANQUE_ANNUELLE_CLOSED -> session.setBanqueAnnuelleClosedAt(LocalDateTime.now());
             case REPORT_GENERATED   -> generateReport(session, user);
             default                 -> { }
         }
@@ -96,7 +118,7 @@ public class SessionStepService {
     // ── PRESENCE_OPEN ─────────────────────────────────────────
 
     private void openPresence(MeetingSessionEntity session) {
-        var beneficiary = getCurrentPresenceBeneficiaryUseCase.execute();
+        var beneficiary = getCurrentPresenceBeneficiaryUseCase.peekNextBeneficiary();
         if (beneficiary != null) {
             MemberEntity memberEntity = entityManager.getReference(MemberEntity.class, beneficiary.getMemberId());
             session.setPresenceBeneficiary(memberEntity);
@@ -154,23 +176,34 @@ public class SessionStepService {
         BigDecimal totalSanctionDeductions = BigDecimal.ZERO;
 
         if (beneficiaryEntity != null) {
+            // F-06 : on ne peut retenir sur la tontine du bénéficiaire QUE ce que
+            // cette tontine contient réellement. Créditer la caisse du total des
+            // sanctions alors que la tontine nette est plafonnée à 0 fabriquerait
+            // de l'argent. On solde donc les sanctions les plus anciennes d'abord,
+            // dans la limite du montant de tontine disponible.
             TypedQuery<SanctionEntity> sQuery = entityManager.createQuery(
-                "SELECT s FROM SanctionEntity s WHERE s.member.id = :memberId AND s.status = :status ORDER BY s.sanctionDate DESC",
+                "SELECT s FROM SanctionEntity s WHERE s.member.id = :memberId AND s.status = :status ORDER BY s.sanctionDate ASC",
                 SanctionEntity.class);
             sQuery.setParameter("memberId", beneficiaryEntity.getId());
             sQuery.setParameter("status", SanctionStatus.unpaid);
             List<SanctionEntity> unpaidSanctions = sQuery.getResultList();
 
-            totalSanctionDeductions = unpaidSanctions.stream()
-                .map(SanctionEntity::getAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+            // @TODO-BUREAU : politique de couverture partielle. Choix actuel (sûr) :
+            // une sanction n'est soldée que si la tontine disponible la couvre
+            // ENTIÈREMENT ; aucun paiement partiel n'est enregistré. À confirmer.
+            BigDecimal available = totalTontine;   // montant de tontine mobilisable
+            for (SanctionEntity s : unpaidSanctions) {
+                if (available.compareTo(s.getAmount()) < 0) {
+                    break;   // plus assez de tontine pour couvrir cette sanction (ni les suivantes)
+                }
+                s.setStatus(SanctionStatus.paid);
+                s.setPaymentDate(LocalDate.now());
+                entityManager.merge(s);
+                available = available.subtract(s.getAmount());
+                totalSanctionDeductions = totalSanctionDeductions.add(s.getAmount());
+            }
 
             if (totalSanctionDeductions.compareTo(BigDecimal.ZERO) > 0) {
-                for (SanctionEntity s : unpaidSanctions) {
-                    s.setStatus(SanctionStatus.paid);
-                    s.setPaymentDate(LocalDate.now());
-                    entityManager.merge(s);
-                }
                 cashboxService.credit(CashboxType.sanction, totalSanctionDeductions,
                     "Sanctions retenues sur tontine de présence",
                     MovementOrigin.sanction, session, beneficiaryEntity, null, user);

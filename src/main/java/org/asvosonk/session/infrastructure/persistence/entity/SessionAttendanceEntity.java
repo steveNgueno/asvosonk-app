@@ -41,7 +41,7 @@ public class SessionAttendanceEntity {
 
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(name = "attendance_status", nullable = false)
+    @Column(name = "attendance_status", nullable = false, columnDefinition = "attendance_status")
     private AttendanceStatus attendanceStatus = AttendanceStatus.up_to_date;
 
     @Column(name = "created_at", nullable = false, updatable = false)

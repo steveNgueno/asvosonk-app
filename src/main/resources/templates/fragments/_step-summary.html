@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org">
+<!--
+  Fragment réutilisable : carte de confirmation après clôture d'une étape (UI-008).
+  Usage :
+    th:replace="~{fragments/_step-summary :: stepSummary(
+        title        = 'Présence clôturée ✓',
+        beneficiary  = ${presenceBeneficiaryName},
+        netTontine   = ${netTontine},
+        development  = ${totalDevelopment},
+        beverage     = ${beverageReliquat},
+        nextLabel    = 'Passer à la Grande Tontine',
+        nextAction   = @{/sessions/{id}/tontine/open(id=${session.id})}
+    )}"
+  Les montants sont des BigDecimal/Number ; le formatage est fait ici.
+-->
+<body>
+<th:block th:fragment="stepSummary(title, beneficiary, netTontine, development, beverage, nextLabel, nextAction)">
+
+    <div class="card border-0 shadow-sm mb-4"
+         style="border-left: 5px solid var(--color-success)">
+        <div class="card-body">
+            <div class="d-flex align-items-center gap-3 mb-2">
+                <i class="bi bi-check-circle-fill text-success fs-3"></i>
+                <div>
+                    <h5 class="mb-0" th:text="${title}">Étape clôturée ✓</h5>
+                    <small class="text-muted">Les calculs ont été effectués automatiquement</small>
+                </div>
+            </div>
+            <div class="row g-2 mt-1">
+                <div class="col-6 col-md-3">
+                    <div class="bg-light rounded p-2 text-center">
+                        <div class="small text-muted">Bénéficiaire</div>
+                        <div class="fw-bold" th:text="${beneficiary ?: '—'}">—</div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="bg-light rounded p-2 text-center">
+                        <div class="small text-muted">Tontine remise</div>
+                        <div class="fw-bold amount amount-in"
+                             th:text="${netTontine != null ? #numbers.formatDecimal(netTontine,1,'COMMA',0,'POINT') + ' FCFA' : '—'}">—</div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="bg-light rounded p-2 text-center">
+                        <div class="small text-muted">Développement</div>
+                        <div class="fw-bold amount amount-in"
+                             th:text="${development != null ? #numbers.formatDecimal(development,1,'COMMA',0,'POINT') + ' FCFA' : '—'}">—</div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="bg-light rounded p-2 text-center">
+                        <div class="small text-muted">Reliquat boisson</div>
+                        <div class="fw-bold amount"
+                             th:text="${beverage != null ? #numbers.formatDecimal(beverage,1,'COMMA',0,'POINT') + ' FCFA' : '—'}">—</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-end" th:if="${nextAction != null}">
+        <form th:action="${nextAction}" method="post">
+            <button type="submit" class="btn btn-primary btn-lg">
+                <span th:text="${nextLabel}">Étape suivante</span>
+                <i class="bi bi-arrow-right ms-2"></i>
+            </button>
+        </form>
+    </div>
+
+</th:block>
+</body>
+</html>

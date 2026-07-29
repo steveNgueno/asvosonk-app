@@ -89,24 +89,31 @@ function setAll(present) {
     </a>
 </div>
 
-<!-- ── Stepper 5 étapes (sans Agenda) ────────────── -->
-<div class="stepper mb-4">
+<!-- ── Stepper ─────────────────────────────────────── -->
+<div class="stepper-wrapper">
+  <div class="stepper">
     <th:block th:each="ds, iter : ${displaySteps}">
-        <th:block th:if="${iter.index > 0}">
-            <th:block th:if="${iter.index > 1}">
-                <div class="stepper-divider">›</div>
-            </th:block>
-            <div class="stepper-step"
-                 th:classappend="${iter.index < currentDisplayStepIdx} ? 'done' :
-                                 (${iter.index == currentDisplayStepIdx} ? 'active' : '')">
-                <span class="icon">
-                    <i class="bi"
-                       th:classappend="${iter.index < currentDisplayStepIdx} ? 'bi-check-circle-fill' : ${ds.icon}"></i>
-                </span>
-                <span th:text="${ds.label}">Step</span>
-            </div>
-        </th:block>
+
+      <!-- Connector avant chaque step (sauf le premier) -->
+      <div th:unless="${iter.first}" class="stepper-connector"
+           th:classappend="${iter.index <= currentDisplayStepIdx} ? 'done' : ''">
+      </div>
+
+      <!-- Step circle + label -->
+      <div class="stepper-step"
+           th:classappend="${iter.index < currentDisplayStepIdx} ? 'done' :
+                           (${iter.index == currentDisplayStepIdx} ? 'active' : '')">
+        <div class="step-circle">
+          <i class="bi"
+             th:classappend="${iter.index < currentDisplayStepIdx}
+                              ? 'bi-check-lg'
+                              : ${ds.icon}"></i>
+        </div>
+        <span class="step-label" th:text="${ds.label}"></span>
+      </div>
+
     </th:block>
+  </div>
 </div>
 
 <!-- ── Beneficiary info alert ──────────────────────── -->

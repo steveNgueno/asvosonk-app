@@ -33,11 +33,14 @@
 
                     <div class="mb-3">
                         <label class="form-label">Montant (FCFA)</label>
-                        <input type="number" th:field="*{amount}" class="form-control"
-                               th:classappend="${#fields.hasErrors('amount') ? 'is-invalid' : ''}"
-                               min="1" step="1">
-                        <div class="invalid-feedback" th:if="${#fields.hasErrors('amount')}"
-                             th:errors="*{amount}">Erreur</div>
+                        <div class="input-group">
+                            <input type="number" th:field="*{amount}" class="form-control"
+                                   th:classappend="${#fields.hasErrors('amount') ? 'is-invalid' : ''}"
+                                   min="1" step="1" placeholder="Montant en FCFA">
+                            <span class="input-group-text">FCFA</span>
+                            <div class="invalid-feedback" th:if="${#fields.hasErrors('amount')}"
+                                 th:errors="*{amount}">Erreur</div>
+                        </div>
                     </div>
 
                     <div class="mb-3">
