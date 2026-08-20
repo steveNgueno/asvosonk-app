@@ -10,5 +10,6 @@ import java.util.List;
 public interface SpringDataTontineContributionRepository extends JpaRepository<TontineContributionEntity, Long> {
     List<TontineContributionEntity> findByTourIdOrderByCreatedAtDesc(Long tourId);
     List<TontineContributionEntity> findByTourIdAndSessionId(Long tourId, Long sessionId);
+    List<TontineContributionEntity> findBySessionIdOrderByIdAsc(Long sessionId);
     List<TontineContributionEntity> findByContributorIdAndTourId(Long contributorId, Long tourId);
 }

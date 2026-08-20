@@ -36,6 +36,24 @@ public class SessionAttendanceEntity {
     @Column(name = "amount_paid", nullable = false, precision = 10, scale = 2)
     private BigDecimal amountPaid = BigDecimal.ZERO;
 
+    /**
+     * Montant réellement dû par le membre pour cette séance : 2 000 FCFA en
+     * temps normal, 1 000 FCFA (boisson + développement, sans part de tontine)
+     * lorsque le bénéficiaire du jour a rejoint le tour après que ce membre a
+     * déjà bénéficié.
+     */
+    @Column(name = "amount_due", nullable = false, precision = 10, scale = 2)
+    private BigDecimal amountDue = new BigDecimal("2000");
+
+    /**
+     * Séance au cours de laquelle un échec sur CETTE séance a été recouvert.
+     * Tant qu'elle est nulle et que le statut est {@code default_status}, la
+     * séance reste due par le membre.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "recovered_session_id")
+    private MeetingSessionEntity recoveredSession;
+
     @Column(name = "covered_by_fund", nullable = false)
     private boolean coveredByFund = false;
 
@@ -52,4 +70,14 @@ public class SessionAttendanceEntity {
 
     @PreUpdate
     public void preUpdate() { this.updatedAt = LocalDateTime.now(); }
+
+    /** Part de tontine portée par cette cotisation (1 000 FCFA, ou 0 si le membre ne doit que la boisson + le développement). */
+    public BigDecimal tontineShare() {
+        return amountDue.subtract(new BigDecimal("1000")).max(BigDecimal.ZERO);
+    }
+
+    /** Échec de cotisation encore dû (ni recouvert en espèces, ni repris par le fond). */
+    public boolean isOpenFailure() {
+        return attendanceStatus == AttendanceStatus.default_status && recoveredSession == null;
+    }
 }

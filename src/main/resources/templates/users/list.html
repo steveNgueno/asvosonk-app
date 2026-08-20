@@ -1,72 +1,79 @@
 <!DOCTYPE html>
 <html lang="fr" xmlns:th="http://www.thymeleaf.org"
-      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
-      th:replace="~{layout :: layout(pageTitle=${pageTitle}, content=~{::main-content}, extraHead=~{}, extraScripts=~{})}">
-<body><th:block th:fragment="main-content">
+               xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      th:replace="~{layout :: layout(${pageTitle}, ~{::main-content}, ~{}, ~{})}">
+<body>
+<th:block th:fragment="main-content">
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <div class="page-header">
-        <h2><i class="bi bi-person-gear me-2"></i>Gestion des utilisateurs</h2>
-        <p>Comptes utilisateurs de l'application</p>
+<div class="page-head">
+    <div>
+        <h1><i class="bi bi-person-gear" aria-hidden="true"></i>Utilisateurs</h1>
+        <p class="page-subtitle">Comptes de connexion et rôles du bureau</p>
     </div>
-    <a sec:authorize="hasAuthority('USER_CREATE')"
-       th:href="@{/users/new}" class="btn btn-primary btn-sm">
-        <i class="bi bi-plus-circle me-1"></i>Nouvel utilisateur
-    </a>
+    <div class="page-actions" sec:authorize="hasAuthority('USER_CREATE')">
+        <a th:href="@{/users/new}" class="btn btn-primary">
+            <i class="bi bi-person-plus" aria-hidden="true"></i>Nouvel utilisateur
+        </a>
+    </div>
 </div>
 
-<div class="card border-0 shadow-sm">
-    <div class="table-responsive">
-        <table class="table table-sm mb-0">
+<div class="card">
+    <div class="table-wrap">
+        <table class="table table-hover">
+            <caption class="visually-hidden">Comptes utilisateurs de l'application</caption>
             <thead>
                 <tr>
-                    <th>Login</th>
-                    <th>Rôle</th>
-                    <th>Membre lié</th>
-                    <th class="text-center">Statut</th>
-                    <th>Dernière connexion</th>
-                    <th class="text-center">Actions</th>
+                    <th scope="col">Identifiant</th>
+                    <th scope="col">Rôle</th>
+                    <th scope="col">Membre lié</th>
+                    <th scope="col">État</th>
+                    <th scope="col">Dernière connexion</th>
+                    <th scope="col" class="text-end">Actions</th>
                 </tr>
             </thead>
             <tbody>
                 <tr th:each="u : ${users}">
-                    <td th:text="${u.login}"></td>
+                    <th scope="row" th:text="${u.login}">login</th>
+                    <td><span class="pill pill-brand" th:text="${u.role.name}">RÔLE</span></td>
+                    <td th:text="${u.member != null ? u.member.fullName : '—'}">—</td>
                     <td>
-                        <span class="badge bg-dark"
-                              th:text="${u.role.name}"></span>
+                        <span class="pill pill-success" th:if="${u.active}">
+                            <span class="dot dot-success" aria-hidden="true"></span>Actif
+                        </span>
+                        <span class="pill pill-muted" th:unless="${u.active}">Désactivé</span>
+                        <span class="pill pill-warning ms-1" th:if="${u.isLocked()}">
+                            <i class="bi bi-lock-fill" aria-hidden="true"></i>Verrouillé
+                        </span>
                     </td>
-                    <td th:text="${u.member != null ? u.member.fullName : '—'}"></td>
-                    <td class="text-center">
-                        <span class="badge"
-                              th:classappend="${u.active ? 'bg-success' : 'bg-secondary'}"
-                              th:text="${u.active ? 'Actif' : 'Désactivé'}"></span>
-                    </td>
-                    <td th:text="${u.lastLogin != null ? #temporals.format(u.lastLogin, 'dd/MM/yyyy HH:mm') : 'Jamais'}"></td>
-                    <td class="text-center">
-                        <div class="d-flex justify-content-center gap-1">
+                    <td th:text="${u.lastLogin != null ? #temporals.format(u.lastLogin,'dd/MM/yyyy HH:mm') : 'Jamais'}">—</td>
+                    <td class="text-end">
+                        <div class="d-flex justify-content-end gap-1">
                             <a sec:authorize="hasAuthority('USER_EDIT')"
                                th:href="@{/users/{id}/edit(id=${u.id})}"
-                               class="btn btn-sm btn-outline-primary" title="Modifier">
-                                <i class="bi bi-pencil"></i>
+                               class="btn btn-sm btn-outline-secondary">
+                                <i class="bi bi-pencil" aria-hidden="true"></i>Modifier
                             </a>
                             <form th:if="${u.active}"
                                   th:action="@{/users/{id}/deactivate(id=${u.id})}" method="post"
-                                  sec:authorize="hasAuthority('USER_DEACTIVATE')">
-                                <button type="submit" class="btn btn-sm btn-outline-danger"
-                                        title="Désactiver"
-                                        onclick="return confirm('Désactiver cet utilisateur ?')">
-                                    <i class="bi bi-person-x"></i>
+                                  sec:authorize="hasAuthority('USER_DEACTIVATE')"
+                                  data-confirm="Désactiver ce compte ? L'utilisateur ne pourra plus se connecter.">
+                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                    <i class="bi bi-person-x" aria-hidden="true"></i>Désactiver
                                 </button>
                             </form>
                         </div>
                     </td>
                 </tr>
-                <tr th:if="${#lists.isEmpty(users)}">
-                    <td colspan="6" class="text-center text-muted py-3">Aucun utilisateur</td>
-                </tr>
+                <tr th:replace="~{fragments/ui :: emptyRow(6, 'Aucun utilisateur', ${#lists.isEmpty(users)})}"></tr>
             </tbody>
         </table>
     </div>
+    <div class="card-footer text-muted small">
+        Le dernier compte PRESIDENT actif ne peut pas être désactivé.
+        Après 3 échecs de connexion, un compte est verrouillé 5 minutes.
+    </div>
 </div>
 
-</th:block></body></html>
+</th:block>
+</body>
+</html>

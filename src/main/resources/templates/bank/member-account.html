@@ -1,117 +1,123 @@
 <!DOCTYPE html>
 <html lang="fr" xmlns:th="http://www.thymeleaf.org"
-      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
-      th:replace="~{layout :: layout(pageTitle=${pageTitle}, content=~{::main-content}, extraHead=~{}, extraScripts=~{})}">
+               xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      th:replace="~{layout :: layout(${pageTitle}, ~{::main-content}, ~{}, ~{})}">
 <body>
 <th:block th:fragment="main-content">
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h1 class="h3 mb-0">
-        <i class="bi bi-wallet2 me-2"></i><span th:text="${member.fullName}"></span>
-    </h1>
-    <a th:href="@{/bank}" class="btn btn-outline-secondary btn-sm">
-        <i class="bi bi-arrow-left me-1"></i>Retour
-    </a>
-</div>
-
-<!-- ── Summary cards ──────────────────────────────────── -->
-<div class="row mb-4">
-    <div class="col-md-4">
-        <div class="card border-success">
-            <div class="card-body text-center">
-                <h6 class="card-subtitle text-muted">Total épargnes</h6>
-                <h3 class="text-success fw-bold mb-0 mt-2"
-                    th:text="${#numbers.formatDecimal(summary.totalSavings, 0, 'COMMA', 0, 'POINT')} + ' FCFA'">
-                </h3>
-            </div>
-        </div>
+<div class="page-head">
+    <div>
+        <h1><i class="bi bi-wallet2" aria-hidden="true"></i><span th:text="${member.fullName}">Membre</span></h1>
+        <p class="page-subtitle">Compte Banque Annuelle — épargnes et emprunts</p>
     </div>
-    <div class="col-md-4">
-        <div class="card border-warning">
-            <div class="card-body text-center">
-                <h6 class="card-subtitle text-muted">Emprunts en cours</h6>
-                <h3 class="text-warning fw-bold mb-0 mt-2" th:text="${summary.activeLoans.size()}"></h3>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card" th:classappend="${summary.eligibleForLoan} ? 'border-success' : 'border-secondary'">
-            <div class="card-body text-center">
-                <h6 class="card-subtitle text-muted">Éligible à l'emprunt</h6>
-                <h3 class="mb-0 mt-2">
-                    <span th:if="${summary.eligibleForLoan}" class="badge bg-success fs-6">
-                        <i class="bi bi-check-circle"></i> Oui
-                    </span>
-                    <span th:unless="${summary.eligibleForLoan}" class="badge bg-secondary fs-6">
-                        <i class="bi bi-x-circle"></i> Non
-                    </span>
-                </h3>
-            </div>
-        </div>
+    <div class="page-actions">
+        <a th:href="@{/members/{id}(id=${member.id})}" class="btn btn-outline-secondary">
+            <i class="bi bi-person" aria-hidden="true"></i>Fiche membre
+        </a>
+        <a th:href="@{/bank}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left" aria-hidden="true"></i>Banque
+        </a>
     </div>
 </div>
 
-<!-- ── Quick actions ───────────────────────────────────── -->
-<div class="d-flex gap-2 mb-4">
-    <!-- Record saving button -->
-    <button type="button" class="btn btn-success"
+<!-- ── Chiffres clés ────────────────────────────────────── -->
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="stat cashbox development">
+            <span class="stat-label">Total épargné</span>
+            <span class="stat-value money money-in">
+                <span th:text="${#numbers.formatInteger(summary.totalSavings,1,'WHITESPACE')}">0</span>
+                <span class="money-unit">FCFA</span>
+            </span>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat">
+            <span class="stat-label">Emprunts en cours</span>
+            <span class="stat-value" th:text="${#lists.size(summary.activeLoans)}">0</span>
+            <p class="stat-hint mb-0">2 emprunts simultanés maximum</p>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat" th:classappend="${summary.eligibleForLoan} ? 'cashbox bank' : ''">
+            <span class="stat-label">Éligibilité à l'emprunt</span>
+            <span class="stat-value sm">
+                <span class="pill pill-success" th:if="${summary.eligibleForLoan}">
+                    <i class="bi bi-check-circle" aria-hidden="true"></i>Éligible
+                </span>
+                <span class="pill pill-muted" th:unless="${summary.eligibleForLoan}">
+                    <i class="bi bi-x-circle" aria-hidden="true"></i>Non éligible
+                </span>
+            </span>
+            <p class="stat-hint mb-0">Membre actif, épargne existante, moins de 2 emprunts en cours</p>
+        </div>
+    </div>
+</div>
+
+<!-- ── Actions ──────────────────────────────────────────── -->
+<div class="d-flex flex-wrap gap-2 mb-5">
+    <button type="button" class="btn btn-primary"
             sec:authorize="hasAuthority('BANK_SAVING_RECORD')"
             data-bs-toggle="modal" data-bs-target="#savingModal">
-        <i class="bi bi-piggy-bank me-1"></i>Enregistrer une épargne
+        <i class="bi bi-piggy-bank" aria-hidden="true"></i>Enregistrer une épargne
     </button>
-
-    <!-- Create loan button -->
-    <button type="button" class="btn btn-warning"
+    <button type="button" class="btn btn-outline-primary"
             sec:authorize="hasAuthority('BANK_LOAN_CREATE')"
             th:if="${summary.eligibleForLoan}"
             data-bs-toggle="modal" data-bs-target="#loanModal">
-        <i class="bi bi-currency-exchange me-1"></i>Créer un emprunt
+        <i class="bi bi-currency-exchange" aria-hidden="true"></i>Créer un emprunt
     </button>
 </div>
 
-<!-- ── Active loans ────────────────────────────────────── -->
-<h5 class="mb-2">Emprunts actifs</h5>
-<div th:if="${#lists.isEmpty(summary.activeLoans)}" class="alert alert-info mb-4">
-    <i class="bi bi-info-circle me-1"></i>Aucun emprunt en cours.
+<!-- ── Emprunts en cours ────────────────────────────────── -->
+<h2 class="section-title"><i class="bi bi-currency-exchange" aria-hidden="true"></i>Emprunts en cours</h2>
+<div th:if="${#lists.isEmpty(summary.activeLoans)}" class="card mb-5">
+    <div class="card-body">
+        <div th:replace="~{fragments/ui :: empty('bi-check-circle', 'Aucun emprunt en cours', 'Aucun emprunt à rembourser pour ce membre.')}"></div>
+    </div>
 </div>
-<div th:unless="${#lists.isEmpty(summary.activeLoans)}" class="mb-4">
-    <div th:each="loan : ${summary.activeLoans}" class="card mb-2"
-         th:classappend="${loan.isOverdue()} ? 'border-danger' : ''">
+
+<div class="mb-5" th:unless="${#lists.isEmpty(summary.activeLoans)}">
+    <div th:each="loan : ${summary.activeLoans}" class="card mb-3"
+         th:classappend="${loan.isOverdue()} ? 'card-accent card-accent-danger' : 'card-accent card-accent-warning'">
         <div class="card-body">
-            <div class="row align-items-center">
-                <div class="col-md-2">
-                    <small class="text-muted">Montant</small>
-                    <p class="fw-bold mb-0" th:text="${#numbers.formatDecimal(loan.amount, 0, 'COMMA', 0, 'POINT')} + ' FCFA'"></p>
+            <div class="row g-3 align-items-center">
+                <div class="col-6 col-lg-2">
+                    <span class="stat-label">Montant</span>
+                    <div class="money" th:text="${#numbers.formatInteger(loan.amount,1,'WHITESPACE')} + ' FCFA'">0</div>
                 </div>
-                <div class="col-md-2">
-                    <small class="text-muted">Total dû</small>
-                    <p class="fw-bold mb-0" th:text="${#numbers.formatDecimal(loan.totalDue, 0, 'COMMA', 0, 'POINT')} + ' FCFA'"></p>
+                <div class="col-6 col-lg-2">
+                    <span class="stat-label">Total dû</span>
+                    <div class="money" th:text="${#numbers.formatInteger(loan.totalDue,1,'WHITESPACE')} + ' FCFA'">0</div>
                 </div>
-                <div class="col-md-2">
-                    <small class="text-muted">Échéance</small>
-                    <p class="mb-0" th:text="${loan.dueDate}"></p>
+                <div class="col-6 col-lg-2">
+                    <span class="stat-label">Échéance</span>
+                    <div th:text="${#temporals.format(loan.dueDate,'dd/MM/yyyy')}">date</div>
                 </div>
-                <div class="col-md-2">
-                    <small class="text-muted">Statut</small>
-                    <p class="mb-0">
-                        <span th:if="${loan.isOverdue()}" class="badge bg-danger">En retard</span>
-                        <span th:unless="${loan.isOverdue()}" class="badge bg-warning text-dark">Actif</span>
-                    </p>
-                </div>
-                <div class="col-md-4">
-                    <small class="text-muted">Progression</small>
-                    <div class="progress" style="height: 8px;">
-                        <div class="progress-bar" role="progressbar"
-                             th:style="'width: ' + ${loan.isOverdue() ? '100' : '0'} + '%'"></div>
+                <div class="col-6 col-lg-2">
+                    <span class="stat-label">Statut</span>
+                    <div>
+                        <span class="pill pill-danger" th:if="${loan.isOverdue()}">En retard</span>
+                        <span class="pill pill-warning" th:unless="${loan.isOverdue()}">Actif</span>
                     </div>
-                    <small class="text-muted" th:text="${loan.isOverdue() ? 'En retard' : 'En cours'}"></small>
                 </div>
-                <div class="col-md-2 text-end">
-                    <button type="button" class="btn btn-sm btn-outline-primary"
+                <div class="col-lg-3"
+                     th:with="pct=${summary.repaymentPercentByLoanId.get(loan.id) != null
+                                    ? summary.repaymentPercentByLoanId.get(loan.id) : 0}">
+                    <span class="stat-label">Remboursé — <span th:text="${pct}">0</span>%</span>
+                    <div class="progress mt-1" role="progressbar"
+                         aria-valuemin="0" aria-valuemax="100"
+                         th:attr="aria-valuenow=${pct},
+                                  aria-label='Progression du remboursement — emprunt #' + ${loan.id}">
+                        <div class="progress-bar" th:style="'width:' + ${pct} + '%'"></div>
+                    </div>
+                </div>
+                <div class="col-lg-1 text-lg-end">
+                    <button type="button" class="btn btn-sm btn-primary"
                             sec:authorize="hasAuthority('BANK_LOAN_REPAYMENT')"
                             data-bs-toggle="modal"
-                            th:attr="data-bs-target='#repayModal_' + ${loan.id}">
-                        <i class="bi bi-cash me-1"></i>Rembourser
+                            th:attr="data-bs-target='#repayModal-' + ${loan.id}">
+                        <i class="bi bi-cash" aria-hidden="true"></i>Rembourser
                     </button>
                 </div>
             </div>
@@ -119,155 +125,185 @@
     </div>
 </div>
 
-<!-- ── Loan history ────────────────────────────────────── -->
-<h5 class="mb-2">Historique des emprunts</h5>
-<div th:if="${#lists.isEmpty(summary.loanHistory)}" class="alert alert-info mb-4">
-    <i class="bi bi-info-circle me-1"></i>Aucun historique d'emprunt.
-</div>
-<div th:unless="${#lists.isEmpty(summary.loanHistory)}" class="table-responsive mb-4">
-    <table class="table table-sm table-hover align-middle">
-        <thead class="table-dark">
-            <tr>
-                <th>#</th>
-                <th>Date</th>
-                <th>Montant</th>
-                <th>Total dû</th>
-                <th>Échéance</th>
-                <th>Statut</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr th:each="loan : ${summary.loanHistory}">
-                <td th:text="${loan.id}"></td>
-                <td th:text="${loan.loanDate}"></td>
-                <td th:text="${#numbers.formatDecimal(loan.amount, 0, 'COMMA', 0, 'POINT')} + ' FCFA'"></td>
-                <td th:text="${#numbers.formatDecimal(loan.totalDue, 0, 'COMMA', 0, 'POINT')} + ' FCFA'"></td>
-                <td th:text="${loan.dueDate}"></td>
-                <td>
-                    <span th:if="${loan.isActive()}" class="badge bg-warning text-dark">Actif</span>
-                    <span th:if="${loan.isOverdue()}" class="badge bg-danger">En retard</span>
-                    <span th:if="${loan.status.name() == 'repaid'}" class="badge bg-success">Remboursé</span>
-                </td>
-            </tr>
-        </tbody>
-    </table>
+<!-- ── Historique ───────────────────────────────────────── -->
+<div class="row g-4">
+    <div class="col-lg-7">
+        <div class="card h-100">
+            <div class="card-header"><i class="bi bi-clock-history" aria-hidden="true"></i>Historique des emprunts</div>
+            <div class="table-wrap">
+                <table class="table">
+                    <caption class="visually-hidden">Historique des emprunts du membre</caption>
+                    <thead>
+                        <tr>
+                            <th scope="col">Date</th>
+                            <th scope="col" class="num">Montant</th>
+                            <th scope="col" class="num">Total dû</th>
+                            <th scope="col">Échéance</th>
+                            <th scope="col">Statut</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="loan : ${summary.loanHistory}">
+                            <th scope="row" th:text="${#temporals.format(loan.loanDate,'dd/MM/yyyy')}">date</th>
+                            <td class="num money" th:text="${#numbers.formatInteger(loan.amount,1,'WHITESPACE')}">0</td>
+                            <td class="num money" th:text="${#numbers.formatInteger(loan.totalDue,1,'WHITESPACE')}">0</td>
+                            <td th:text="${#temporals.format(loan.dueDate,'dd/MM/yyyy')}">date</td>
+                            <td>
+                                <!-- Statuts mutuellement exclusifs -->
+                                <span class="pill pill-success" th:if="${loan.status.name() == 'repaid'}">Remboursé</span>
+                                <span class="pill pill-danger"
+                                      th:if="${loan.status.name() != 'repaid' and loan.isOverdue()}">En retard</span>
+                                <span class="pill pill-warning"
+                                      th:if="${loan.status.name() != 'repaid' and !loan.isOverdue()}">Actif</span>
+                            </td>
+                        </tr>
+                        <tr th:replace="~{fragments/ui :: emptyRow(5, 'Aucun emprunt à ce jour', ${#lists.isEmpty(summary.loanHistory)})}"></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-5">
+        <div class="card h-100">
+            <div class="card-header"><i class="bi bi-piggy-bank" aria-hidden="true"></i>Historique des épargnes</div>
+            <div class="table-wrap">
+                <table class="table">
+                    <caption class="visually-hidden">Historique des épargnes du membre</caption>
+                    <thead>
+                        <tr>
+                            <th scope="col">Date</th>
+                            <th scope="col" class="num">Montant</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="s : ${savings}">
+                            <th scope="row" th:text="${#temporals.format(s.operationDate,'dd/MM/yyyy')}">date</th>
+                            <td class="num money money-in"
+                                th:text="'+ ' + ${#numbers.formatInteger(s.amount,1,'WHITESPACE')} + ' FCFA'">0</td>
+                        </tr>
+                        <tr th:replace="~{fragments/ui :: emptyRow(2, 'Aucune épargne enregistrée', ${savings == null or #lists.isEmpty(savings)})}"></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 </div>
 
-<!-- ── Saving history ──────────────────────────────────── -->
-<h5 class="mb-2">Historique des épargnes</h5>
-<div th:if="${savings == null || #lists.isEmpty(savings)}" class="alert alert-info mb-4">
-    <i class="bi bi-info-circle me-1"></i>Aucune épargne enregistrée.
-</div>
-<div th:unless="${savings == null || #lists.isEmpty(savings)}" class="table-responsive mb-4">
-    <table class="table table-sm table-hover align-middle">
-        <thead class="table-dark">
-            <tr>
-                <th>Date</th>
-                <th>Montant</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr th:each="s : ${savings}">
-                <td th:text="${s.operationDate}"></td>
-                <td class="fw-bold text-success" th:text="'+' + ${#numbers.formatDecimal(s.amount, 0, 'COMMA', 0, 'POINT')} + ' FCFA'"></td>
-            </tr>
-        </tbody>
-    </table>
-</div>
-
-<!-- ── Saving Modal ────────────────────────────────────── -->
-<div class="modal fade" id="savingModal" tabindex="-1">
-    <div class="modal-dialog">
+<!-- ══ Modale : épargne ══════════════════════════════════ -->
+<div class="modal fade" id="savingModal" tabindex="-1" aria-labelledby="savingModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <form th:action="@{/bank/members/{id}/save(id=${member.id})}" method="post"
-                  th:object="${savingForm}">
-                <div class="modal-header bg-success text-white">
-                    <h5 class="modal-title"><i class="bi bi-piggy-bank me-1"></i>Enregistrer une épargne</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                  th:object="${savingForm}" novalidate>
+                <div class="modal-header">
+                    <h2 class="modal-title" id="savingModalTitle">
+                        <i class="bi bi-piggy-bank" aria-hidden="true"></i> Enregistrer une épargne
+                    </h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">Montant (FCFA)</label>
-                        <input type="number" class="form-control" th:field="*{amount}" min="1" step="100" required>
-                        <div class="invalid-feedback" th:if="${#fields.hasErrors('amount')}"
-                             th:errors="*{amount}"></div>
+                    <div class="mb-4">
+                        <label class="form-label req" for="savingAmount">Montant</label>
+                        <div class="input-group">
+                            <input type="number" id="savingAmount" class="form-control num" th:field="*{amount}"
+                                   min="1" step="1" inputmode="numeric" required>
+                            <span class="input-group-text">FCFA</span>
+                        </div>
+                        <div class="invalid-feedback" th:if="${#fields.hasErrors('amount')}" th:errors="*{amount}"></div>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">Date d'opération</label>
-                        <input type="date" class="form-control" th:field="*{operationDate}">
-                        <div class="form-text">Laissez vide pour utiliser la date d'aujourd'hui.</div>
+                    <div>
+                        <label class="form-label" for="operationDate">Date de l'opération</label>
+                        <input type="date" id="operationDate" class="form-control" th:field="*{operationDate}">
+                        <p class="form-text">Laissez vide pour utiliser la date du jour. Aucune date future.</p>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="submit" class="btn btn-success">
-                        <i class="bi bi-check me-1"></i>Enregistrer
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg" aria-hidden="true"></i>Enregistrer
                     </button>
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
                 </div>
             </form>
         </div>
     </div>
 </div>
 
-<!-- ── Loan Modal ──────────────────────────────────────── -->
-<div class="modal fade" id="loanModal" tabindex="-1">
-    <div class="modal-dialog">
+<!-- ══ Modale : emprunt ══════════════════════════════════ -->
+<div class="modal fade" id="loanModal" tabindex="-1" aria-labelledby="loanModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <form th:action="@{/bank/members/{id}/loan(id=${member.id})}" method="post"
-                  th:object="${loanForm}">
-                <div class="modal-header bg-warning">
-                    <h5 class="modal-title"><i class="bi bi-currency-exchange me-1"></i>Créer un emprunt</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                  th:object="${loanForm}" novalidate>
+                <div class="modal-header">
+                    <h2 class="modal-title" id="loanModalTitle">
+                        <i class="bi bi-currency-exchange" aria-hidden="true"></i> Créer un emprunt
+                    </h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="alert alert-info small">
-                        <i class="bi bi-info-circle me-1"></i>
-                        Taux d'intérêt : <strong>10%</strong> | Durée : <strong>2 mois</strong>
+                    <div class="alert alert-info" role="note">
+                        <i class="bi bi-info-circle-fill flex-shrink-0" aria-hidden="true"></i>
+                        <span>
+                            Taux d'intérêt <strong>10 %</strong> · durée <strong>2 mois</strong>.
+                            Le montant ne peut pas dépasser 3 fois l'épargne du membre.
+                        </span>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">Montant emprunté (FCFA)</label>
-                        <input type="number" class="form-control" th:field="*{amount}" min="1" step="1000" required>
-                        <div class="invalid-feedback" th:if="${#fields.hasErrors('amount')}"
-                             th:errors="*{amount}"></div>
+                    <label class="form-label req" for="loanAmount">Montant emprunté</label>
+                    <div class="input-group">
+                        <input type="number" id="loanAmount" class="form-control num" th:field="*{amount}"
+                               min="1" step="1" inputmode="numeric" required>
+                        <span class="input-group-text">FCFA</span>
                     </div>
+                    <div class="invalid-feedback" th:if="${#fields.hasErrors('amount')}" th:errors="*{amount}"></div>
                 </div>
                 <div class="modal-footer">
-                    <button type="submit" class="btn btn-warning">
-                        <i class="bi bi-check me-1"></i>Créer l'emprunt
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg" aria-hidden="true"></i>Créer l'emprunt
                     </button>
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
                 </div>
             </form>
         </div>
     </div>
 </div>
 
-<!-- ── Repayment Modals (one per active loan) ──────────── -->
+<!-- ══ Modales : remboursement (une par emprunt actif) ═══ -->
 <th:block th:each="loan : ${summary.activeLoans}">
-    <div class="modal fade" th:id="'repayModal_' + ${loan.id}" tabindex="-1">
-        <div class="modal-dialog">
+    <div class="modal fade" th:id="'repayModal-' + ${loan.id}" tabindex="-1"
+         th:attr="aria-labelledby='repayTitle-' + ${loan.id}" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <form th:action="@{/bank/loans/{id}/repay(id=${loan.id})}" method="post"
-                      th:object="${repaymentForm}">
-                    <div class="modal-header bg-primary text-white">
-                        <h5 class="modal-title">Rembourser emprunt #<span th:text="${loan.id}"></span></h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                      th:object="${repaymentForm}" novalidate>
+                    <div class="modal-header">
+                        <h2 class="modal-title" th:id="'repayTitle-' + ${loan.id}">
+                            <i class="bi bi-cash" aria-hidden="true"></i> Rembourser l'emprunt
+                        </h2>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
                     </div>
                     <div class="modal-body">
-                        <p class="mb-1">Montant emprunté : <strong th:text="${#numbers.formatDecimal(loan.amount, 0, 'COMMA', 0, 'POINT')} + ' FCFA'"></strong></p>
-                        <p class="mb-3">Total dû : <strong th:text="${#numbers.formatDecimal(loan.totalDue, 0, 'COMMA', 0, 'POINT')} + ' FCFA'"></strong></p>
-                        <div class="mb-3">
-                            <label class="form-label">Montant du remboursement (FCFA)</label>
-                            <input type="number" class="form-control" th:field="*{amount}" min="1" required>
-                            <div class="invalid-feedback" th:if="${#fields.hasErrors('amount')}"
-                                 th:errors="*{amount}"></div>
+                        <dl class="detail-list mb-4">
+                            <dt>Montant emprunté</dt>
+                            <dd class="money" th:text="${#numbers.formatInteger(loan.amount,1,'WHITESPACE')} + ' FCFA'">0</dd>
+                            <dt>Total dû</dt>
+                            <dd class="money" th:text="${#numbers.formatInteger(loan.totalDue,1,'WHITESPACE')} + ' FCFA'">0</dd>
+                            <dt>Échéance</dt>
+                            <dd th:text="${#temporals.format(loan.dueDate,'dd/MM/yyyy')}">date</dd>
+                        </dl>
+                        <label class="form-label req" th:for="'repayAmount-' + ${loan.id}">Montant du remboursement</label>
+                        <div class="input-group">
+                            <input type="number" th:id="'repayAmount-' + ${loan.id}" class="form-control num"
+                                   th:field="*{amount}" min="1" step="1" inputmode="numeric" required>
+                            <span class="input-group-text">FCFA</span>
                         </div>
+                        <p class="form-text">Un remboursement supérieur au solde restant dû est refusé.</p>
                     </div>
                     <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Annuler</button>
                         <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-check me-1"></i>Rembourser
+                            <i class="bi bi-check-lg" aria-hidden="true"></i>Enregistrer le remboursement
                         </button>
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
                     </div>
                 </form>
             </div>
@@ -275,4 +311,6 @@
     </div>
 </th:block>
 
-</th:block></body></html>
+</th:block>
+</body>
+</html>

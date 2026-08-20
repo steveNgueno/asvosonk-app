@@ -1,0 +1,72 @@
+/* =============================================================
+   ASVOSONK — écran de connexion
+   (séparé de asvosonk.css : styles utilisés par cette seule page)
+   ============================================================= */
+
+.login-page {
+  background:
+    radial-gradient(1200px 500px at 15% -10%, #1b5a85 0%, rgba(27, 90, 133, 0) 60%),
+    linear-gradient(160deg, var(--c-brand-900) 0%, #123a59 100%);
+  min-height: 100vh;
+}
+
+.login-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: var(--sp-5) var(--sp-4);
+}
+
+.login-card {
+  width: 100%;
+  max-width: 420px;
+  background: var(--c-surface);
+  border-radius: var(--r-lg);
+  box-shadow: 0 24px 60px rgba(6, 25, 40, .38);
+  overflow: hidden;
+}
+
+.login-head {
+  padding: var(--sp-6) var(--sp-5) var(--sp-5);
+  text-align: center;
+  background: var(--c-surface);
+  border-bottom: 1px solid var(--c-border);
+}
+.login-mark {
+  width: 54px; height: 54px;
+  border-radius: var(--r-md);
+  background: var(--c-brand-50);
+  color: var(--c-brand-700);
+  display: inline-grid;
+  place-items: center;
+  font-size: 1.6rem;
+  margin-bottom: var(--sp-3);
+}
+.login-head h1 {
+  font-size: 1.5rem;
+  letter-spacing: .1em;
+  margin: 0;
+}
+.login-head p {
+  margin: .35rem 0 0;
+  font-size: var(--fs-sm);
+  color: var(--c-muted);
+}
+
+.login-body { padding: var(--sp-5); }
+
+.login-foot {
+  margin: 0;
+  padding: var(--sp-3) var(--sp-5) var(--sp-4);
+  font-size: var(--fs-xs);
+  color: var(--c-muted);
+  text-align: center;
+  background: var(--c-surface-2);
+  border-top: 1px solid var(--c-border);
+}
+
+@media (max-width: 575.98px) {
+  .login-card { box-shadow: none; }
+  .login-head { padding: var(--sp-5) var(--sp-4) var(--sp-4); }
+  .login-body { padding: var(--sp-4); }
+}

@@ -35,7 +35,6 @@ import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @Controller
 @RequestMapping("/bank")
@@ -65,12 +64,11 @@ public class BankController {
             .filter(l -> l.getStatus() != LoanStatus.repaid)
             .toList();
 
-        // Build member name map and remaining balances
-        Map<Long, String> memberNames = new HashMap<>();
+        // Build member name map (single batched query) and remaining balances
+        Map<Long, String> memberNames = searchMemberUseCase.findNamesByIds(
+            activeAndOverdueLoans.stream().map(Loan::getMemberId).distinct().toList());
         Map<Long, BigDecimal> remainingBalances = new HashMap<>();
         for (Loan loan : activeAndOverdueLoans) {
-            Member member = searchMemberUseCase.findById(loan.getMemberId());
-            memberNames.put(loan.getMemberId(), member.getFullName());
             BigDecimal totalRepaid = repaymentRepository.getTotalRepaidByLoanId(loan.getId());
             remainingBalances.put(loan.getId(), loan.getRemainingBalance(totalRepaid));
         }

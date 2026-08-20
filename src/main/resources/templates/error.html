@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout :: layout('Erreur', ~{::main-content}, ~{}, ~{})}">
+<!--
+  Vue d'erreur générique (Spring Boot /error).
+  Les statuts courants ont leur propre page : error/403, error/404, error/500.
+  Celle-ci couvre tous les autres (400, 405, 415…) : sans elle, et le
+  « whitelabel » étant désactivé, le conteneur n'avait plus aucune vue à
+  rendre et l'erreur d'origine se transformait en erreur de sérialisation.
+-->
+<body>
+<th:block th:fragment="main-content">
+
+<div class="card form-panel mx-auto">
+    <div class="card-body text-center py-5">
+        <p class="mb-2" style="font-size:2.5rem;color:var(--c-border-strong)" aria-hidden="true">
+            <i class="bi bi-exclamation-circle"></i>
+        </p>
+        <p class="text-muted mb-1" style="font-size:var(--fs-xs);letter-spacing:.1em"
+           th:text="${status != null ? 'ERREUR ' + status : 'ERREUR'}">ERREUR</p>
+        <h1 class="h4" th:text="${error != null ? error : 'La requête n a pas pu être traitée'}">
+            La requête n'a pas pu être traitée
+        </h1>
+        <p class="text-muted">
+            Vérifiez l'adresse ou revenez au tableau de bord. Si le problème persiste,
+            contactez votre administrateur.
+        </p>
+        <div class="d-flex gap-2 justify-content-center mt-4">
+            <a th:href="@{/dashboard}" class="btn btn-primary">
+                <i class="bi bi-house" aria-hidden="true"></i>Tableau de bord
+            </a>
+        </div>
+    </div>
+</div>
+
+</th:block>
+</body>
+</html>

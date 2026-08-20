@@ -1,116 +1,147 @@
 <!DOCTYPE html>
 <html lang="fr" xmlns:th="http://www.thymeleaf.org"
-      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
-      th:replace="~{layout :: layout(pageTitle=${pageTitle}, content=~{::main-content}, extraHead=~{}, extraScripts=~{})}">
-<body><th:block th:fragment="main-content">
+      th:replace="~{layout :: layout(${pageTitle}, ~{::main-content}, ~{}, ~{})}">
+<body>
+<th:block th:fragment="main-content">
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <div class="page-header">
-        <h2><i class="bi bi-clock-history me-2"></i>Historique des mouvements</h2>
-        <p>Tous les mouvements toutes caisses confondues</p>
+<div class="page-head">
+    <div>
+        <h1><i class="bi bi-clock-history" aria-hidden="true"></i>Historique des mouvements</h1>
+        <p class="page-subtitle">Toutes caisses confondues, filtrable par période et par caisse</p>
     </div>
-    <a th:href="@{/cashboxes}" class="btn btn-outline-secondary btn-sm">
-        <i class="bi bi-arrow-left me-1"></i>Retour aux caisses
-    </a>
-</div>
-
-<!-- Summary row -->
-<div class="row g-3 mb-3" th:if="${totalEntries != null}">
-    <div class="col-md-4">
-        <div class="card border-0 shadow-sm text-center p-3">
-            <div class="text-muted small">Total entrées</div>
-            <div class="fs-4 fw-bold text-success"
-                 th:text="${#numbers.formatDecimal(totalEntries, 1, 'COMMA', 0, 'POINT')} + ' FCFA'"></div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card border-0 shadow-sm text-center p-3">
-            <div class="text-muted small">Total sorties</div>
-            <div class="fs-4 fw-bold text-danger"
-                 th:text="${#numbers.formatDecimal(totalExits, 1, 'COMMA', 0, 'POINT')} + ' FCFA'"></div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card border-0 shadow-sm text-center p-3">
-            <div class="text-muted small">Solde courant</div>
-            <div class="fs-4 fw-bold"
-                 th:classappend="${currentBalance >= 0 ? 'text-success' : 'text-danger'}"
-                 th:text="${#numbers.formatDecimal(currentBalance, 1, 'COMMA', 0, 'POINT')} + ' FCFA'"></div>
-        </div>
+    <div class="page-actions">
+        <button type="button" class="btn btn-outline-secondary" data-print>
+            <i class="bi bi-printer" aria-hidden="true"></i>Imprimer
+        </button>
+        <a th:href="@{/cashboxes}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left" aria-hidden="true"></i>Caisses
+        </a>
     </div>
 </div>
 
-<!-- Filter form -->
-<div class="card border-0 shadow-sm mb-3">
+<!-- ── Totaux de la sélection ───────────────────────────── -->
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="stat">
+            <span class="stat-label">Total des entrées</span>
+            <span class="stat-value money money-in">
+                <span th:text="${#numbers.formatInteger(totalEntries,1,'WHITESPACE')}">0</span>
+                <span class="money-unit">FCFA</span>
+            </span>
+            <p class="stat-hint mb-0">Sur la sélection courante</p>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat">
+            <span class="stat-label">Total des sorties</span>
+            <span class="stat-value money money-out">
+                <span th:text="${#numbers.formatInteger(totalExits,1,'WHITESPACE')}">0</span>
+                <span class="money-unit">FCFA</span>
+            </span>
+            <p class="stat-hint mb-0">Sur la sélection courante</p>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat">
+            <span class="stat-label">Solde consolidé des caisses</span>
+            <span class="stat-value money">
+                <span th:text="${#numbers.formatInteger(currentBalance,1,'WHITESPACE')}">0</span>
+                <span class="money-unit">FCFA</span>
+            </span>
+            <p class="stat-hint mb-0">Toutes caisses, indépendant du filtre</p>
+        </div>
+    </div>
+</div>
+
+<!-- ── Filtres ──────────────────────────────────────────── -->
+<div class="card mb-4 no-print">
     <div class="card-body">
-        <form method="get" class="row g-2 align-items-end">
+        <form method="get" class="row g-3 align-items-end">
             <div class="col-md-3">
-                <label class="form-label">Date début</label>
-                <input type="date" name="dateFrom" class="form-control form-control-sm"
+                <label class="form-label" for="dateFrom">Du</label>
+                <input type="date" id="dateFrom" name="dateFrom" class="form-control"
                        th:value="${param.dateFrom}">
             </div>
             <div class="col-md-3">
-                <label class="form-label">Date fin</label>
-                <input type="date" name="dateTo" class="form-control form-control-sm"
+                <label class="form-label" for="dateTo">Au</label>
+                <input type="date" id="dateTo" name="dateTo" class="form-control"
                        th:value="${param.dateTo}">
             </div>
             <div class="col-md-3">
-                <label class="form-label">Caisse</label>
-                <select name="type" class="form-select form-select-sm">
+                <label class="form-label" for="typeFilter">Caisse</label>
+                <select id="typeFilter" name="type" class="form-select">
                     <option value="">Toutes les caisses</option>
-                    <option th:each="t : ${cashboxTypes}" th:value="${t.name()}"
-                            th:text="${t.label()}"
-                            th:selected="${param.type != null && param.type[0] == t.name()}"></option>
+                    <option th:each="t : ${cashboxTypes}" th:value="${t.name()}" th:text="${t.label()}"
+                            th:selected="${param.type != null and param.type[0] == t.name()}"></option>
                 </select>
             </div>
-            <div class="col-md-3 d-flex gap-1">
-                <button type="submit" class="btn btn-primary btn-sm">
-                    <i class="bi bi-search me-1"></i>Filtrer
+            <div class="col-md-3 d-flex gap-2">
+                <button type="submit" class="btn btn-primary flex-grow-1 justify-content-center">
+                    <i class="bi bi-funnel" aria-hidden="true"></i>Filtrer
                 </button>
-                <a th:href="@{/cashboxes/movements}" class="btn btn-outline-secondary btn-sm">
-                    <i class="bi bi-x-circle me-1"></i>Réinitialiser
-                </a>
+                <a th:href="@{/cashboxes/movements}" class="btn btn-outline-secondary">Réinit.</a>
             </div>
         </form>
     </div>
 </div>
 
-<!-- Movements table -->
-<div class="card border-0 shadow-sm">
-    <div class="table-responsive">
-        <table class="table table-sm mb-0">
+<!-- ── Journal ──────────────────────────────────────────── -->
+<div class="card">
+    <div class="card-header">
+        <i class="bi bi-list-ul" aria-hidden="true"></i>Journal des mouvements
+        <span class="text-muted small ms-2" th:text="'(' + ${#lists.size(movements)} + ')'"></span>
+    </div>
+    <div class="table-wrap">
+        <table class="table">
+            <caption class="visually-hidden">Mouvements de caisse filtrés</caption>
             <thead>
                 <tr>
-                    <th>Date</th>
-                    <th>Caisse</th>
-                    <th class="text-center">Sens</th>
-                    <th class="text-end">Montant</th>
-                    <th>Motif</th>
-                    <th>Module</th>
-                    <th>Membre</th>
+                    <th scope="col">Date</th>
+                    <th scope="col">Caisse</th>
+                    <th scope="col">Sens</th>
+                    <th scope="col" class="num">Montant</th>
+                    <th scope="col">Motif</th>
+                    <th scope="col">Origine</th>
+                    <th scope="col">Membre</th>
                 </tr>
             </thead>
             <tbody>
                 <tr th:each="m : ${movements}">
-                    <td th:text="${#temporals.format(m.movementDate, 'dd/MM/yyyy HH:mm')}"></td>
-                    <td th:text="${m.cashbox.type.label()}"></td>
-                    <td class="text-center">
-                        <span th:if="${m.direction.name() == 'in'}" class="text-success"><i class="bi bi-arrow-down-circle"></i> Entrée</span>
-                        <span th:unless="${m.direction.name() == 'in'}" class="text-danger"><i class="bi bi-arrow-up-circle"></i> Sortie</span>
+                    <th scope="row" class="fw-normal"
+                        th:text="${#temporals.format(m.movementDate,'dd/MM/yyyy HH:mm')}">date</th>
+                    <td th:text="${m.cashbox.type.label()}">Caisse</td>
+                    <td>
+                        <span class="pill pill-success" th:if="${m.direction.name() == 'in'}">
+                            <i class="bi bi-arrow-down-circle" aria-hidden="true"></i>Entrée
+                        </span>
+                        <span class="pill pill-danger" th:unless="${m.direction.name() == 'in'}">
+                            <i class="bi bi-arrow-up-circle" aria-hidden="true"></i>Sortie
+                        </span>
                     </td>
-                    <td class="amount text-end"
-                        th:classappend="${m.direction.name() == 'in' ? 'amount-in' : 'amount-out'}"
-                        th:text="${#numbers.formatDecimal(m.amount, 1, 'COMMA', 0, 'POINT')} + ' FCFA'"></td>
-                    <td th:text="${m.reason ?: '—'}"></td>
-                    <td th:text="${m.origin.name() == 'manual' ? 'Manuel' : (m.origin.name() == 'presence' ? 'Présence' : (m.origin.name() == 'sanction' ? 'Sanction' : (m.origin.name() == 'grand_tontine' ? 'Gde Tontine' : 'Banque')))}"></td>
-                    <td th:text="${m.memberId != null ? '#' + m.memberId : '—'}"></td>
+                    <td class="num money"
+                        th:classappend="${m.direction.name() == 'in'} ? 'money-in' : 'money-out'"
+                        th:text="${(m.direction.name() == 'in' ? '+ ' : '− ')
+                                  + #numbers.formatInteger(m.amount,1,'WHITESPACE')}">0</td>
+                    <td th:text="${m.reason ?: '—'}">—</td>
+                    <td>
+                        <span class="pill pill-muted"
+                              th:text="${m.origin.name() == 'manual' ? 'Manuel' :
+                                       (m.origin.name() == 'presence' ? 'Présence' :
+                                       (m.origin.name() == 'sanction' ? 'Sanction' :
+                                       (m.origin.name() == 'grand_tontine' ? 'Grande Tontine' : 'Banque')))}">Origine</span>
+                    </td>
+                    <td th:text="${m.memberId != null ? (memberNames.get(m.memberId) ?: 'Membre #' + m.memberId) : '—'}">—</td>
                 </tr>
                 <tr th:if="${#lists.isEmpty(movements)}">
-                    <td colspan="7" class="text-center text-muted py-3">Aucun mouvement trouvé</td>
+                    <td colspan="7">
+                        <div th:replace="~{fragments/ui :: empty('bi-funnel', 'Aucun mouvement', 'Aucun mouvement ne correspond aux filtres sélectionnés.')}"></div>
+                    </td>
                 </tr>
             </tbody>
         </table>
     </div>
 </div>
 
-</th:block></body></html>
+</th:block>
+</body>
+</html>

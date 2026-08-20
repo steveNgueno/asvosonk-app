@@ -1,188 +1,245 @@
 <!DOCTYPE html>
 <html lang="fr" xmlns:th="http://www.thymeleaf.org"
                xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
-      th:replace="~{layout :: layout(pageTitle=${pageTitle}, content=~{::main-content}, extraHead=~{}, extraScripts=~{})}">
-<body><th:block th:fragment="main-content">
+      th:replace="~{layout :: layout(${pageTitle}, ~{::main-content}, ~{}, ~{})}">
+<body>
+<th:block th:fragment="main-content">
 
-<!-- ── En-tête fiche membre (UI-005) ────────────────────── -->
-<div class="d-flex justify-content-between align-items-start mb-3">
+<!-- ══ En-tête de fiche ══════════════════════════════════════ -->
+<div class="page-head">
     <div class="d-flex align-items-center gap-3">
-        <!-- Avatar avec initiales -->
-        <div class="rounded-circle bg-primary text-white d-flex align-items-center
-                    justify-content-center fw-bold avatar-circle"
-             th:text="${#strings.substring(member.fullName,0,1).toUpperCase()
-                        + (member.fullName.contains(' ')
-                           ? #strings.substring(member.fullName, member.fullName.lastIndexOf(' ')+1, member.fullName.lastIndexOf(' ')+2).toUpperCase()
-                           : '')}">JD</div>
+        <span class="avatar avatar-lg" aria-hidden="true"
+              th:text="${#strings.substring(member.fullName,0,1).toUpperCase()}">M</span>
         <div>
-            <h4 class="mb-0" th:text="${member.fullName}"></h4>
-            <small class="text-muted">
-                <span th:text="'Membre depuis ' + ${#temporals.format(member.joinDate,'dd/MM/yyyy')}"></span>
-                &nbsp;·&nbsp;
-                <span class="badge"
-                      th:classappend="${member.status.name()=='active' ? 'bg-success' :
-                                      (member.status.name()=='suspended' ? 'bg-warning text-dark' : 'bg-secondary')}"
-                      th:text="${member.statusLabel}"></span>
-            </small>
+            <h1 th:text="${member.fullName}">Nom du membre</h1>
+            <p class="page-subtitle">
+                Membre depuis le
+                <span th:text="${#temporals.format(member.joinDate,'dd/MM/yyyy')}">date</span>
+                ·
+                <span th:replace="~{fragments/ui :: memberStatus(${member.status}, ${member.statusLabel})}"></span>
+            </p>
         </div>
     </div>
-    <div class="d-flex gap-2">
-        <a th:href="@{/members/{id}/edit(id=${member.id})}" class="btn btn-outline-primary btn-sm"
+    <div class="page-actions">
+        <a th:href="@{/members/{id}/edit(id=${member.id})}" class="btn btn-outline-primary"
            sec:authorize="hasAuthority('MEMBER_EDIT')">
-            <i class="bi bi-pencil me-1"></i>Modifier
+            <i class="bi bi-pencil" aria-hidden="true"></i>Modifier
         </a>
-        <a th:href="@{/members}" class="btn btn-outline-secondary btn-sm">
-            <i class="bi bi-arrow-left me-1"></i>Liste
+        <a th:href="@{/bank/members/{id}(id=${member.id})}" class="btn btn-outline-secondary"
+           sec:authorize="hasAuthority('BANK_VIEW')">
+            <i class="bi bi-bank" aria-hidden="true"></i>Compte bancaire
+        </a>
+        <a th:href="@{/members}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left" aria-hidden="true"></i>Liste
         </a>
     </div>
 </div>
 
-<!-- ── Onglets ──────────────────────────────────────────── -->
-<ul class="nav nav-tabs mt-3 mb-0" id="memberTabs" role="tablist">
-    <li class="nav-item">
-        <a class="nav-link active" data-bs-toggle="tab" href="#info">
-            <i class="bi bi-info-circle me-1"></i>Informations
-        </a>
+<!-- ══ Onglets ═══════════════════════════════════════════════ -->
+<ul class="nav nav-tabs mb-0" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="tab-info" data-bs-toggle="tab" data-bs-target="#pane-info"
+                type="button" role="tab" aria-controls="pane-info" aria-selected="true">
+            <i class="bi bi-info-circle" aria-hidden="true"></i> Informations
+        </button>
     </li>
-    <li class="nav-item">
-        <a class="nav-link" data-bs-toggle="tab" href="#fees">
-            <i class="bi bi-cash-coin me-1"></i>Frais d'adhésion
-        </a>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-fees" data-bs-toggle="tab" data-bs-target="#pane-fees"
+                type="button" role="tab" aria-controls="pane-fees" aria-selected="false">
+            <i class="bi bi-cash-coin" aria-hidden="true"></i> Frais d'adhésion
+        </button>
     </li>
-    <li class="nav-item">
-        <a class="nav-link" data-bs-toggle="tab" href="#history">
-            <i class="bi bi-clock-history me-1"></i>Historique présences
-        </a>
-    </li>
-    <li class="nav-item">
-        <a class="nav-link" data-bs-toggle="tab" href="#sanctions">
-            <i class="bi bi-exclamation-triangle me-1"></i>Sanctions
-        </a>
-    </li>
-    <li class="nav-item" sec:authorize="hasAuthority('BANK_VIEW')">
-        <a class="nav-link" data-bs-toggle="tab" href="#bank">
-            <i class="bi bi-bank me-1"></i>Banque
-        </a>
+    <li class="nav-item" role="presentation" sec:authorize="hasAuthority('SANCTION_VIEW')">
+        <button class="nav-link" id="tab-sanctions" data-bs-toggle="tab" data-bs-target="#pane-sanctions"
+                type="button" role="tab" aria-controls="pane-sanctions" aria-selected="false">
+            <i class="bi bi-exclamation-triangle" aria-hidden="true"></i> Sanctions
+            <span class="pill pill-muted ms-1" th:text="${#lists.size(sanctions)}">0</span>
+        </button>
     </li>
 </ul>
 
-<div class="tab-content card border-0 shadow-sm p-3" style="border-top-left-radius:0">
+<div class="tab-content card" style="border-top-left-radius:0">
 
-    <!-- ── Onglet Informations ──────────────────────────── -->
-    <div class="tab-pane fade show active" id="info">
-        <dl class="row mb-0" style="max-width:520px">
-            <dt class="col-5">Téléphone</dt>
-            <dd class="col-7" th:text="${member.phone ?: '—'}"></dd>
-            <dt class="col-5">Résident Nkou-Assi</dt>
-            <dd class="col-7" th:text="${member.resident ? 'Oui' : 'Non'}"></dd>
-            <dt class="col-5">Date d'adhésion</dt>
-            <dd class="col-7" th:text="${#temporals.format(member.joinDate,'dd/MM/yyyy')}"></dd>
-            <dt class="col-5">Statut</dt>
-            <dd class="col-7">
-                <span class="badge"
-                      th:classappend="${member.status.name()=='active' ? 'bg-success' :
-                                      (member.status.name()=='suspended' ? 'bg-warning text-dark' : 'bg-secondary')}"
-                      th:text="${member.statusLabel}"></span>
+    <!-- ── Informations ─────────────────────────────────── -->
+    <div class="tab-pane fade show active card-body" id="pane-info" role="tabpanel" aria-labelledby="tab-info">
+        <dl class="detail-list">
+            <dt>Téléphone</dt>
+            <dd th:text="${member.phone ?: '—'}">—</dd>
+            <dt>Résident à Nkou-Assi</dt>
+            <dd th:text="${member.resident ? 'Oui' : 'Non'}">—</dd>
+            <dt>Date d'adhésion</dt>
+            <dd th:text="${#temporals.format(member.joinDate,'dd/MM/yyyy')}">—</dd>
+            <dt>Statut</dt>
+            <dd>
+                <span th:replace="~{fragments/ui :: memberStatus(${member.status}, ${member.statusLabel})}"></span>
             </dd>
         </dl>
 
-        <!-- Changer le statut -->
-        <div sec:authorize="hasAuthority('MEMBER_CHANGE_STATUS')" class="mt-3 pt-3 border-top">
-            <label class="form-label fw-semibold small">Changer le statut</label>
+        <div sec:authorize="hasAuthority('MEMBER_CHANGE_STATUS')" class="form-section">
+            <h2 class="section-title">Changer le statut</h2>
             <form th:action="@{/members/{id}/status(id=${member.id})}" method="post"
-                  class="d-flex gap-2 align-items-center">
-                <select name="newStatus" class="form-select form-select-sm w-auto">
-                    <option th:each="s : ${memberStatuses}"
-                            th:value="${s}" th:text="${s.name()}"
-                            th:selected="${s == member.status}"></option>
-                </select>
-                <button type="submit" class="btn btn-warning btn-sm">
-                    <i class="bi bi-arrow-repeat me-1"></i>Appliquer
+                  class="d-flex flex-wrap gap-2 align-items-end"
+                  data-confirm="Confirmer le changement de statut de ce membre ?">
+                <div>
+                    <label class="form-label" for="newStatus">Nouveau statut</label>
+                    <select id="newStatus" name="newStatus" class="form-select form-select-sm" style="width:auto">
+                        <option th:each="s : ${memberStatuses}"
+                                th:value="${s}" th:text="${s.name()}"
+                                th:selected="${s == member.status}"></option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-sm btn-outline-primary">
+                    <i class="bi bi-arrow-repeat" aria-hidden="true"></i>Appliquer
                 </button>
             </form>
+            <p class="form-text mt-2">
+                Un membre qui quitte l'association est passé en « resigned » ou « deceased » :
+                son historique financier est conservé.
+            </p>
         </div>
     </div>
 
-    <!-- ── Onglet Frais d'adhésion ──────────────────────── -->
-    <div class="tab-pane fade" id="fees">
-        <div class="table-responsive">
-            <table class="table table-sm mb-0">
+    <!-- ── Frais d'adhésion ─────────────────────────────── -->
+    <div class="tab-pane fade" id="pane-fees" role="tabpanel" aria-labelledby="tab-fees">
+        <div class="table-wrap">
+            <table class="table">
+                <caption class="visually-hidden">Frais d'adhésion du membre</caption>
                 <thead>
-                    <tr><th>Type</th><th>Dû</th><th>Payé</th><th>Reste</th><th>Statut</th></tr>
+                    <tr>
+                        <th scope="col">Type de frais</th>
+                        <th scope="col" class="num">Montant dû</th>
+                        <th scope="col" class="num">Payé</th>
+                        <th scope="col" class="num">Reste</th>
+                        <th scope="col">Statut</th>
+                    </tr>
                 </thead>
                 <tbody>
-                    <tr th:if="${#lists.isEmpty(fees)}">
-                        <td colspan="5" class="text-center text-muted py-3">Aucun frais enregistré</td>
-                    </tr>
                     <tr th:each="fee : ${fees}">
-                        <td th:text="${fee.feeType.label()}"></td>
-                        <td class="amount" th:text="${#numbers.formatDecimal(fee.amountDue,1,'COMMA',0,'POINT')} + ' FCFA'"></td>
-                        <td class="amount amount-in" th:text="${#numbers.formatDecimal(fee.amountPaid,1,'COMMA',0,'POINT')} + ' FCFA'"></td>
-                        <td class="amount" th:classappend="${fee.balance.compareTo(T(java.math.BigDecimal).ZERO) > 0 ? 'amount-out' : 'amount-in'}"
-                            th:text="${#numbers.formatDecimal(fee.balance,1,'COMMA',0,'POINT')} + ' FCFA'"></td>
+                        <th scope="row" th:text="${fee.feeType.label()}">Type</th>
+                        <td class="num money" th:text="${#numbers.formatInteger(fee.amountDue,1,'WHITESPACE')}">0</td>
+                        <td class="num money money-in" th:text="${#numbers.formatInteger(fee.amountPaid,1,'WHITESPACE')}">0</td>
+                        <td class="num money"
+                            th:classappend="${fee.balance.signum() > 0} ? 'money-out'"
+                            th:text="${#numbers.formatInteger(fee.balance,1,'WHITESPACE')}">0</td>
                         <td>
-                            <span th:if="${fee.fullyPaid}" class="badge bg-success">Payé</span>
-                            <span th:unless="${fee.fullyPaid}" class="badge bg-warning text-dark">En cours</span>
+                            <span class="pill pill-success" th:if="${fee.fullyPaid}">
+                                <i class="bi bi-check2" aria-hidden="true"></i>Soldé
+                            </span>
+                            <span class="pill pill-warning" th:unless="${fee.fullyPaid}">En cours</span>
                         </td>
                     </tr>
+                    <tr th:replace="~{fragments/ui :: emptyRow(5, 'Aucun frais enregistré', ${#lists.isEmpty(fees)})}"></tr>
                 </tbody>
+                <tfoot th:unless="${#lists.isEmpty(fees)}">
+                    <tr>
+                        <th scope="row">Total</th>
+                        <td class="num money" th:text="${#numbers.formatInteger(feesTotalDue,1,'WHITESPACE')}">0</td>
+                        <td class="num money money-in" th:text="${#numbers.formatInteger(feesTotalPaid,1,'WHITESPACE')}">0</td>
+                        <td class="num money"
+                            th:text="${#numbers.formatInteger(feesTotalDue.subtract(feesTotalPaid),1,'WHITESPACE')}">0</td>
+                        <td></td>
+                    </tr>
+                </tfoot>
             </table>
         </div>
 
-        <!-- Enregistrer un paiement -->
-        <div sec:authorize="hasAuthority('MEMBERSHIP_FEE_RECORD')" class="mt-3 pt-3 border-top">
-            <label class="form-label fw-semibold small">Enregistrer un paiement</label>
+        <div sec:authorize="hasAuthority('MEMBERSHIP_FEE_RECORD')" class="card-body form-section mt-0"
+             th:with="allSettled=${feesTotalDue.compareTo(feesTotalPaid) == 0}">
+            <h2 class="section-title">Enregistrer un paiement</h2>
+
+            <p class="mb-0 text-muted" th:if="${allSettled}">
+                Tous les frais d'adhésion de ce membre sont soldés.
+            </p>
+            <th:block th:unless="${allSettled}">
             <form th:action="@{/members/{id}/fees(id=${member.id})}"
                   th:object="${feePaymentForm}" method="post" class="row g-2 align-items-end">
                 <div class="col-md-5">
-                    <select class="form-select form-select-sm" th:field="*{feeType}">
-                        <option th:each="t : ${feeTypes}" th:value="${t}" th:text="${t.label()}"></option>
+                    <label class="form-label" for="feeType">Type de frais</label>
+                    <!-- data-prefill : reste à payer, recopié dans le champ montant
+                         à la sélection pour éviter une saisie inutile. -->
+                    <select id="feeType" class="form-select" th:field="*{feeType}"
+                            data-prefill-target="#feeAmount">
+                        <option th:each="t : ${feeTypes}" th:value="${t}"
+                                th:disabled="${feeRemaining.get(t).signum() == 0}"
+                                th:text="${feeRemaining.get(t).signum() == 0
+                                          ? t.label() + ' — soldé' : t.label()}"
+                                th:attr="data-prefill=${feeRemaining.get(t)}"></option>
                     </select>
                 </div>
                 <div class="col-md-4">
-                    <div class="input-group input-group-sm">
-                        <input type="number" class="form-control" th:field="*{amount}"
-                               min="1" placeholder="Montant">
+                    <label class="form-label" for="feeAmount">Montant encaissé</label>
+                    <div class="input-group">
+                        <input type="number" id="feeAmount" class="form-control num" th:field="*{amount}"
+                               min="1" step="1" inputmode="numeric" required>
                         <span class="input-group-text">FCFA</span>
                     </div>
                 </div>
                 <div class="col-md-3">
-                    <button type="submit" class="btn btn-success btn-sm w-100">
-                        <i class="bi bi-plus-circle me-1"></i>Enregistrer
+                    <button type="submit" class="btn btn-primary w-100 justify-content-center">
+                        <i class="bi bi-plus-circle" aria-hidden="true"></i>Enregistrer
                     </button>
                 </div>
+                <p class="form-text col-12 mt-2 mb-0">
+                    Le montant proposé est le reste à payer. Pour une avance, effacez-le et
+                    saisissez la somme réellement remise par le membre. Les frais ne
+                    s'encaissent qu'en séance : le versement est rattaché à la séance
+                    du jour et compte dans ses entrées.
+                </p>
             </form>
+            </th:block>
         </div>
     </div>
 
-    <!-- ── Onglet Historique présences ──────────────────── -->
-    <div class="tab-pane fade" id="history">
-        <p class="text-muted mb-0 py-3 text-center">
-            <i class="bi bi-info-circle me-1"></i>
-            L'historique de présence détaillé par membre est consultable depuis les
-            <a th:href="@{/sessions}">séances</a> et les
-            <a th:href="@{/presence-tours}" sec:authorize="hasAuthority('SESSION_VIEW')">tours de présence</a>.
-        </p>
-    </div>
-
-    <!-- ── Onglet Sanctions ─────────────────────────────── -->
-    <div class="tab-pane fade" id="sanctions">
-        <p class="text-muted mb-0 py-3 text-center">
-            <i class="bi bi-info-circle me-1"></i>
-            Les sanctions de ce membre sont consultables depuis le module
-            <a th:href="@{/sanctions}" sec:authorize="hasAuthority('SANCTION_VIEW')">Sanctions</a>.
-        </p>
-    </div>
-
-    <!-- ── Onglet Banque ────────────────────────────────── -->
-    <div class="tab-pane fade" id="bank" sec:authorize="hasAuthority('BANK_VIEW')">
-        <p class="text-muted mb-0 py-3 text-center">
-            <i class="bi bi-info-circle me-1"></i>
-            Le compte bancaire de ce membre est consultable depuis le module
-            <a th:href="@{/bank}">Banque Annuelle</a>.
-        </p>
+    <!-- ── Sanctions ────────────────────────────────────── -->
+    <div class="tab-pane fade" id="pane-sanctions" role="tabpanel" aria-labelledby="tab-sanctions"
+         sec:authorize="hasAuthority('SANCTION_VIEW')">
+        <div class="table-wrap">
+            <table class="table">
+                <caption class="visually-hidden">Sanctions du membre</caption>
+                <thead>
+                    <tr>
+                        <th scope="col">Date</th>
+                        <th scope="col">Motif</th>
+                        <th scope="col">Origine</th>
+                        <th scope="col" class="num">Montant</th>
+                        <th scope="col">Statut</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="s : ${sanctions}">
+                        <td th:text="${#temporals.format(s.sanctionDate,'dd/MM/yyyy')}">date</td>
+                        <td th:text="${s.reason}">motif</td>
+                        <td>
+                            <span class="pill"
+                                  th:classappend="${s.origin.name() == 'presence_fund' ? 'pill-warning' :
+                                                  (s.origin.name() == 'presence_default' ? 'pill-danger' :
+                                                  (s.origin.name() == 'tontine_default' ? 'pill-info' : 'pill-muted'))}"
+                                  th:text="${s.origin.name() == 'presence_fund' ? 'Fond' :
+                                           (s.origin.name() == 'presence_default' ? 'Échec présence' :
+                                           (s.origin.name() == 'tontine_default' ? 'Tontine' : 'Manuel'))}">Origine</span>
+                        </td>
+                        <td class="num money" th:text="${#numbers.formatInteger(s.amount,1,'WHITESPACE')}">0</td>
+                        <td>
+                            <span class="pill"
+                                  th:classappend="${s.status.name() == 'unpaid' ? 'pill-danger' :
+                                                  (s.status.name() == 'paid' ? 'pill-success' : 'pill-muted')}"
+                                  th:text="${s.status.name() == 'unpaid' ? 'Impayée' :
+                                           (s.status.name() == 'paid' ? 'Payée' : 'Annulée')}">Statut</span>
+                        </td>
+                    </tr>
+                    <tr th:replace="~{fragments/ui :: emptyRow(5, 'Aucune sanction pour ce membre', ${#lists.isEmpty(sanctions)})}"></tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="card-body pt-3">
+            <a th:href="@{/sanctions(memberId=${member.id})}" class="btn btn-sm btn-outline-secondary">
+                Gérer dans le module Sanctions<i class="bi bi-arrow-right" aria-hidden="true"></i>
+            </a>
+        </div>
     </div>
 
 </div>
 
-</th:block></body></html>
+</th:block>
+</body>
+</html>

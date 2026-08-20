@@ -1,13 +1,21 @@
 package org.asvosonk.session.domain.valueobject;
 
 /**
- * Defines the sequential workflow steps of a meeting session.
- * Each step must be completed before advancing to the next.
+ * Déroulé d'une séance, dans l'ordre de l'ordre du jour de l'association.
  *
- * <p>The Banque Projet / Banque Annuelle steps were removed (TICKET-SESSION-01):
- * they were empty placeholders that blocked progression to the report and will
- * be handled separately later. The workflow now goes directly from the Grande
- * Tontine to the final report.
+ * <p>Chaque rubrique financière est une étape « ouverte » (saisie en cours) puis
+ * « clôturée » (calculs figés) :
+ * <ol>
+ *   <li>ordre du jour ;</li>
+ *   <li>présence (obligatoire pour tous les membres) ;</li>
+ *   <li>grande tontine (membres souscripteurs du tour en cours) ;</li>
+ *   <li>banque projet ;</li>
+ *   <li>banque annuelle ;</li>
+ *   <li>rapport de séance.</li>
+ * </ol>
+ *
+ * <p>Les deux étapes bancaires sont en place dans le déroulé mais leur saisie
+ * n'est pas encore implémentée : on les traverse sans rien enregistrer.
  */
 public enum SessionStep {
     CREATED,
@@ -15,10 +23,14 @@ public enum SessionStep {
     PRESENCE_CLOSED,
     TONTINE_OPEN,
     TONTINE_CLOSED,
+    BANQUE_PROJET_OPEN,
+    BANQUE_PROJET_CLOSED,
+    BANQUE_ANNUELLE_OPEN,
+    BANQUE_ANNUELLE_CLOSED,
     REPORT_GENERATED;
 
     /**
-     * Returns the next step in the workflow, or null if already at REPORT_GENERATED.
+     * Étape suivante du déroulé, ou null si la séance est déjà au rapport.
      */
     public SessionStep next() {
         SessionStep[] steps = values();
@@ -27,84 +39,96 @@ public enum SessionStep {
     }
 
     /**
-     * Returns the previous step in the workflow, or null if already at CREATED.
+     * Étape précédente, ou null si la séance vient d'être créée.
      */
     public SessionStep previous() {
         int idx = this.ordinal();
         return idx > 0 ? values()[idx - 1] : null;
     }
 
-    /**
-     * Whether this step is a financial "open" step that requires input.
-     */
+    /** Étape de saisie (par opposition à une étape déjà clôturée). */
     public boolean isOpenStep() {
-        return this == PRESENCE_OPEN || this == TONTINE_OPEN;
+        return this == PRESENCE_OPEN || this == TONTINE_OPEN
+            || this == BANQUE_PROJET_OPEN || this == BANQUE_ANNUELLE_OPEN;
     }
 
-    /**
-     * Whether this step is after PRESENCE_OPEN (i.e. financial processing started).
-     */
+    /** Vrai dès que la présence est clôturée (traitements financiers effectués). */
     public boolean isAfterPresence() {
         return this.ordinal() >= PRESENCE_CLOSED.ordinal();
     }
 
-    /**
-     * Returns the French label for this step.
-     */
+    /** Libellé complet de l'étape. */
     public String label() {
         return switch (this) {
-            case CREATED            -> "Créée";
-            case PRESENCE_OPEN      -> "Présence";
-            case PRESENCE_CLOSED    -> "Présence ✓";
-            case TONTINE_OPEN       -> "Grande Tontine";
-            case TONTINE_CLOSED     -> "Grande Tontine ✓";
-            case REPORT_GENERATED   -> "Rapport";
+            case CREATED                -> "Ordre du jour";
+            case PRESENCE_OPEN          -> "Présence — saisie";
+            case PRESENCE_CLOSED        -> "Présence clôturée";
+            case TONTINE_OPEN           -> "Grande Tontine — saisie";
+            case TONTINE_CLOSED         -> "Grande Tontine clôturée";
+            case BANQUE_PROJET_OPEN     -> "Banque Projet — saisie";
+            case BANQUE_PROJET_CLOSED   -> "Banque Projet clôturée";
+            case BANQUE_ANNUELLE_OPEN   -> "Banque Annuelle — saisie";
+            case BANQUE_ANNUELLE_CLOSED -> "Banque Annuelle clôturée";
+            case REPORT_GENERATED       -> "Rapport généré";
         };
     }
 
-    /**
-     * Short label for stepper display.
-     */
+    /** Libellé court, pour les listes. */
     public String shortLabel() {
         return switch (this) {
-            case CREATED            -> "Ordre du jour";
-            case PRESENCE_OPEN      -> "Présence";
-            case PRESENCE_CLOSED    -> "Présence ✓";
-            case TONTINE_OPEN       -> "Grande Tontine";
-            case TONTINE_CLOSED     -> "Grande Tontine ✓";
-            case REPORT_GENERATED   -> "Rapport";
+            case CREATED                -> "Ordre du jour";
+            case PRESENCE_OPEN          -> "Présence";
+            case PRESENCE_CLOSED        -> "Présence ✓";
+            case TONTINE_OPEN           -> "Grande Tontine";
+            case TONTINE_CLOSED         -> "Grande Tontine ✓";
+            case BANQUE_PROJET_OPEN     -> "Banque Projet";
+            case BANQUE_PROJET_CLOSED   -> "Banque Projet ✓";
+            case BANQUE_ANNUELLE_OPEN   -> "Banque Annuelle";
+            case BANQUE_ANNUELLE_CLOSED -> "Banque Annuelle ✓";
+            case REPORT_GENERATED       -> "Rapport";
         };
     }
 
-    /**
-     * Icon name for stepper display (Bootstrap Icons).
-     */
+    /** Icône Bootstrap Icons associée. */
     public String icon() {
         return switch (this) {
-            case CREATED            -> "bi-calendar-check";
-            case PRESENCE_OPEN      -> "bi-clipboard-check";
-            case PRESENCE_CLOSED    -> "bi-clipboard-check";
-            case TONTINE_OPEN       -> "bi-cash-stack";
-            case TONTINE_CLOSED     -> "bi-cash-stack";
-            case REPORT_GENERATED   -> "bi-file-earmark-bar-graph";
+            case CREATED                              -> "bi-calendar-check";
+            case PRESENCE_OPEN, PRESENCE_CLOSED       -> "bi-clipboard-check";
+            case TONTINE_OPEN, TONTINE_CLOSED         -> "bi-cash-stack";
+            case BANQUE_PROJET_OPEN,
+                 BANQUE_PROJET_CLOSED                 -> "bi-briefcase";
+            case BANQUE_ANNUELLE_OPEN,
+                 BANQUE_ANNUELLE_CLOSED               -> "bi-bank";
+            case REPORT_GENERATED                     -> "bi-file-earmark-bar-graph";
         };
     }
 
-    /**
-     * Returns the display steps for the stepper (collapsing open/closed pairs).
-     */
+    /** Étapes affichées dans la barre de progression (paires ouverte/clôturée fusionnées). */
     public static DisplayStep[] displaySteps() {
         return DisplayStep.values();
     }
 
-    /**
-     * Simplified display steps for the stepper UI.
-     */
+    /** Index de l'étape courante dans la barre de progression. */
+    public int displayIndex() {
+        return switch (this) {
+            case CREATED                                  -> 0;
+            case PRESENCE_OPEN, PRESENCE_CLOSED           -> 1;
+            case TONTINE_OPEN, TONTINE_CLOSED             -> 2;
+            case BANQUE_PROJET_OPEN, BANQUE_PROJET_CLOSED -> 3;
+            case BANQUE_ANNUELLE_OPEN,
+                 BANQUE_ANNUELLE_CLOSED                   -> 4;
+            case REPORT_GENERATED                         -> 5;
+        };
+    }
+
+    /** Étapes simplifiées pour la barre de progression. */
     public enum DisplayStep {
-        AGENDA("Ordre du jour",   "bi-calendar-check"),
-        PRESENCE("Présence",      "bi-clipboard-check"),
-        TONTINE("Grande Tontine", "bi-cash-stack"),
-        REPORT("Rapport",         "bi-file-earmark-bar-graph");
+        AGENDA("Ordre du jour",     "bi-calendar-check"),
+        PRESENCE("Présence",        "bi-clipboard-check"),
+        TONTINE("Grande Tontine",   "bi-cash-stack"),
+        BANQUE_PROJET("Banque Projet",     "bi-briefcase"),
+        BANQUE_ANNUELLE("Banque Annuelle", "bi-bank"),
+        REPORT("Rapport",           "bi-file-earmark-bar-graph");
 
         private final String label;
         private final String icon;

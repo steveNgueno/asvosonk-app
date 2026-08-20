@@ -10,16 +10,20 @@ import org.asvosonk.member.infrastructure.persistence.entity.MembershipFee;
 import org.asvosonk.member.infrastructure.persistence.repository.MembershipFeeRepository;
 import org.asvosonk.member.presentation.request.FeePaymentForm;
 import org.asvosonk.member.presentation.request.MemberRequest;
-import org.asvosonk.member.presentation.response.MemberResponse;
+import org.asvosonk.sanction.application.usecase.ListSanctionsUseCase;
+import org.asvosonk.security.application.service.UserDetailsImpl;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.math.BigDecimal;
+import java.util.EnumMap;
+import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 @Controller
 @RequestMapping("/members")
@@ -32,19 +36,21 @@ public class MemberController {
     private final SuspendMemberUseCase     suspendMemberUseCase;
     private final RecordFeePaymentUseCase  recordFeePaymentUseCase;
     private final MembershipFeeRepository  feeRepository;
+    private final ListSanctionsUseCase     listSanctionsUseCase;
 
     // ── List ─────────────────────────────────────────────────
 
     @GetMapping
     @PreAuthorize("hasAuthority('MEMBER_VIEW')")
     public String list(Model model) {
-        model.addAttribute("members", searchMemberUseCase.findAll());
-        // Membres ayant des frais d'adhésion non soldés (UI-004) — 1 seule requête.
-        Set<Long> membersWithPendingFees = feeRepository.findAll().stream()
-                .filter(fee -> !fee.isFullyPaid())
-                .map(fee -> fee.getMember().getId())
-                .collect(Collectors.toSet());
+        var members = searchMemberUseCase.findAll();
+        // Membres ayant des frais d'adhésion non soldés (UI-004) — 1 seule requête,
+        // agrégée en SQL (l'ancienne version chargeait toutes les lignes de frais).
+        Set<Long> membersWithPendingFees = feeRepository.findMemberIdsWithOutstandingFees();
+
+        model.addAttribute("members", members);
         model.addAttribute("membersWithPendingFees", membersWithPendingFees);
+        model.addAttribute("activeCount", members.stream().filter(Member::isActive).count());
         model.addAttribute("pageTitle", "Membres");
         return "members/list";
     }
@@ -55,10 +61,31 @@ public class MemberController {
     @PreAuthorize("hasAuthority('MEMBER_VIEW')")
     public String detail(@PathVariable Long id, Model model) {
         Member member = searchMemberUseCase.findById(id);
+        var fees = feeRepository.findByMemberIdOrderByFeeType(id);
+
         model.addAttribute("member", member);
-        model.addAttribute("fees", feeRepository.findByMemberIdOrderByFeeType(id));
+        model.addAttribute("fees", fees);
+        model.addAttribute("feesTotalDue", fees.stream()
+            .map(MembershipFee::getAmountDue).reduce(BigDecimal.ZERO, BigDecimal::add));
+        model.addAttribute("feesTotalPaid", fees.stream()
+            .map(MembershipFee::getAmountPaid).reduce(BigDecimal.ZERO, BigDecimal::add));
+        // Sanctions of this member — the "Sanctions" tab used to be an empty
+        // placeholder pointing at another screen; the data already exists here.
+        model.addAttribute("sanctions", listSanctionsUseCase.findByMember(id));
         model.addAttribute("feePaymentForm", new FeePaymentForm());
         model.addAttribute("feeTypes", FeeType.values());
+
+        // Reste à payer par type de frais : le formulaire s'en sert pour
+        // pré-remplir le montant. Un frais jamais entamé reste dû en entier.
+        Map<FeeType, BigDecimal> remaining = new EnumMap<>(FeeType.class);
+        for (FeeType type : FeeType.values()) {
+            remaining.put(type, type.defaultAmount());
+        }
+        for (MembershipFee fee : fees) {
+            remaining.put(fee.getFeeType(),
+                fee.getAmountDue().subtract(fee.getAmountPaid()).max(BigDecimal.ZERO));
+        }
+        model.addAttribute("feeRemaining", remaining);
         model.addAttribute("memberStatuses", MemberStatus.values());
         model.addAttribute("pageTitle", member.getFullName());
         return "members/detail";
@@ -85,6 +112,7 @@ public class MemberController {
         if (result.hasErrors()) {
             model.addAttribute("statuses", MemberStatus.values());
             model.addAttribute("editMode", false);
+            model.addAttribute("pageTitle", "Nouveau membre");
             return "members/form";
         }
         Member created = createMemberUseCase.execute(memberRequest);
@@ -123,6 +151,8 @@ public class MemberController {
         if (result.hasErrors()) {
             model.addAttribute("statuses", MemberStatus.values());
             model.addAttribute("editMode", true);
+            model.addAttribute("memberId", id);
+            model.addAttribute("pageTitle", "Modifier le membre");
             return "members/form";
         }
         updateMemberUseCase.execute(id, memberRequest);
@@ -149,6 +179,7 @@ public class MemberController {
     public String recordFee(@PathVariable Long id,
                             @Valid @ModelAttribute FeePaymentForm feePaymentForm,
                             BindingResult result,
+                            @AuthenticationPrincipal UserDetailsImpl principal,
                             RedirectAttributes ra) {
         if (result.hasErrors()) {
             ra.addFlashAttribute("errorMessage", "Données invalides pour le paiement.");
@@ -156,9 +187,11 @@ public class MemberController {
         }
         feePaymentForm.setMemberId(id);
         try {
-            recordFeePaymentUseCase.execute(id, feePaymentForm.getFeeType(), feePaymentForm.getAmount());
+            recordFeePaymentUseCase.execute(id, feePaymentForm.getFeeType(),
+                feePaymentForm.getAmount(), principal != null ? principal.getAppUser() : null);
             ra.addFlashAttribute("successMessage",
-                "Paiement " + feePaymentForm.getFeeType().label() + " enregistré.");
+                "Paiement " + feePaymentForm.getFeeType().label()
+                    + " enregistré et rattaché à la séance du jour.");
         } catch (Exception e) {
             ra.addFlashAttribute("errorMessage", e.getMessage());
         }

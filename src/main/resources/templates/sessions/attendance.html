@@ -1,272 +1,239 @@
 <!DOCTYPE html>
 <html lang="fr" xmlns:th="http://www.thymeleaf.org"
                xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
-      th:replace="~{layout :: layout(pageTitle=${pageTitle}, content=~{::main-content}, extraHead=~{}, extraScripts=~{::extraScripts})}">
+      th:replace="~{layout :: layout(${pageTitle}, ~{::main-content}, ~{}, ~{::extraScripts})}">
 <body>
-<th:block th:fragment="extraScripts">
-<script>
-const TONTINE_SHARE = 1000;
-const BEVERAGE_SHARE = 500;
-const DEVELOPMENT_SHARE = 500;
-const BEVERAGE_COST_PER_PERSON = 500;
-
-function recalc() {
-    let totalTontine = 0, totalDev = 0, totalBeveragePool = 0;
-    let presentCount = 0;
-    const rows = document.querySelectorAll('.attendance-row');
-
-    rows.forEach(row => {
-        const present = row.querySelector('.present-check').checked;
-        const amount = parseFloat(row.querySelector('.amount-input').value) || 0;
-        const statusEl = row.querySelector('.status-badge');
-
-        let tontine = 0, bev = 0, dev = 0;
-
-        if (present && amount >= 2000) {
-            tontine = TONTINE_SHARE;
-            bev = BEVERAGE_SHARE;
-            dev = DEVELOPMENT_SHARE;
-            presentCount++;
-            statusEl.textContent = 'À jour';
-            statusEl.className = 'badge bg-success';
-        } else if (present && amount > 0) {
-            const ratio = amount / 2000;
-            tontine = Math.round(TONTINE_SHARE * ratio);
-            bev = Math.round(BEVERAGE_SHARE * ratio);
-            dev = Math.round(DEVELOPMENT_SHARE * ratio);
-            presentCount++;
-            statusEl.textContent = 'Partiel';
-            statusEl.className = 'badge bg-warning text-dark';
-        } else if (!present) {
-            statusEl.textContent = 'Absent';
-            statusEl.className = 'badge bg-secondary';
-        } else {
-            statusEl.textContent = '—';
-            statusEl.className = 'badge bg-light text-dark';
-        }
-
-        totalTontine += tontine;
-        totalDev += dev;
-        totalBeveragePool += bev;
-    });
-
-    const actualCost = presentCount * BEVERAGE_COST_PER_PERSON;
-    const reliquat = Math.max(0, totalBeveragePool - actualCost);
-
-    document.getElementById('totalTontineFooter').textContent = totalTontine.toLocaleString() + ' FCFA';
-    document.getElementById('totalDev').textContent = totalDev.toLocaleString() + ' FCFA';
-    document.getElementById('beverageReliquat').textContent = reliquat.toLocaleString() + ' FCFA';
-    document.getElementById('presentCount').textContent = presentCount;
-    document.getElementById('netToTreasurer').textContent =
-        (totalTontine + totalDev).toLocaleString() + ' FCFA';
-}
-
-function setAll(present) {
-    document.querySelectorAll('.present-check').forEach(cb => {
-        cb.checked = present;
-    });
-    recalc();
-}
-</script>
-</th:block>
-
-<th:block th:fragment="extraHead">
-<style>
-.attendance-row:hover { background-color: #f8f9fa; }
-.footer-total { font-size: 1.1rem; font-weight: 700; }
-</style>
-</th:block>
-
 <th:block th:fragment="main-content">
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <div class="page-header">
-        <h2><i class="bi bi-clipboard-check me-2"></i>Saisie de présence</h2>
-        <p th:text="'Séance du ' + ${#temporals.format(meetingSession.sessionDate,'EEEE dd MMMM yyyy')}"></p>
+<div class="page-head">
+    <div>
+        <h1><i class="bi bi-clipboard-check" aria-hidden="true"></i>Cotisation de présence</h1>
+        <p class="page-subtitle"
+           th:text="'Séance du ' + ${#temporals.format(meetingSession.sessionDate,'EEEE dd MMMM yyyy')}">Séance</p>
     </div>
-    <a th:href="@{/sessions/{id}(id=${meetingSession.id})}" class="btn btn-outline-secondary btn-sm">
-        <i class="bi bi-arrow-left me-1"></i>Retour à la séance
-    </a>
+    <div class="page-actions">
+        <a th:href="@{/sessions/{id}(id=${meetingSession.id})}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left" aria-hidden="true"></i>Retour à la séance
+        </a>
+    </div>
 </div>
 
-<!-- ── Stepper ─────────────────────────────────────── -->
-<div class="stepper-wrapper">
-  <div class="stepper">
-    <th:block th:each="ds, iter : ${displaySteps}">
+<div th:replace="~{fragments/ui :: stepper(${displaySteps}, ${currentDisplayStepIdx})}"></div>
 
-      <!-- Connector avant chaque step (sauf le premier) -->
-      <div th:unless="${iter.first}" class="stepper-connector"
-           th:classappend="${iter.index <= currentDisplayStepIdx} ? 'done' : ''">
-      </div>
-
-      <!-- Step circle + label -->
-      <div class="stepper-step"
-           th:classappend="${iter.index < currentDisplayStepIdx} ? 'done' :
-                           (${iter.index == currentDisplayStepIdx} ? 'active' : '')">
-        <div class="step-circle">
-          <i class="bi"
-             th:classappend="${iter.index < currentDisplayStepIdx}
-                              ? 'bi-check-lg'
-                              : ${ds.icon}"></i>
-        </div>
-        <span class="step-label" th:text="${ds.label}"></span>
-      </div>
-
-    </th:block>
-  </div>
+<!-- ── Bénéficiaire du jour ─────────────────────────────── -->
+<div class="callout callout-accent mb-4" th:if="${beneficiaryMember != null}">
+    <i class="bi bi-trophy-fill callout-icon" style="color:var(--c-accent)" aria-hidden="true"></i>
+    <div class="callout-body">
+        <p class="mb-0 fw-semibold">
+            Bénéficiaire de la tontine de présence :
+            <span th:text="${beneficiaryMember.fullName}">—</span>
+        </p>
+        <p class="mb-0 small text-muted" th:if="${presenceOpenTour != null}">
+            Tour de présence n°<span th:text="${presenceOpenTour.id}">1</span>
+        </p>
+    </div>
 </div>
 
-<!-- ── Beneficiary info alert ──────────────────────── -->
-<div class="alert alert-info d-flex align-items-center gap-2 py-2 mb-3"
-     th:if="${beneficiaryMember != null}">
-    <i class="bi bi-trophy-fill text-warning fs-5"></i>
+<div class="alert alert-warning" role="alert" th:if="${beneficiaryMember == null}">
+    <i class="bi bi-exclamation-triangle-fill flex-shrink-0" aria-hidden="true"></i>
     <span>
-        Bénéficiaire du jour :
-        <strong th:text="${beneficiaryMember.fullName}"></strong>
-        <th:block th:if="${presenceOpenTour}">
-            &nbsp;(Tour N°<span th:text="${presenceOpenTour.id}"></span>)
-        </th:block>
+        Aucun bénéficiaire désigné pour cette séance. Enregistrez le résultat du tirage au sort
+        depuis la <a th:href="@{/sessions/{id}(id=${meetingSession.id})}">page de la séance</a> :
+        les montants dus en dépendent, et la présence ne peut pas être clôturée sans lui.
     </span>
 </div>
 
-<!-- ── Attendance table ────────────────────────────── -->
-<div class="card border-0 shadow-sm mb-3">
-    <div class="card-header fw-semibold bg-dark text-white d-flex justify-content-between align-items-center">
-        <span><i class="bi bi-people me-1"></i>Présences &amp; cotisations</span>
-        <div class="d-flex gap-1">
-            <button class="btn btn-sm btn-outline-light" onclick="setAll(true)">Tous présents</button>
-            <button class="btn btn-sm btn-outline-light" onclick="setAll(false)">Tous absents</button>
+<form th:action="@{/sessions/{id}/attendance(id=${meetingSession.id})}" method="post"
+      th:object="${sheetForm}" id="attendanceForm">
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <i class="bi bi-people" aria-hidden="true"></i>Feuille de présence
+            <span class="text-muted small ms-2" th:text="'(' + ${#lists.size(attendances)} + ' membres)'"></span>
+            <span class="card-header-actions">
+                <button class="btn btn-sm btn-outline-secondary" type="button" data-mark-all="true">
+                    Tous présents
+                </button>
+                <button class="btn btn-sm btn-outline-secondary" type="button" data-mark-all="false">
+                    Tous absents
+                </button>
+            </span>
         </div>
-    </div>
-    <div class="table-responsive">
-        <table class="table table-hover mb-0" id="attendanceTable">
-            <thead>
-                <tr>
-                    <th style="min-width:160px">Membre</th>
-                    <th style="min-width:180px">Situation fond de roulement</th>
-                    <th style="width:70px" class="text-center">Présent</th>
-                    <th style="width:180px">Montant à saisir</th>
-                    <th style="width:100px">Statut</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr th:each="att : ${attendances}" class="attendance-row"
-                    th:classappend="${att.member.id == meetingSession.presenceBeneficiary?.id} ? 'beneficiary-row' : ''">
-                    <td>
-                        <span class="fw-semibold" th:text="${att.member.fullName}"></span>
-                        <span th:if="${att.member.id == meetingSession.presenceBeneficiary?.id}"
-                              class="badge beneficiary-badge ms-1">🏆 Bénéficiaire</span>
-                    </td>
 
-                    <!-- Situation fond de roulement -->
-                    <td>
-                        <span th:if="${pendingDebts[att.member.id] != null && pendingDebts[att.member.id] == 0}" class="fund-ok">
-                            <i class="bi bi-check-circle-fill"></i>
-                            À jour (<span th:text="${fundBalances[att.member.id] != null ? fundBalances[att.member.id] : 0} + ' FCFA'"></span>)
-                        </span>
-                        <span th:if="${pendingDebts[att.member.id] != null && pendingDebts[att.member.id] == 1}" class="fund-warning">
-                            <i class="bi bi-exclamation-circle-fill"></i>
-                            1 séance due — saisir min 4 000
-                        </span>
-                        <span th:if="${pendingDebts[att.member.id] != null && pendingDebts[att.member.id] >= 2}" class="fund-danger">
-                            <i class="bi bi-x-circle-fill"></i>
-                            2 séances dues — saisir min 6 000
-                        </span>
-                        <span th:if="${pendingDebts[att.member.id] == null}" class="text-muted small">—</span>
-                    </td>
+        <div class="table-wrap">
+            <table class="table table-hover" id="attendanceTable">
+                <caption class="visually-hidden">
+                    Cochez la présence physique et saisissez la somme réellement versée par chaque membre.
+                </caption>
+                <thead>
+                    <tr>
+                        <th scope="col" style="min-width:12rem">Membre</th>
+                        <th scope="col" style="min-width:14rem">Situation vis-à-vis du fond</th>
+                        <th scope="col" class="num" style="width:7rem">Dû ce jour</th>
+                        <th scope="col" class="text-center" style="width:5.5rem">Présent</th>
+                        <th scope="col" style="width:11rem">Versé</th>
+                        <th scope="col" style="width:9rem">Effet estimé</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="att, it : ${attendances}" class="js-row"
+                        th:with="fund=${fundStatuses.get(att.member.id)},
+                                 failures=${openFailures.get(att.member.id)},
+                                 due=${dueByMember.get(att.member.id)}"
+                        th:classappend="${meetingSession.presenceBeneficiary != null
+                                          and att.member.id == meetingSession.presenceBeneficiary.id} ? 'row-beneficiary'"
+                        th:attr="data-due=${due},
+                                 data-pending=${fund != null ? fund.pendingAdvances : 0},
+                                 data-failures=${failures != null ? failures : 0},
+                                 data-fund=${fund != null ? fund.balance : 0},
+                                 data-debts=${debtTokens.get(att.member.id)},
+                                 data-beneficiary=${meetingSession.presenceBeneficiary != null
+                                                    and att.member.id == meetingSession.presenceBeneficiary.id}">
 
-                    <td class="text-center">
-                        <form th:action="@{/sessions/{id}/attendance(id=${meetingSession.id})}"
-                              method="post" class="d-inline">
-                            <input type="hidden" name="memberId" th:value="${att.member.id}">
-                            <input type="hidden" name="present" value="false">
-                            <input type="checkbox" name="present" value="true"
-                                   class="form-check-input present-check"
-                                   th:checked="${att.present}"
-                                   th:id="'present-' + ${att.member.id}"
-                                   onchange="recalc()">
-                        </form>
-                    </td>
+                        <th scope="row" class="fw-semibold">
+                            <span th:text="${att.member.fullName}">Nom</span>
+                            <span class="pill pill-accent ms-1"
+                                  th:if="${meetingSession.presenceBeneficiary != null
+                                          and att.member.id == meetingSession.presenceBeneficiary.id}">
+                                <i class="bi bi-trophy-fill" aria-hidden="true"></i>Bénéficiaire
+                            </span>
+                            <input type="hidden" th:field="*{entries[__${it.index}__].memberId}">
+                        </th>
 
-                    <!-- Saisie montant -->
-                    <td>
-                        <form th:action="@{/sessions/{id}/attendance(id=${meetingSession.id})}"
-                              method="post" class="d-flex gap-1 align-items-center">
-                            <input type="hidden" name="memberId" th:value="${att.member.id}">
-                            <input type="number" name="amountPaid"
-                                   class="form-control form-control-sm amount-input"
-                                   style="width:110px" step="2000" min="0"
-                                   th:value="${att.amountPaid}"
-                                   th:placeholder="${pendingDebts[att.member.id] != null && pendingDebts[att.member.id] == 0 ? '2000' :
-                                                    (pendingDebts[att.member.id] != null && pendingDebts[att.member.id] == 1 ? '4000' : '6000')}"
-                                   onchange="recalc()" oninput="recalc()">
-                            <button type="submit" class="btn btn-sm btn-primary" title="Sauvegarder">
-                                <i class="bi bi-check-lg"></i>
-                            </button>
-                        </form>
-                    </td>
+                        <!-- Fond de roulement et dettes -->
+                        <td>
+                            <div class="d-flex flex-wrap gap-1">
+                                <span class="pill pill-muted" th:if="${fund == null}">Pas de fond</span>
+                                <th:block th:if="${fund != null}">
+                                    <span class="pill pill-success" th:if="${fund.upToDate and (failures == null or failures == 0)}">
+                                        <i class="bi bi-check-circle-fill" aria-hidden="true"></i>À jour
+                                    </span>
+                                    <span class="pill pill-warning" th:if="${fund.pendingAdvances > 0}">
+                                        <span th:text="${fund.pendingAdvances}">1</span> avance(s) du fond
+                                    </span>
+                                    <span class="pill pill-danger" th:if="${failures != null and failures > 0}">
+                                        <span th:text="${failures}">1</span> échec(s) à recouvrir
+                                    </span>
+                                </th:block>
+                            </div>
+                            <div class="small text-muted mt-1" th:if="${fund != null}">
+                                Fond :
+                                <span class="money" th:text="${#numbers.formatInteger(fund.balance,1,'WHITESPACE')} + ' FCFA'">0</span>
+                                <span class="js-suggestion"></span>
+                            </div>
+                        </td>
 
-                    <!-- Statut -->
-                    <td class="text-center">
-                        <span class="badge status-badge"
-                              th:classappend="${att.amountPaid >= 2000 ? 'bg-success' : (att.amountPaid > 0 ? 'bg-warning text-dark' : 'bg-light text-dark')}"
-                              th:text="${att.amountPaid >= 2000 ? 'À jour' : (att.amountPaid > 0 ? 'Partiel' : '—')}">—</span>
-                    </td>
-                </tr>
-            </tbody>
-            <!-- ── Tfoot ─────────────────────────────── -->
-            <tfoot class="bg-light fw-bold">
-                <tr>
-                    <td colspan="2">Totaux estimés :</td>
-                    <td class="text-center"><span id="presentCount">0</span> présent(s)</td>
-                    <td class="amount amount-in" id="tfootTotalTontine">0 FCFA → bénéficiaire</td>
-                    <td></td>
-                </tr>
-            </tfoot>
-        </table>
-    </div>
+                        <!-- Montant dû -->
+                        <td class="num">
+                            <span class="money" th:text="${#numbers.formatInteger(due,1,'WHITESPACE')}">2 000</span>
+                            <span class="d-block small text-muted" th:if="${due.intValue() == 1000}"
+                                  title="Ce membre avait déjà bénéficié avant l'arrivée du bénéficiaire du jour : il ne lui doit pas de part de tontine.">
+                                sans tontine
+                            </span>
+                        </td>
 
-    <!-- ── Real-time footer ─────────────────────────── -->
-    <div class="card-footer bg-light">
-        <div class="row g-2 text-center">
-            <div class="col-md-3">
-                <small class="text-muted d-block">Tontine → bénéficiaire</small>
-                <span class="footer-total text-success" id="totalTontineFooter">0 FCFA</span>
-            </div>
-            <div class="col-md-3">
-                <small class="text-muted d-block">Caisse Développement</small>
-                <span class="footer-total text-info" id="totalDev">0 FCFA</span>
-            </div>
-            <div class="col-md-3">
-                <small class="text-muted d-block">Reliquat Boisson</small>
-                <span class="footer-total text-warning" id="beverageReliquat">0 FCFA</span>
-            </div>
-            <div class="col-md-3">
-                <small class="text-muted d-block">Net à remettre au trésorier</small>
-                <span class="footer-total text-dark" id="netToTreasurer">0 FCFA</span>
-            </div>
+                        <!-- Présence -->
+                        <td class="text-center">
+                            <input type="checkbox" class="form-check-input js-present"
+                                   th:field="*{entries[__${it.index}__].present}"
+                                   th:attr="aria-label='Présence de ' + ${att.member.fullName}">
+                        </td>
+
+                        <!-- Montant versé — jamais plus que le dû, dettes comprises -->
+                        <td th:with="ceiling=${ceilingByMember.get(att.member.id)}">
+                            <div class="input-group input-group-sm">
+                                <input type="number" class="form-control num js-amount"
+                                       th:field="*{entries[__${it.index}__].amountPaid}"
+                                       min="0" step="1" inputmode="numeric"
+                                       th:attr="max=${ceiling},
+                                                aria-label='Montant versé par ' + ${att.member.fullName}">
+                                <span class="input-group-text">FCFA</span>
+                            </div>
+                            <span class="d-block small text-muted mt-1"
+                                  th:text="'maximum ' + ${#numbers.formatInteger(ceiling,1,'WHITESPACE')}">max</span>
+                        </td>
+
+                        <!-- Effet estimé -->
+                        <td>
+                            <span class="pill pill-muted js-status">—</span>
+                            <span class="d-block small text-muted mt-1 js-effect-note"></span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
-    </div>
-</div>
 
-<!-- ── Close presence button ───────────────────────── -->
-<div class="card border-danger border-0 shadow-sm" sec:authorize="hasAuthority('SESSION_CLOSE')">
-    <div class="card-body d-flex align-items-center justify-content-between">
-        <div>
-            <strong><i class="bi bi-lock me-1"></i>Clôturer la présence</strong>
-            <p class="mb-0 text-muted small">
-                Cette action déclenche les calculs automatiques (scénarios fond de roulement,
-                sanctions, caisses). Elle est irréversible.
+        <div class="card-footer">
+            <div class="row g-3 text-center">
+                <div class="col-6 col-lg-3">
+                    <div class="metric-label">Présents</div>
+                    <div class="metric-value" id="sumPresent">0</div>
+                </div>
+                <div class="col-6 col-lg-3">
+                    <div class="metric-label">Tontine du bénéficiaire</div>
+                    <div class="metric-value money money-in"><span id="sumTontine">0</span><span class="money-unit">FCFA</span></div>
+                </div>
+                <div class="col-6 col-lg-3">
+                    <div class="metric-label">Caisse développement</div>
+                    <div class="metric-value money"><span id="sumDev">0</span><span class="money-unit">FCFA</span></div>
+                </div>
+                <div class="col-6 col-lg-3">
+                    <div class="metric-label">Reliquat boisson</div>
+                    <div class="metric-value money"><span id="sumBeverage">0</span><span class="money-unit">FCFA</span></div>
+                </div>
+            </div>
+            <p class="form-text mb-0 mt-3">
+                <i class="bi bi-info-circle" aria-hidden="true"></i>
+                Estimation indicative calculée dans le navigateur : cotisations réglées en
+                espèces, cotisations reprises par le fond de roulement et recouvrements
+                d'anciens échecs y sont comptés. Les sanctions et les retenues sur la tontine
+                sont calculées par le serveur à la clôture, qui reste seul juge.
             </p>
         </div>
+    </div>
+
+    <div class="callout mb-4">
+        <i class="bi bi-save callout-icon" style="color:var(--c-brand-500)" aria-hidden="true"></i>
+        <div class="callout-body">
+            <p class="mb-0 fw-semibold">Enregistrer la feuille</p>
+            <p class="mb-0 small text-muted">
+                Présences et montants sont enregistrés ensemble. Vous pouvez enregistrer
+                autant de fois que nécessaire avant la clôture.
+            </p>
+        </div>
+        <div class="callout-actions">
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-check-lg" aria-hidden="true"></i>Enregistrer la feuille
+            </button>
+        </div>
+    </div>
+</form>
+
+<!-- ── Clôture ──────────────────────────────────────────── -->
+<div class="callout" style="border-left-color:var(--c-danger)" sec:authorize="hasAuthority('SESSION_CLOSE')">
+    <i class="bi bi-lock callout-icon" style="color:var(--c-danger)" aria-hidden="true"></i>
+    <div class="callout-body">
+        <p class="mb-0 fw-semibold">Clôturer la présence</p>
+        <p class="mb-0 small text-muted">
+            Déclenche les remboursements du fond, les recouvrements d'échecs, les sanctions,
+            les retenues sur la tontine et l'alimentation des caisses. Action irréversible :
+            enregistrez la feuille avant.
+        </p>
+    </div>
+    <div class="callout-actions">
         <form th:action="@{/sessions/{id}/presence/close(id=${meetingSession.id})}" method="post"
-              onsubmit="return confirm('Confirmer la clôture de la présence ? Les calculs seront effectués automatiquement.')">
-            <button type="submit" class="btn btn-danger btn-lg">
-                <i class="bi bi-lock me-1"></i>Clôturer la présence
+              data-confirm="Clôturer la présence ? Les calculs financiers seront effectués et la feuille ne sera plus modifiable.">
+            <button type="submit" class="btn btn-danger" th:disabled="${beneficiaryMember == null}">
+                <i class="bi bi-lock" aria-hidden="true"></i>Clôturer la présence
             </button>
         </form>
     </div>
 </div>
 
-<script>recalc();</script>
-</th:block></body></html>
+</th:block>
+
+<th:block th:fragment="extraScripts">
+<script th:src="@{/js/attendance.js}"></script>
+</th:block>
+</body>
+</html>

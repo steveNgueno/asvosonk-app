@@ -27,7 +27,7 @@ public class CreateSanctionUseCase {
         Sanction sanction = new Sanction(
             null, memberId, sanctionDate, amount, reason,
             origin != null ? origin : SanctionOrigin.manual,
-            referenceId, SanctionStatus.unpaid, null,
+            referenceId, SanctionStatus.unpaid, null, null,
             LocalDateTime.now(), LocalDateTime.now()
         );
         return sanctionRepository.save(sanction);

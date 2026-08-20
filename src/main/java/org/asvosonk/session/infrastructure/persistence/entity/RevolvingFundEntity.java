@@ -24,7 +24,7 @@ public class RevolvingFundEntity {
 
     // F-03 : le fonds démarre vide ; il est alimenté par le paiement réel du
     // frais d'adhésion 'revolving_fund' (voir RecordFeePaymentUseCase).
-    @Column(nullable = false, precision = 10, scale = 2)
+    @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal balance = BigDecimal.ZERO;
 
     /** Optimistic-lock guard against concurrent balance updates (F-16). */

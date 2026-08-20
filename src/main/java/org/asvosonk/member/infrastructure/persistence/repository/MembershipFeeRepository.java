@@ -14,4 +14,12 @@ public interface MembershipFeeRepository extends JpaRepository<MembershipFee, Lo
     List<MembershipFee> findByMemberIdOrderByFeeType(Long memberId);
 
     Optional<MembershipFee> findByMemberIdAndFeeType(Long memberId, FeeType feeType);
+
+    /**
+     * Ids of members with at least one fee not fully paid — computed in SQL
+     * instead of loading every fee row and filtering in Java.
+     */
+    @org.springframework.data.jpa.repository.Query(
+        "SELECT DISTINCT f.member.id FROM MembershipFee f WHERE f.amountPaid < f.amountDue")
+    java.util.Set<Long> findMemberIdsWithOutstandingFees();
 }

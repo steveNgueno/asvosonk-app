@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<!--
+  Étapes bancaires du déroulé de séance dont la saisie n'est pas encore
+  implémentée. Les rubriques existent dans l'ordre du jour : on les traverse
+  explicitement, sans rien enregistrer, pour que le déroulé reste fidèle à la
+  réunion.
+-->
+<body>
+
+<!-- ══ Banque Projet ══════════════════════════════════════════ -->
+<th:block th:fragment="banqueProjet(closeAction)">
+    <div class="card mb-4">
+        <div class="card-header">
+            <i class="bi bi-briefcase" aria-hidden="true"></i>Banque Projet
+            <span class="pill pill-muted ms-2">saisie à venir</span>
+        </div>
+        <div class="card-body">
+            <p class="text-muted mb-0">
+                Cotisation hebdomadaire de 2 000 FCFA pour les membres souscripteurs. Un membre
+                qui a manqué une séance doit d'abord régler les séances en retard avant de cotiser
+                la séance tenante.
+            </p>
+        </div>
+    </div>
+    <div th:replace="~{sessions/_bank-placeholder :: skip('Banque Projet', ${closeAction})}"></div>
+</th:block>
+
+<!-- ══ Banque Annuelle ════════════════════════════════════════ -->
+<th:block th:fragment="banqueAnnuelle(closeAction)">
+    <div class="card mb-4">
+        <div class="card-header">
+            <i class="bi bi-bank" aria-hidden="true"></i>Banque Annuelle
+            <span class="pill pill-muted ms-2">saisie à venir</span>
+        </div>
+        <div class="card-body">
+            <p class="text-muted mb-3">
+                Épargnes et emprunts des membres. Le module existe déjà hors séance : les
+                opérations saisies depuis la page Banque Annuelle alimentent la caisse Banque.
+            </p>
+            <a th:href="@{/bank}" class="btn btn-outline-secondary btn-sm"
+               sec:authorize="hasAuthority('BANK_VIEW')">
+                <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i>Ouvrir la Banque Annuelle
+            </a>
+        </div>
+    </div>
+    <div th:replace="~{sessions/_bank-placeholder :: skip('Banque Annuelle', ${closeAction})}"></div>
+</th:block>
+
+<!-- ══ Bandeau « passer l'étape » ═════════════════════════════ -->
+<div th:fragment="skip(title, closeAction)" class="callout"
+     sec:authorize="hasAuthority('SESSION_CLOSE')">
+    <i class="bi bi-arrow-right-circle callout-icon" style="color:var(--c-brand-500)" aria-hidden="true"></i>
+    <div class="callout-body">
+        <p class="mb-0 fw-semibold">
+            Passer la rubrique <span th:text="${title}">Rubrique</span>
+        </p>
+        <p class="mb-0 small text-muted">Aucune écriture ne sera générée.</p>
+    </div>
+    <div class="callout-actions">
+        <form th:action="${closeAction}" method="post">
+            <button type="submit" class="btn btn-primary">
+                Étape suivante<i class="bi bi-arrow-right" aria-hidden="true"></i>
+            </button>
+        </form>
+    </div>
+</div>
+
+</body>
+</html>

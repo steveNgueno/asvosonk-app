@@ -46,11 +46,41 @@ class PresenceInvariantsIT extends AbstractIntegrationTest {
     }
 
     @Test
-    void servingOutOfOrderIsRejected() {
-        // m2 (order 2) cannot be served before m1 (order 1)
-        assertThatThrownBy(() -> markBenefited.execute(tourId, m2, null))
+    void nImporteQuelMembreNonServiPeutEtreTireAuSort() {
+        // Le bénéficiaire est tiré au sort à chaque séance : il n'y a pas d'ordre
+        // imposé entre les membres présents au démarrage du tour. m2 peut donc
+        // être servi avant m1.
+        markBenefited.execute(tourId, m2, null);
+        em.flush();
+        em.clear();
+
+        assertThat(summary.findNotBenefitedYet(tourId))
+            .extracting(p -> p.getMemberId())
+            .containsExactly(m1);
+    }
+
+    @Test
+    void unArrivantEnCoursDeTourNePeutPasPasserAvantLesAutres() {
+        // Un membre entré après le démarrage du tour bénéficie en dernier :
+        // tant que m1 et m2 n'ont pas été servis, il n'est pas éligible.
+        Long late = insertMember("Presence Late");
+        em.createNativeQuery("""
+                INSERT INTO presence_tour_participant
+                       (tour_id, member_id, draw_order, joined_at, joined_mid_tour)
+                VALUES (:t, :m, 3, CURRENT_DATE, true)
+                """)
+            .setParameter("t", tourId)
+            .setParameter("m", late)
+            .executeUpdate();
+        em.flush();
+
+        assertThatThrownBy(() -> markBenefited.execute(tourId, late, null))
             .isInstanceOf(BusinessRuleException.class)
-            .hasMessageContaining("ordre de passage");
+            .hasMessageContaining("arrivants en cours de tour");
+
+        assertThat(summary.findEligibleBeneficiaries(tourId))
+            .extracting(p -> p.getMemberId())
+            .containsExactlyInAnyOrder(m1, m2);
     }
 
     @Test

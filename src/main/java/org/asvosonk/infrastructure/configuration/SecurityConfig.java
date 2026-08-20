@@ -4,8 +4,6 @@ import lombok.RequiredArgsConstructor;
 import org.asvosonk.security.application.service.UserDetailsServiceImpl;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.authentication.*;
-import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -29,22 +27,12 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder(12);
     }
 
-    // ── Authentication provider ─────────────────────────────
-
-    @Bean
-    public DaoAuthenticationProvider authenticationProvider() {
-        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
-        provider.setUserDetailsService(userDetailsService);
-        provider.setPasswordEncoder(passwordEncoder());
-        return provider;
-    }
-
-    @Bean
-    public AuthenticationManager authenticationManager(
-            org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration config)
-            throws Exception {
-        return config.getAuthenticationManager();
-    }
+    // ── Authentication ──────────────────────────────────────
+    // Aucun AuthenticationProvider n'est déclaré ici : Spring Security construit
+    // lui-même un DaoAuthenticationProvider à partir des beans UserDetailsService
+    // et PasswordEncoder. Déclarer les deux faisait cohabiter deux configurations
+    // concurrentes (avertissement au démarrage : « UserDetailsService beans will
+    // not be used »), pour un comportement identique.
 
     // ── HTTP security chain ─────────────────────────────────
 
@@ -54,10 +42,32 @@ public class SecurityConfig {
         http
             // ── Authorize requests ──────────────────────────
             .authorizeHttpRequests(auth -> auth
-                // Public: login page, static assets
-                .requestMatchers("/login", "/css/**", "/js/**", "/images/**", "/favicon.ico").permitAll()
+                // Public: login page, static assets. /vendor/** holds the locally
+                // bundled Bootstrap + icon font: without it the (anonymous) login
+                // page would be redirected away from its own stylesheet.
+                .requestMatchers("/login", "/css/**", "/js/**", "/images/**",
+                                 "/vendor/**", "/favicon.ico", "/favicon.svg").permitAll()
                 // Everything else requires authentication
                 .anyRequest().authenticated()
+            )
+
+            // ── Response hardening headers ──────────────────
+            .headers(headers -> headers
+                // Don't leak the internal path of a page to third parties.
+                .referrerPolicy(referrer -> referrer.policy(
+                    org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter
+                        .ReferrerPolicy.SAME_ORIGIN))
+                // Everything the UI needs is served by this app (Bootstrap is
+                // bundled locally), so lock loading down to the same origin.
+                .contentSecurityPolicy(csp -> csp.policyDirectives(
+                    "default-src 'self'; "
+                    + "img-src 'self' data:; "
+                    + "font-src 'self'; "
+                    + "style-src 'self' 'unsafe-inline'; "
+                    + "script-src 'self' 'unsafe-inline'; "
+                    + "form-action 'self'; "
+                    + "frame-ancestors 'none'; "
+                    + "base-uri 'self'"))
             )
 
             // ── Form login ──────────────────────────────────
@@ -84,13 +94,25 @@ public class SecurityConfig {
             .sessionManagement(session -> session
                 .maximumSessions(1)              // one session per user at a time
                 .expiredUrl("/login?expired")
-            )
-
+            );
             // ── CSRF ─────────────────────────────────────────
-            // Enabled by default (Spring Security default) — Thymeleaf auto-injects _csrf token
-            .csrf(csrf -> csrf.ignoringRequestMatchers("/api/**")); // if we ever add internal API endpoints
+            // F-46 — CSRF stays enabled by default (Spring Security default,
+            // Thymeleaf auto-injects _csrf token) for every endpoint. There is
+            // no /api/** controller in this app; a blanket exclusion for it
+            // was a dormant hole with no matching functionality to justify it.
 
         return http.build();
+    }
+
+    /**
+     * Required for {@code maximumSessions(1)} to work correctly: without it the
+     * session registry never learns that a session was destroyed (logout,
+     * timeout, browser closed), so stale entries accumulate and concurrency
+     * control reasons about sessions that no longer exist.
+     */
+    @Bean
+    public org.springframework.security.web.session.HttpSessionEventPublisher httpSessionEventPublisher() {
+        return new org.springframework.security.web.session.HttpSessionEventPublisher();
     }
 
     // ── Success / failure handlers (brute-force tracking) ──

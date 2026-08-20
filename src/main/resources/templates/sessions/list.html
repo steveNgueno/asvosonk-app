@@ -1,119 +1,71 @@
 <!DOCTYPE html>
 <html lang="fr" xmlns:th="http://www.thymeleaf.org"
                xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
-      th:replace="~{layout :: layout(pageTitle=${pageTitle}, content=~{::main-content}, extraHead=~{}, extraScripts=~{})}">
-<head th:fragment="extraHead">
-<style>
-/* Mini-dots (.mini-dots / .mini-dot / .mini-connector), row hover
-   (.session-list-row) sont définis dans asvosonk.css. */
+      th:replace="~{layout :: layout(${pageTitle}, ~{::main-content}, ~{}, ~{})}">
+<body>
+<th:block th:fragment="main-content">
 
-/* ── Step badges ──────────────────────────────────── */
-.step-badge {
-    font-size: 0.65rem;
-    padding: 0.2rem 0.5rem;
-    border-radius: 0.25rem;
-    font-weight: 600;
-}
-
-/* ── Status dot on the left ───────────────────────── */
-.status-dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    display: inline-block;
-    margin-right: 6px;
-}
-</style>
-</head>
-<body><th:block th:fragment="main-content">
-
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <div class="page-header">
-        <h2><i class="bi bi-calendar-week me-2"></i>Séances</h2>
-        <p class="text-muted mb-0" th:text="${sessions.size()} + ' séance(s)'"></p>
+<div class="page-head">
+    <div>
+        <h1><i class="bi bi-calendar-week" aria-hidden="true"></i>Séances</h1>
+        <p class="page-subtitle">
+            <span th:text="${sessions.size()}">0</span> séance(s) ·
+            la progression suit les <span th:text="${totalSteps}">4</span> étapes du déroulé
+        </p>
     </div>
-    <a th:href="@{/sessions/new}" class="btn btn-primary"
-       sec:authorize="hasAuthority('SESSION_CREATE')">
-        <i class="bi bi-plus-circle me-1"></i>Nouvelle séance
-    </a>
+    <div class="page-actions" sec:authorize="hasAuthority('SESSION_CREATE')">
+        <a th:href="@{/sessions/new}" class="btn btn-primary">
+            <i class="bi bi-plus-lg" aria-hidden="true"></i>Nouvelle séance
+        </a>
+    </div>
 </div>
 
-<div class="card border-0 shadow-sm">
-    <div class="table-responsive">
-        <table class="table table-hover mb-0 align-middle">
-            <thead class="table-dark">
+<div class="card">
+    <div class="table-wrap">
+        <table class="table table-hover">
+            <caption class="visually-hidden">Liste des séances et de leur avancement</caption>
+            <thead>
                 <tr>
-                    <th style="width:30px"></th>
-                    <th>Date</th>
-                    <th>Progression</th>
-                    <th>Bénéficiaire présence</th>
-                    <th style="width:160px">Étape courante</th>
-                    <th style="width:100px"></th>
+                    <th scope="col">Date de séance</th>
+                    <th scope="col">Progression</th>
+                    <th scope="col">Étape courante</th>
+                    <th scope="col">Bénéficiaire présence</th>
+                    <th scope="col" class="text-end">Action</th>
                 </tr>
             </thead>
             <tbody>
-                <tr th:if="${sessions.empty}">
-                    <td colspan="6" class="text-center text-muted py-5">
-                        <i class="bi bi-calendar-x" style="font-size:2rem;display:block;margin-bottom:0.5rem"></i>
-                        Aucune séance enregistrée
+                <tr th:each="s : ${sessions}" data-row
+                    th:with="stepIdx=${stepIndexMap.get(s.id) != null ? stepIndexMap.get(s.id) : 0},
+                             done=${s.getCurrentStepEnum().name() == 'REPORT_GENERATED'}"
+                    th:attr="data-href=${done} ? @{/sessions/{id}/report(id=${s.id})} : @{/sessions/{id}(id=${s.id})}">
+                    <th scope="row" class="fw-semibold"
+                        th:text="${#temporals.format(s.sessionDate,'EEE dd MMM yyyy')}">date</th>
+                    <td>
+                        <span th:replace="~{fragments/ui :: miniSteps(${displaySteps}, ${stepIdx})}"></span>
+                    </td>
+                    <td>
+                        <!-- L'étape courante (current_step) est la source de vérité de
+                             l'avancement : session.status n'est jamais repositionné. -->
+                        <span class="pill"
+                              th:classappend="${done ? 'pill-success' : (stepIdx == 0 ? 'pill-muted' : 'pill-brand')}">
+                            <i class="bi" th:classappend="${s.getCurrentStepEnum().icon}" aria-hidden="true"></i>
+                            <span th:text="${s.getCurrentStepEnum().shortLabel}">Étape</span>
+                        </span>
+                    </td>
+                    <td th:text="${s.presenceBeneficiary != null ? s.presenceBeneficiary.fullName : '—'}">—</td>
+                    <td class="text-end">
+                        <a th:if="${!done}" th:href="@{/sessions/{id}(id=${s.id})}" class="btn btn-sm btn-primary">
+                            <i class="bi bi-play-fill" aria-hidden="true"></i>Continuer
+                        </a>
+                        <a th:if="${done}" th:href="@{/sessions/{id}/report(id=${s.id})}"
+                           class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-file-text" aria-hidden="true"></i>Rapport
+                        </a>
                     </td>
                 </tr>
-                <tr th:each="s : ${sessions}" class="session-list-row">
-                    <!-- Status dot -->
-                    <td class="text-center">
-                        <span class="status-dot"
-                              th:classappend="${s.status.name() == 'closed' ? 'bg-secondary' :
-                                              (s.status.name() == 'open' ? 'bg-success' : 'bg-info')}"></span>
-                    </td>
-                    <!-- Date -->
-                    <td class="fw-semibold"
-                        th:text="${#temporals.format(s.sessionDate,'EEE dd/MM/yyyy')}"></td>
-                    <!-- Mini progress bar -->
-                    <td>
-                        <th:block th:with="
-                            idx = ${stepIndexMap.get(s.id)} != null ? ${stepIndexMap.get(s.id)} : 0">
-                            <div class="mini-dots">
-                                <th:block th:each="ds, iter : ${displaySteps}">
-                                    <span class="mini-dot"
-                                          th:classappend="${iter.index < idx ? 'done' :
-                                                           (iter.index == idx ? 'active' : '')}"
-                                          th:title="${ds.label} + ': ' + (iter.index < idx ? '✓' : (iter.index == idx ? 'En cours' : 'À venir'))"></span>
-                                    <span th:if="${!iter.last}" class="mini-connector"
-                                          th:classappend="${iter.index < idx ? 'done' : ''}"></span>
-                                </th:block>
-                            </div>
-                        </th:block>
-                    </td>
-                    <!-- Beneficiary -->
-                    <td th:text="${s.presenceBeneficiary?.fullName ?: '—'}"></td>
-                    <!-- Current step badge -->
-                    <td>
-                        <th:block th:with="
-                            step = ${s.getCurrentStepEnum()},
-                            stepIdx = ${stepIndexMap.get(s.id)} != null ? ${stepIndexMap.get(s.id)} : 0">
-                            <span class="step-badge"
-                                  th:classappend="${s.status.name() == 'closed' ? 'bg-secondary text-white' :
-                                                  (stepIdx < 2 ? 'bg-warning text-dark' :
-                                                   (stepIdx < 3 ? 'bg-primary text-white' : 'bg-success text-white'))}">
-                                <i th:classappend="${step.icon}" class="me-1"></i>
-                                <span th:text="${step.shortLabel}"></span>
-                            </span>
-                        </th:block>
-                    </td>
-                    <!-- Actions (UI-013) -->
-                    <td class="text-end">
-                        <a th:if="${s.status.name() == 'open'}"
-                           th:href="@{/sessions/{id}(id=${s.id})}" class="btn btn-sm btn-primary">
-                            <i class="bi bi-play-fill me-1"></i>Continuer
-                        </a>
-                        <a th:if="${s.status.name() == 'closed'}"
-                           th:href="@{/sessions/{id}/report(id=${s.id})}" class="btn btn-sm btn-outline-secondary">
-                            <i class="bi bi-file-text me-1"></i>Rapport
-                        </a>
-                        <a th:if="${s.status.name() == 'planned'}"
-                           th:href="@{/sessions/{id}(id=${s.id})}" class="btn btn-sm btn-outline-primary">
-                            <i class="bi bi-eye me-1"></i>Détail
-                        </a>
+                <tr th:if="${sessions.empty}">
+                    <td colspan="5">
+                        <div th:replace="~{fragments/ui :: empty('bi-calendar-x', 'Aucune séance enregistrée', 'Créez la première séance pour démarrer la saisie de présence.')}"></div>
                     </td>
                 </tr>
             </tbody>
@@ -121,4 +73,6 @@
     </div>
 </div>
 
-</th:block></body></html>
+</th:block>
+</body>
+</html>

@@ -9,43 +9,48 @@ import java.math.BigDecimal;
 import java.util.List;
 
 /**
- * Carries all computed data after a session is closed.
- * Used to render the session report page and to drive the PDF generator.
+ * Chiffres de la présence d'une séance, tels qu'affichés dans la séance et dans
+ * le rapport.
+ *
+ * <p>Le total remis au trésorier n'est volontairement pas calculé ici : il ne se
+ * déduit pas de la seule présence. Il vaut la somme des entrées de caisse de la
+ * séance moins ses sorties (sanctions encaissées, dons, dépenses du jour
+ * compris) et est porté par {@code session_report.total_to_treasurer}.</p>
  */
 @Getter @Setter
 @Builder
 public class SessionCloseResult {
 
     private MeetingSessionEntity session;
-    private Member         beneficiary;
+    private Member beneficiary;
 
-    // Attendance stats
+    // Effectifs
     private int totalCotisants;
     private int presentCount;
     private int fundCoveredCount;
     private int defaultCount;
 
-    // Tontine
-    private BigDecimal grossTontine;       // sum of 1 000 FCFA × cotisants
-    private BigDecimal sanctionDeductions; // unpaid sanctions deducted from beneficiary
-    private BigDecimal netTontine;         // what the beneficiary actually receives
+    // Tontine de présence
+    private BigDecimal grossTontine;       // somme des parts de tontine cotisées
+    private BigDecimal sanctionDeductions; // retenues sur le bénéficiaire
+    private BigDecimal netTontine;         // ce que le bénéficiaire perçoit
 
-    // Cashbox movements this session
+    // Caisses alimentées par la séance
     private BigDecimal totalDevelopment;
     private BigDecimal totalBeveragePool;
     private BigDecimal actualBeverageCost;
     private BigDecimal beverageReliquat;
 
-    // Per-member results (for the detailed table in the report)
+    /** Argent revenu dans les fonds de roulement des membres. */
+    private BigDecimal returnToFund;
+    /** Rattrapages dus aux bénéficiaires des séances dont un échec a été recouvert. */
+    private BigDecimal recoveryTotal;
+    /** Part de la tontine prélevée pour remettre le bénéficiaire à jour. */
+    private BigDecimal fundCatchUp;
+
     private List<RevolvingFundService.AttendanceResult> attendanceResults;
 
-    // ── Computed helpers ─────────────────────────────────────
-
-    /** Physical cash to hand to the treasurer (tontine + development; beverage stays in cashbox) */
-    public BigDecimal getNetAmountToTreasurer() {
-        return netTontine.add(totalDevelopment);
-    }
-
+    /** Membres à jour : ni couverts par le fond, ni en échec. */
     public int getUpToDateCount() {
         return totalCotisants - fundCoveredCount - defaultCount;
     }

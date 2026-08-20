@@ -16,8 +16,8 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 /**
  * F-25: the read-only reporting role {@code asvosonk_reports} must NOT be able
  * to read authentication tables ({@code app_user}, {@code role},
- * {@code permission}, {@code role_permission}) after V15's whitelist, but must
- * still read the business tables it needs.
+ * {@code permission}, {@code role_permission}) — the schema grants it an
+ * explicit whitelist — but must still read the business tables it needs.
  *
  * <p>Connects directly as the reporting role (created by V1 with the default
  * dev password) against the Testcontainers database.

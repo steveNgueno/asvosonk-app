@@ -111,9 +111,21 @@ public class UserController {
     public String update(@PathVariable Long id,
                          @Valid @ModelAttribute("form") UserForm form,
                          BindingResult result,
+                         Model model,
                          RedirectAttributes ra) {
         if (result.hasErrors()) {
-            return "redirect:/users/" + id + "/edit";
+            // Re-render the form instead of redirecting: a redirect dropped the
+            // BindingResult, so the user was bounced back to a pristine form with
+            // no indication of what was wrong.
+            AppUser user = appUserRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Utilisateur introuvable : " + id));
+            model.addAttribute("userId", id);
+            model.addAttribute("userLogin", user.getLogin());
+            model.addAttribute("roles", roleRepository.findAll());
+            model.addAttribute("members", searchMemberUseCase.findAllActive());
+            model.addAttribute("editMode", true);
+            model.addAttribute("pageTitle", "Modifier — " + user.getLogin());
+            return "users/form";
         }
 
         try {

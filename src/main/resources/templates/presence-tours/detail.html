@@ -1,93 +1,134 @@
 <!DOCTYPE html>
 <html lang="fr" xmlns:th="http://www.thymeleaf.org"
-      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
-      th:replace="~{layout :: layout(pageTitle=${pageTitle}, content=~{::main-content}, extraHead=~{}, extraScripts=~{})}">
+               xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      th:replace="~{layout :: layout(${pageTitle}, ~{::main-content}, ~{}, ~{})}">
 <body>
 <th:block th:fragment="main-content">
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h1 class="h3 mb-0">
-        <i class="bi bi-calendar-check me-2"></i>Tour de présence #<span th:text="${tour.id}"></span>
-    </h1>
+<div class="page-head">
     <div>
-        <a th:href="@{/presence-tours}" class="btn btn-outline-secondary btn-sm">
-            <i class="bi bi-arrow-left me-1"></i>Retour
+        <h1><i class="bi bi-arrow-repeat" aria-hidden="true"></i>Tour de présence #<span th:text="${tour.id}">1</span></h1>
+        <p class="page-subtitle">
+            Démarré le <span th:text="${#temporals.format(tour.startDate,'dd/MM/yyyy')}">date</span>
+            <span th:if="${tour.endDate != null}">
+                · clôturé le <span th:text="${#temporals.format(tour.endDate,'dd/MM/yyyy')}">date</span>
+            </span>
+        </p>
+    </div>
+    <div class="page-actions">
+        <a th:href="@{/presence-tours}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left" aria-hidden="true"></i>Tours
         </a>
     </div>
 </div>
 
-<!-- ── Tour info card ──────────────────────────────────── -->
-<div class="card mb-4">
-    <div class="card-body">
-        <div class="row">
-            <div class="col-md-3">
-                <small class="text-muted">Date début</small>
-                <p class="fw-bold mb-0" th:text="${tour.startDate}"></p>
-            </div>
-            <div class="col-md-3">
-                <small class="text-muted">Date fin</small>
-                <p class="fw-bold mb-0" th:text="${tour.endDate} != null ? ${tour.endDate} : '—'"></p>
-            </div>
-            <div class="col-md-3">
-                <small class="text-muted">Participants</small>
-                <p class="fw-bold mb-0" th:text="${participants.size()}"></p>
-            </div>
-            <div class="col-md-3">
-                <small class="text-muted">Statut</small>
-                <p class="mb-0">
-                    <span th:if="${tour.isOpen()}" class="badge bg-success fs-6">En cours</span>
-                    <span th:unless="${tour.isOpen()}" class="badge bg-secondary fs-6">Terminé</span>
-                </p>
-            </div>
+<div class="row g-3 mb-5">
+    <div class="col-6 col-lg-4">
+        <div class="stat">
+            <span class="stat-label">Statut</span>
+            <span class="stat-value sm">
+                <span class="pill pill-success" th:if="${tour.isOpen()}">
+                    <span class="dot dot-success" aria-hidden="true"></span>En cours
+                </span>
+                <span class="pill pill-muted" th:unless="${tour.isOpen()}">Terminé</span>
+            </span>
+        </div>
+    </div>
+    <div class="col-6 col-lg-4">
+        <div class="stat">
+            <span class="stat-label">Membres du tour</span>
+            <span class="stat-value sm" th:text="${#lists.size(participants)}">0</span>
+        </div>
+    </div>
+    <div class="col-12 col-lg-4">
+        <div class="stat">
+            <span class="stat-label">Ont bénéficié</span>
+            <span class="stat-value sm"
+                  th:text="${benefitedCount} + ' / ' + ${#lists.size(participants)}">0 / 0</span>
         </div>
     </div>
 </div>
 
-<!-- ── Participants table ──────────────────────────────── -->
-<h5 class="mb-2">Participants</h5>
-<div class="table-responsive mb-4">
-    <table class="table table-sm table-hover align-middle">
-        <thead class="table-dark">
-            <tr>
-                <th>Ordre</th>
-                <th>Membre</th>
-                <th>A bénéficié</th>
-                <th>Séance de bénéfice</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr th:each="p : ${participants}">
-                <td th:text="${p.drawOrder}"></td>
-                <td th:text="${memberNames[p.memberId]}"></td>
-                <td>
-                    <span th:if="${p.hasBenefited}" class="badge bg-success">
-                        <i class="bi bi-check"></i> Oui
-                    </span>
-                    <span th:unless="${p.hasBenefited}" class="badge bg-warning text-dark">
-                        <i class="bi bi-clock"></i> En attente
-                    </span>
-                </td>
-                <td>
-                    <span th:if="${p.sessionId}" th:text="'Séance #' + ${p.sessionId}"></span>
-                    <span th:unless="${p.sessionId}" class="text-muted">—</span>
-                </td>
-            </tr>
-        </tbody>
-    </table>
+<div class="callout callout-info mb-4" th:if="${tour.isOpen() and !#lists.isEmpty(eligible)}">
+    <i class="bi bi-shuffle callout-icon" style="color:var(--c-info)" aria-hidden="true"></i>
+    <div class="callout-body">
+        <p class="mb-0 fw-semibold">
+            <span th:text="${#lists.size(eligible)}">0</span> membre(s) éligible(s) au prochain tirage
+        </p>
+        <p class="mb-0 small text-muted">
+            Le bénéficiaire de chaque séance est tiré au sort parmi eux, puis enregistré depuis
+            la page de la séance.
+        </p>
+    </div>
 </div>
 
-<!-- ── Actions ─────────────────────────────────────────── -->
-<div class="d-flex gap-2 mt-3" th:if="${tour.isOpen()}">
-    <form th:if="${allBenefited}" th:action="@{/presence-tours/{id}/close(id=${tour.id})}" method="post"
-          sec:authorize="hasAuthority('SESSION_CLOSE')"
-          onsubmit="return confirm('Clôturer ce tour de présence ? Cette action est irréversible.');">
-        <button type="submit" class="btn btn-success">
-            <i class="bi bi-check-circle me-1"></i>Clôturer le tour
-        </button>
-    </form>
-    <span th:unless="${allBenefited}" class="text-muted">
-        <i class="bi bi-info-circle me-1"></i>Tous les participants doivent avoir bénéficié avant la clôture.
-    </span>
+<div class="card mb-4">
+    <div class="card-header"><i class="bi bi-people" aria-hidden="true"></i>Membres du tour</div>
+    <div class="table-wrap">
+        <table class="table">
+            <caption class="visually-hidden">Membres du tour de présence et leur passage</caption>
+            <thead>
+                <tr>
+                    <th scope="col" style="width:4rem">#</th>
+                    <th scope="col">Membre</th>
+                    <th scope="col">Entrée dans le tour</th>
+                    <th scope="col">A bénéficié</th>
+                    <th scope="col">Séance</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="p : ${participants}">
+                    <td th:text="${p.drawOrder}">1</td>
+                    <th scope="row">
+                        <span th:text="${memberNames.get(p.memberId) ?: '—'}">Nom</span>
+                        <span class="pill pill-info ms-1" th:if="${p.joinedMidTour}"
+                              title="Arrivé après le démarrage du tour : hors tirage, bénéficie en dernier.">
+                            arrivé en cours de tour
+                        </span>
+                    </th>
+                    <td th:text="${#temporals.format(p.joinedAt,'dd/MM/yyyy')}">date</td>
+                    <td>
+                        <span class="pill pill-success" th:if="${p.hasBenefited}">
+                            <i class="bi bi-check2" aria-hidden="true"></i>Oui
+                        </span>
+                        <span class="pill pill-muted" th:unless="${p.hasBenefited}">En attente</span>
+                    </td>
+                    <td class="text-muted small"
+                        th:text="${p.sessionId != null ? 'Séance #' + p.sessionId : '—'}">—</td>
+                </tr>
+                <tr th:replace="~{fragments/ui :: emptyRow(5, 'Aucun membre dans ce tour', ${#lists.isEmpty(participants)})}"></tr>
+            </tbody>
+        </table>
+    </div>
+    <div class="card-footer text-muted small">
+        Un membre arrivé en cours de tour bénéficie en dernier : à son tour, ceux qui avaient
+        déjà bénéficié avant son arrivée ne lui doivent que 1 000 FCFA (boisson et développement),
+        puisqu'il n'avait pas cotisé pour eux.
+    </div>
 </div>
 
-</th:block></body></html>
+<div class="callout" th:if="${tour.isOpen()}" sec:authorize="hasAuthority('SESSION_CLOSE')">
+    <i class="bi bi-lock callout-icon" style="color:var(--c-brand-500)" aria-hidden="true"></i>
+    <div class="callout-body">
+        <p class="mb-0 fw-semibold">Clôturer le tour</p>
+        <p class="mb-0 small text-muted" th:if="${allBenefited}">
+            Tous les membres ont bénéficié : le tour peut être clôturé.
+        </p>
+        <p class="mb-0 small text-muted" th:unless="${allBenefited}">
+            Tous les membres doivent avoir bénéficié. Le tour se clôture aussi automatiquement
+            lorsque le dernier d'entre eux est servi.
+        </p>
+    </div>
+    <div class="callout-actions" th:if="${allBenefited}">
+        <form th:action="@{/presence-tours/{id}/close(id=${tour.id})}" method="post"
+              data-confirm="Clôturer ce tour de présence ? Cette action est irréversible.">
+            <button type="submit" class="btn btn-success">
+                <i class="bi bi-check-circle" aria-hidden="true"></i>Clôturer le tour
+            </button>
+        </form>
+    </div>
+</div>
+
+</th:block>
+</body>
+</html>

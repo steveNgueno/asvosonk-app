@@ -52,19 +52,18 @@ public class RecordTontineContributionUseCase {
     public TontineContribution execute(Long tourId, Long sessionId, Long contributorId,
                                        Long beneficiaryId, BigDecimal amount) {
         // ── Preconditions ────────────────────────────────────
-        TontineTour tour = tourRepository.findById(tourId)
+        // F-34 — locked so two concurrent submissions for this tour can't both
+        // read the same "next" draw order in handleDefault's reassignment.
+        TontineTour tour = tourRepository.findByIdForUpdate(tourId)
             .orElseThrow(() -> new ResourceNotFoundException("Tour de grande tontine", tourId));
 
         if (!tour.isOpen()) {
             throw new BusinessRuleException("Le tour de grande tontine est clôturé.");
         }
 
-        // F-32 — A member cannot contribute to themselves: that would create a
-        // self-referencing debt (debtor == creditor) and distort the rotation.
-        if (contributorId.equals(beneficiaryId)) {
-            throw new BusinessRuleException(
-                "Un membre ne peut pas cotiser pour lui-même.");
-        }
+        // Le bénéficiaire du jour cotise lui aussi à sa propre tontine : son
+        // versement grossit la somme qu'il perçoit, mais ne crée évidemment
+        // aucune dette (personne ne la lui doit en retour) — voir plus bas.
 
         // Both must be participants
         TontineParticipant contributor = participantRepository
@@ -156,12 +155,15 @@ public class RecordTontineContributionUseCase {
             amount, PaymentStatus.paid, LocalDateTime.now());
         TontineContribution saved = contributionRepository.save(contribution);
 
-        // Create debt: beneficiary owes the contributor
-        TontineDebt debt = new TontineDebt(
-            null, tourId, beneficiaryId, contributorId,
-            amount, sessionId, DebtStatus.owed, null,
-            LocalDateTime.now(), LocalDateTime.now());
-        debtRepository.save(debt);
+        // Le bénéficiaire cotise pour lui-même : la somme entre dans sa tontine,
+        // mais aucune dette n'est créée — il ne se doit rien à lui-même.
+        if (!contributorId.equals(beneficiaryId)) {
+            TontineDebt debt = new TontineDebt(
+                null, tourId, beneficiaryId, contributorId,
+                amount, sessionId, DebtStatus.owed, null,
+                LocalDateTime.now(), LocalDateTime.now());
+            debtRepository.save(debt);
+        }
 
         return saved;
     }
@@ -200,6 +202,12 @@ public class RecordTontineContributionUseCase {
             SanctionOrigin.tontine_default,
             saved.getId()
         );
+
+        // Un échec de cotisation n'engendre pas de nouvelle dette : le règlement
+        // ne prévoit que la sanction (2 000 ou 5 000 FCFA) et, pour un membre pas
+        // encore bénéficiaire, le renvoi en fin de classement. Si le cotisant
+        // avait déjà bénéficié, la dette née de son propre passage reste due
+        // telle quelle — elle n'est ni soldée ni augmentée.
 
         // Reassign draw order to last place if needed
         if (needsReassign) {

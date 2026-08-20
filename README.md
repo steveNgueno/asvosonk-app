@@ -64,7 +64,7 @@ Started AsvosonkApplication in X.XXX seconds
 Ouvrir le navigateur (Chrome ou Edge) et aller sur :
 
 ```
-http://localhost:8080
+http://localhost:8085
 ```
 
 **Connexion par défaut :**
@@ -72,6 +72,26 @@ http://localhost:8080
 - Mot de passe : `Admin@2024`
 
 > ⚠️ Changer ce mot de passe dès la première connexion via le module Utilisateurs.
+
+> L'interface ne dépend d'aucun service externe : Bootstrap et la police
+> d'icônes sont embarqués dans `src/main/resources/static/vendor/`.
+> L'application est donc pleinement utilisable **sans connexion Internet**.
+
+---
+
+## Tests
+
+```bash
+# Tests unitaires seuls
+mvn test
+
+# Tests unitaires + tests d'intégration (PostgreSQL réel via Testcontainers)
+mvn verify
+```
+
+Les tests d'intégration (`*IT`) démarrent eux-mêmes un conteneur PostgreSQL 16
+jetable : **Docker doit être démarré**, mais aucune base préexistante n'est
+nécessaire et les données de développement ne sont jamais touchées.
 
 ---
 

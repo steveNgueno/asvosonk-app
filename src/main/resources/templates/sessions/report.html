@@ -1,233 +1,322 @@
 <!DOCTYPE html>
 <html lang="fr" xmlns:th="http://www.thymeleaf.org"
-      th:replace="~{layout :: layout(pageTitle=${pageTitle}, content=~{::main-content}, extraHead=~{}, extraScripts=~{::extraScripts})}">
-<head th:fragment="extraScripts">
-<style>
-@media print {
-    .btn, nav, footer, .navbar, .no-print { display: none !important; }
-    .card { border: 1px solid #dee2e6 !important; box-shadow: none !important; }
-    .print-only { display: block !important; }
-}
-.print-only { display: none; }
-.report-section { border-left: 4px solid var(--bs-primary); margin-bottom: 1.5rem; }
-.report-section.presence { border-left-color: #198754; }
-.report-section.tontine  { border-left-color: #0d6efd; }
-.report-section.soldes   { border-left-color: #fd7e14; }
-.report-section.synth    { border-left-color: #dc3545; }
-</style>
-<script>function printReport() { window.print(); }</script>
-</head>
-<body><th:block th:fragment="main-content">
+      th:replace="~{layout :: layout(${pageTitle}, ~{::main-content}, ~{}, ~{})}">
+<body>
+<th:block th:fragment="main-content">
 
-<div class="d-flex justify-content-between align-items-center mb-3 no-print">
-    <div class="page-header">
-        <h2><i class="bi bi-file-earmark-bar-graph me-2"></i>Rapport de séance</h2>
-        <p th:text="'Séance du ' + ${#temporals.format(meetingSession.sessionDate,'EEEE dd MMMM yyyy')}"></p>
+<div class="page-head no-print">
+    <div>
+        <h1><i class="bi bi-file-earmark-bar-graph" aria-hidden="true"></i>Rapport de séance</h1>
+        <p class="page-subtitle"
+           th:text="${#temporals.format(meetingSession.sessionDate,'EEEE dd MMMM yyyy')}">Séance</p>
     </div>
-    <div class="d-flex gap-2">
-        <button class="btn btn-outline-primary" onclick="printReport()">
-            <i class="bi bi-printer me-1"></i>Imprimer / PDF
+    <div class="page-actions">
+        <button type="button" class="btn btn-outline-primary" data-print>
+            <i class="bi bi-printer" aria-hidden="true"></i>Imprimer / PDF
         </button>
-        <a th:href="@{/sessions/{id}(id=${meetingSession.id})}" class="btn btn-outline-secondary btn-sm">
-            <i class="bi bi-arrow-left me-1"></i>Retour
+        <a th:href="@{/sessions/{id}(id=${meetingSession.id})}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left" aria-hidden="true"></i>Séance
         </a>
     </div>
 </div>
 
-<!-- ── Stepper 5 étapes (sans Agenda) ────────────── -->
-<div class="stepper-wrapper no-print">
-  <div class="stepper">
-    <th:block th:each="ds, iter : ${displaySteps}">
-
-      <!-- Connector avant chaque step (sauf le premier) -->
-      <div th:unless="${iter.first}" class="stepper-connector"
-           th:classappend="${iter.index <= currentDisplayStepIdx} ? 'done' : ''">
-      </div>
-
-      <!-- Step circle + label -->
-      <div class="stepper-step"
-           th:classappend="${iter.index < currentDisplayStepIdx} ? 'done' :
-                           (${iter.index == currentDisplayStepIdx} ? 'active' : '')">
-        <div class="step-circle">
-          <i class="bi"
-             th:classappend="${iter.index < currentDisplayStepIdx}
-                              ? 'bi-check-lg'
-                              : ${ds.icon}"></i>
-        </div>
-        <span class="step-label" th:text="${ds.label}"></span>
-      </div>
-
-    </th:block>
-  </div>
+<div class="d-none d-print-block mb-4">
+    <h1>ASVOSONK — Rapport de séance</h1>
+    <p th:text="${#temporals.format(meetingSession.sessionDate,'EEEE dd MMMM yyyy')}">date</p>
 </div>
 
-<th:block th:if="${closeResult != null && sessionReport != null}">
+<div class="no-print" th:replace="~{fragments/ui :: stepper(${displaySteps}, ${currentDisplayStepIdx})}"></div>
 
-<!-- ── Bloc synthèse en haut — toujours visible (UI-010) ── -->
-<div class="card mb-3" style="border-left:5px solid var(--color-accent)">
-    <div class="card-body d-flex justify-content-between align-items-center">
-        <div>
-            <div class="text-muted small">MONTANT NET À REMETTRE AU TRÉSORIER</div>
-            <div class="display-6 fw-bold amount amount-in"
-                 th:text="${#numbers.formatDecimal(closeResult.netAmountToTreasurer,1,'COMMA',0,'POINT')} + ' FCFA'">
-            </div>
-        </div>
-        <i class="bi bi-cash-coin text-warning" style="font-size:3rem"></i>
-    </div>
+<div th:if="${closeResult == null}" class="alert alert-info" role="status">
+    <i class="bi bi-info-circle-fill flex-shrink-0" aria-hidden="true"></i>
+    <span>Rapport indisponible : la présence de cette séance n'a pas encore été clôturée.</span>
 </div>
 
-<!-- ══════════════════════════════════════════════════ -->
-<!-- PRÉSENCE                                           -->
-<!-- ══════════════════════════════════════════════════ -->
-<div class="card border-0 shadow-sm mb-4 report-section presence">
-    <div class="card-header bg-success text-white fw-semibold">
-        <i class="bi bi-clipboard-check me-1"></i>PRÉSENCE
-    </div>
-    <div class="card-body">
-        <div class="row mb-2">
-            <div class="col-md-6">
-                <strong>Bénéficiaire :</strong>
-                <span th:text="${closeResult.beneficiary != null ? closeResult.beneficiary.fullName : '—'}"></span>
-                <span th:if="${meetingSession.presenceBeneficiary}" class="text-muted small ms-2">
-                    (Membre #<span th:text="${meetingSession.presenceBeneficiary.id}"></span>)
-                </span>
-            </div>
-        </div>
+<th:block th:if="${closeResult != null}">
 
-        <div class="row g-2 mb-3">
-            <div class="col-md-3 text-center py-2 rounded bg-light">
-                <div class="fs-3 fw-bold text-primary" th:text="${closeResult.totalCotisants}"></div>
-                <small class="text-muted">Cotisants</small>
-            </div>
-            <div class="col-md-3 text-center py-2 rounded bg-light">
-                <div class="fs-3 fw-bold text-success" th:text="${closeResult.presentCount}"></div>
-                <small class="text-muted">Présents</small>
-            </div>
-            <div class="col-md-3 text-center py-2 rounded bg-light">
-                <div class="fs-3 fw-bold text-warning" th:text="${closeResult.fundCoveredCount}"></div>
-                <small class="text-muted">Fond</small>
-            </div>
-            <div class="col-md-3 text-center py-2 rounded bg-light">
-                <div class="fs-3 fw-bold text-danger" th:text="${closeResult.defaultCount}"></div>
-                <small class="text-muted">Échecs</small>
-            </div>
-        </div>
-
-        <table class="table table-sm mb-0" style="max-width:500px">
-            <tr>
-                <td>Tontine brute collectée</td>
-                <td class="fw-bold text-end" th:text="${#numbers.formatDecimal(closeResult.grossTontine,1,'COMMA',0,'POINT')} + ' FCFA'"></td>
-            </tr>
-            <tr th:if="${closeResult.sanctionDeductions.compareTo(T(java.math.BigDecimal).ZERO) > 0}" class="text-danger">
-                <td>— Retenues (sanctions bénéficiaire)</td>
-                <td class="fw-bold text-end" th:text="'−' + ${#numbers.formatDecimal(closeResult.sanctionDeductions,1,'COMMA',0,'POINT')} + ' FCFA'"></td>
-            </tr>
-            <tr class="table-success fw-bold">
-                <td>Tontine remise à <span th:text="${closeResult.beneficiary != null ? closeResult.beneficiary.fullName : '—'}"></span></td>
-                <td class="fw-bold text-end fs-5" th:text="${#numbers.formatDecimal(closeResult.netTontine,1,'COMMA',0,'POINT')} + ' FCFA ✓'"></td>
-            </tr>
-            <tr>
-                <td>Caisse Développement</td>
-                <td class="fw-bold text-end text-info" th:text="'+' + ${#numbers.formatDecimal(closeResult.totalDevelopment,1,'COMMA',0,'POINT')} + ' FCFA'"></td>
-            </tr>
-            <tr>
-                <td>Reliquat Boisson</td>
-                <td class="fw-bold text-end text-warning" th:text="'+' + ${#numbers.formatDecimal(closeResult.beverageReliquat,1,'COMMA',0,'POINT')} + ' FCFA'"></td>
-            </tr>
-        </table>
-    </div>
-</div>
-
-<!-- ══════════════════════════════════════════════════ -->
-<!-- GRANDE TONTINE (placeholder until module is built) -->
-<!-- ══════════════════════════════════════════════════ -->
-<div class="card border-0 shadow-sm mb-4 report-section tontine">
-    <div class="card-header bg-primary text-white fw-semibold">
-        <i class="bi bi-cash-stack me-1"></i>GRANDE TONTINE
-    </div>
-    <div class="card-body">
-        <p class="text-muted mb-0"><em>Données non disponibles — module en cours d'intégration.</em></p>
-    </div>
-</div>
-
-<!-- ══════════════════════════════════════════════════ -->
-<!-- SOLDES DES CAISSES                                 -->
-<!-- ══════════════════════════════════════════════════ -->
-<div class="card border-0 shadow-sm mb-4 report-section soldes">
-    <div class="card-header text-white fw-semibold" style="background-color:#fd7e14">
-        <i class="bi bi-safe me-1"></i>SOLDES DES CAISSES
-    </div>
-    <div class="card-body">
-        <div class="row g-3">
-            <th:block th:each="entry : ${cashboxBalances}">
-                <div class="col-md-3 text-center py-2 rounded bg-light">
-                    <small class="text-muted d-block" th:text="${entry.key}">Caisse</small>
-                    <span class="fs-5 fw-bold" th:text="${#numbers.formatDecimal(entry.value,1,'COMMA',0,'POINT')} + ' FCFA'"></span>
+    <!-- ══ Bénéficiaires ═════════════════════════════════════ -->
+    <div class="row g-4 mb-4">
+        <div class="col-lg-6">
+            <div class="card h-100 card-accent card-accent-success">
+                <div class="card-header">
+                    <i class="bi bi-clipboard-check" aria-hidden="true"></i>Tontine de présence
                 </div>
-            </th:block>
+                <div class="card-body">
+                    <p class="mb-3">
+                        Bénéficiaire :
+                        <strong th:text="${closeResult.beneficiary != null ? closeResult.beneficiary.fullName : '—'}">—</strong>
+                    </p>
+                    <table class="table">
+                        <caption class="visually-hidden">Montant remis au bénéficiaire de la présence</caption>
+                        <tbody>
+                            <tr>
+                                <th scope="row" class="fw-normal">Net à percevoir</th>
+                                <td class="num money" th:text="${#numbers.formatInteger(closeResult.grossTontine,1,'WHITESPACE')} + ' FCFA'">0</td>
+                            </tr>
+                            <tr th:if="${closeResult.fundCatchUp != null and closeResult.fundCatchUp.signum() > 0}">
+                                <th scope="row" class="fw-normal">
+                                    Mise à jour du fond
+                                    <span class="d-block small text-muted">
+                                        régularisation obligatoire prélevée sur la tontine
+                                    </span>
+                                </th>
+                                <td class="num money money-out"
+                                    th:text="'− ' + ${#numbers.formatInteger(closeResult.fundCatchUp,1,'WHITESPACE')} + ' FCFA'">0</td>
+                            </tr>
+                            <tr>
+                                <th scope="row" class="fw-normal">Retenues (sanctions)</th>
+                                <td class="num money"
+                                    th:classappend="${closeResult.sanctionDeductions.signum() > 0} ? 'money-out'"
+                                    th:text="${closeResult.sanctionDeductions.signum() > 0 ? '− ' : ''}
+                                             + ${#numbers.formatInteger(closeResult.sanctionDeductions,1,'WHITESPACE')} + ' FCFA'">0</td>
+                            </tr>
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <th scope="row">Net perçu</th>
+                                <td class="num money money-in"
+                                    th:text="${#numbers.formatInteger(closeResult.netTontine,1,'WHITESPACE')} + ' FCFA'">0</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="card h-100 card-accent card-accent-info">
+                <div class="card-header">
+                    <i class="bi bi-cash-stack" aria-hidden="true"></i>Grande Tontine
+                </div>
+                <div class="card-body" th:if="${sessionReport != null}">
+                    <p class="mb-3">
+                        Bénéficiaire :
+                        <strong th:text="${tontineBeneficiaryName ?: '—'}">—</strong>
+                    </p>
+                    <table class="table">
+                        <caption class="visually-hidden">Montant remis au bénéficiaire de la grande tontine</caption>
+                        <tbody>
+                            <tr>
+                                <th scope="row" class="fw-normal">Net à percevoir</th>
+                                <td class="num money" th:text="${#numbers.formatInteger(sessionReport.tontineGrossCollected,1,'WHITESPACE')} + ' FCFA'">0</td>
+                            </tr>
+                            <tr>
+                                <th scope="row" class="fw-normal">Retenues</th>
+                                <td class="num money"
+                                    th:classappend="${sessionReport.tontineSanctionDeductions.signum() > 0} ? 'money-out'"
+                                    th:text="${sessionReport.tontineSanctionDeductions.signum() > 0 ? '− ' : ''}
+                                             + ${#numbers.formatInteger(sessionReport.tontineSanctionDeductions,1,'WHITESPACE')} + ' FCFA'">0</td>
+                            </tr>
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <th scope="row">Net perçu</th>
+                                <td class="num money money-in"
+                                    th:text="${#numbers.formatInteger(sessionReport.tontineNetPaid,1,'WHITESPACE')} + ' FCFA'">0</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                    <p class="form-text mb-0">
+                        Transfert direct entre membres : cette somme ne transite par aucune caisse
+                        et n'entre pas dans le montant remis au trésorier.
+                    </p>
+                </div>
+            </div>
         </div>
     </div>
-</div>
 
-<!-- ══════════════════════════════════════════════════ -->
-<!-- MONTANT NET À REMETTRE AU TRÉSORIER                -->
-<!-- ══════════════════════════════════════════════════ -->
-<div class="card border-0 shadow-sm mb-4 report-section synth border-danger">
-    <div class="card-header bg-danger text-white fw-semibold">
-        <i class="bi bi-cash me-1"></i>MONTANT NET À REMETTRE AU TRÉSORIER
-    </div>
-    <div class="card-body text-center py-4">
-        <div class="display-4 fw-bold text-danger"
-             th:text="${#numbers.formatDecimal(closeResult.netAmountToTreasurer,1,'COMMA',0,'POINT')} + ' FCFA'"></div>
-        <p class="text-muted mt-2 mb-0">
-            <span th:text="${#numbers.formatDecimal(closeResult.netTontine,1,'COMMA',0,'POINT')} + ' FCFA (tontine)'"></span>
-            +
-            <span th:text="${#numbers.formatDecimal(closeResult.totalDevelopment,1,'COMMA',0,'POINT')} + ' FCFA (développement)'"></span>
-        </p>
-        <small class="text-muted">Rapport généré le
-            <span th:text="${sessionReport.generatedAt != null ? #temporals.format(sessionReport.generatedAt,'dd/MM/yyyy HH:mm') : '—'}"></span>
-        </small>
-    </div>
-</div>
+    <!-- ══ Entrées et sorties du jour ════════════════════════ -->
+    <div class="row g-4 mb-4">
+        <div class="col-lg-7">
+            <div class="card h-100">
+                <div class="card-header">
+                    <i class="bi bi-box-arrow-in-down" aria-hidden="true"></i>Entrées du jour
+                </div>
+                <div class="table-wrap">
+                    <table class="table">
+                        <caption class="visually-hidden">Entrées de caisse de la séance</caption>
+                        <tbody>
+                            <tr>
+                                <th scope="row" class="fw-normal">Développement</th>
+                                <td class="num money money-in"
+                                    th:text="${#numbers.formatInteger(closeResult.totalDevelopment,1,'WHITESPACE')} + ' FCFA'">0</td>
+                            </tr>
+                            <tr>
+                                <th scope="row" class="fw-normal">Reliquat boisson</th>
+                                <td class="num money money-in"
+                                    th:text="${#numbers.formatInteger(closeResult.beverageReliquat,1,'WHITESPACE')} + ' FCFA'">0</td>
+                            </tr>
+                            <tr>
+                                <th scope="row" class="fw-normal">Sanctions encaissées</th>
+                                <td class="num money money-in"
+                                    th:text="${#numbers.formatInteger(sessionReport != null ? sessionReport.sanctionsCollected : 0,1,'WHITESPACE')} + ' FCFA'">0</td>
+                            </tr>
+                            <tr th:each="p : ${feePayments}">
+                                <th scope="row" class="fw-normal">
+                                    <span th:text="${p.fee.feeType.label()}">Frais</span>
+                                    <span class="d-block small text-muted"
+                                          th:text="${p.fee.member.fullName}">Membre</span>
+                                </th>
+                                <td class="num money money-in"
+                                    th:text="${#numbers.formatInteger(p.amount,1,'WHITESPACE')} + ' FCFA'">0</td>
+                            </tr>
+                            <tr th:each="m : ${manualInflows}">
+                                <th scope="row" class="fw-normal">
+                                    <span th:text="${m.reason ?: 'Entrée diverse'}">Entrée diverse</span>
+                                    <span class="d-block small text-muted" th:text="${m.cashbox.type.label()}">Caisse</span>
+                                </th>
+                                <td class="num money money-in"
+                                    th:text="${#numbers.formatInteger(m.amount,1,'WHITESPACE')} + ' FCFA'">0</td>
+                            </tr>
+                            <tr>
+                                <th scope="row" class="fw-normal">
+                                    Retour en caisse
+                                    <span class="d-block small text-muted">
+                                        retourne dans les fonds de roulement — non remis au trésorier
+                                    </span>
+                                </th>
+                                <td class="num money"
+                                    th:text="${#numbers.formatInteger(closeResult.returnToFund != null ? closeResult.returnToFund : 0,1,'WHITESPACE')} + ' FCFA'">0</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
 
-<!-- ── Per-member detail table ─────────────────────── -->
-<div class="card border-0 shadow-sm">
-    <div class="card-header bg-dark text-white fw-semibold">Détail des cotisations par membre</div>
-    <div class="table-responsive">
-        <table class="table table-sm mb-0">
-            <thead>
-                <tr>
-                    <th>Membre</th>
-                    <th class="text-center">Présent</th>
-                    <th class="text-end">Montant</th>
-                    <th class="text-center">Statut</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr th:each="a : ${attendances}">
-                    <td th:text="${a.member.fullName}"></td>
-                    <td class="text-center">
-                        <span th:if="${a.present}" class="text-success">✓</span>
-                        <span th:unless="${a.present}" class="text-danger">✗</span>
-                    </td>
-                    <td class="text-end" th:text="${#numbers.formatDecimal(a.amountPaid,1,'COMMA',0,'POINT')} + ' FCFA'"></td>
-                    <td class="text-center">
-                        <span class="badge"
-                              th:classappend="${a.attendanceStatus.name()=='up_to_date'?'bg-success':(a.attendanceStatus.name()=='covered_by_fund'?'bg-warning text-dark':'bg-danger')}"
-                              th:text="${a.attendanceStatus.name()=='up_to_date'?'À jour':(a.attendanceStatus.name()=='covered_by_fund'?'Fond':'Échec')}"></span>
-                    </td>
-                </tr>
-            </tbody>
-        </table>
+        <div class="col-lg-5">
+            <div class="card h-100">
+                <div class="card-header">
+                    <i class="bi bi-box-arrow-up" aria-hidden="true"></i>Sorties du jour
+                </div>
+                <div class="table-wrap" th:if="${!#lists.isEmpty(sessionOutflows)}">
+                    <table class="table">
+                        <caption class="visually-hidden">Sorties de caisse de la séance</caption>
+                        <thead>
+                            <tr>
+                                <th scope="col">Motif</th>
+                                <th scope="col" class="num">Montant</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="m : ${sessionOutflows}">
+                                <th scope="row" class="fw-normal">
+                                    <span th:text="${m.reason ?: '—'}">Motif</span>
+                                    <span class="d-block small text-muted" th:text="${m.cashbox.type.label()}">Caisse</span>
+                                </th>
+                                <td class="num money money-out"
+                                    th:text="'− ' + ${#numbers.formatInteger(m.amount,1,'WHITESPACE')} + ' FCFA'">0</td>
+                            </tr>
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <th scope="row">Total des sorties</th>
+                                <td class="num money money-out"
+                                    th:text="${#numbers.formatInteger(sessionOutflowTotal,1,'WHITESPACE')} + ' FCFA'">0</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+                <div class="card-body" th:if="${#lists.isEmpty(sessionOutflows)}">
+                    <p class="mb-0 text-muted">Aucune sortie de caisse pendant cette séance.</p>
+                </div>
+            </div>
+        </div>
     </div>
-</div>
+
+    <!-- ══ Total remis au trésorier ══════════════════════════ -->
+    <div class="card card-accent card-accent-accent mb-4"
+         th:if="${sessionReport == null or sessionReport.totalFromCashboxes.signum() == 0}">
+        <div class="card-body d-flex align-items-center justify-content-between flex-wrap gap-3">
+            <div>
+                <span class="stat-label">Total remis au trésorier</span>
+                <div class="money money-xl">
+                    <span th:text="${#numbers.formatInteger(sessionReport != null ? sessionReport.totalToTreasurer : 0,1,'WHITESPACE')}">0</span>
+                    <span class="money-unit">FCFA</span>
+                </div>
+                <p class="stat-hint mb-0">
+                    Entrées de caisse de la séance moins ses sorties. Les tontines sont remises
+                    en main propre et le retour en caisse regarnit les fonds de roulement : ni
+                    l'un ni l'autre n'entre dans ce total.
+                </p>
+            </div>
+            <i class="bi bi-cash-coin" style="font-size:2.5rem;color:var(--c-accent)" aria-hidden="true"></i>
+        </div>
+    </div>
+
+    <!-- Séance déficitaire : les sorties ont dépassé les entrées -->
+    <div class="card card-accent card-accent-danger mb-4"
+         th:if="${sessionReport != null and sessionReport.totalFromCashboxes.signum() > 0}">
+        <div class="card-body d-flex align-items-center justify-content-between flex-wrap gap-3">
+            <div>
+                <span class="stat-label">Complément prélevé sur les caisses</span>
+                <div class="money money-xl money-out">
+                    <span th:text="${#numbers.formatInteger(sessionReport.totalFromCashboxes,1,'WHITESPACE')}">0</span>
+                    <span class="money-unit">FCFA</span>
+                </div>
+                <p class="stat-hint mb-0">
+                    Les sorties de la séance ont dépassé ses entrées : rien n'est remis au
+                    trésorier, l'écart a été financé par le solde déjà détenu en caisse.
+                </p>
+            </div>
+            <i class="bi bi-cash-coin" style="font-size:2.5rem;color:var(--c-danger)" aria-hidden="true"></i>
+        </div>
+    </div>
+
+    <!-- ══ Rattrapages d'échecs ══════════════════════════════ -->
+    <div class="card mb-4" th:if="${!#lists.isEmpty(recoveries)}">
+        <div class="card-header">
+            <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>Rattrapages à remettre
+        </div>
+        <div class="table-wrap">
+            <table class="table">
+                <caption class="visually-hidden">Échecs recouverts pendant la séance</caption>
+                <thead>
+                    <tr>
+                        <th scope="col">Membre ayant recouvert</th>
+                        <th scope="col">Séance rattrapée</th>
+                        <th scope="col">À remettre à</th>
+                        <th scope="col" class="num">Montant</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="r : ${recoveries}">
+                        <th scope="row" th:text="${recoveryNames.get(r.memberId) ?: '—'}">Nom</th>
+                        <td th:text="${#temporals.format(r.failedSessionDate,'dd/MM/yyyy')}">date</td>
+                        <td th:text="${r.beneficiaryId != null ? (recoveryNames.get(r.beneficiaryId) ?: '—') : '—'}">Nom</td>
+                        <td class="num money" th:text="${#numbers.formatInteger(r.amount,1,'WHITESPACE')} + ' FCFA'">0</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="card-footer text-muted small">
+            Ces sommes reviennent aux bénéficiaires des séances rattrapées : elles leur sont
+            remises en espèces, ou conservées par le trésorier s'ils sont absents.
+        </div>
+    </div>
+
+    <!-- ══ Soldes des caisses ════════════════════════════════ -->
+    <div class="card mb-4">
+        <div class="card-header"><i class="bi bi-safe" aria-hidden="true"></i>Soldes des caisses</div>
+        <div class="card-body">
+            <div th:replace="~{fragments/ui :: cashboxSummary(${cashboxTypes}, ${balances})}"></div>
+            <p class="form-text mb-0 mt-3">Soldes constatés au moment de la consultation.</p>
+        </div>
+    </div>
+
+    <!-- ══ Détails par rubrique ══════════════════════════════ -->
+    <!-- Mêmes tableaux que dans la page de séance : une rubrique se lit de
+         la même façon pendant la réunion et dans le rapport. -->
+    <div th:replace="~{sessions/_rubric-details :: presenceDetail}"></div>
+    <div th:replace="~{sessions/_rubric-details :: tontineDetail(${tontineContribs})}"></div>
+
+    <p class="text-muted small" th:if="${sessionReport != null}">
+        Rapport généré le
+        <span th:text="${sessionReport.generatedAt != null ? #temporals.format(sessionReport.generatedAt,'dd/MM/yyyy à HH:mm') : '—'}">—</span>
+    </p>
 
 </th:block>
 
-<!-- ── Fallback: no report data ────────────────────── -->
-<div th:if="${closeResult == null}" class="alert alert-info">
-    <i class="bi bi-info-circle me-1"></i>
-    Rapport non disponible. La séance n'a pas encore été clôturée ou le rapport n'a pas été généré.
-</div>
-
-</th:block></body></html>
+</th:block>
+</body>
+</html>

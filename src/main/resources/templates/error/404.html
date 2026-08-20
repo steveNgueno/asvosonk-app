@@ -1,17 +1,26 @@
 <!DOCTYPE html>
 <html lang="fr" xmlns:th="http://www.thymeleaf.org"
-      th:replace="~{layout :: layout(pageTitle='Page introuvable', content=~{::main-content}, extraHead=~{}, extraScripts=~{})}">
-<body><th:block th:fragment="main-content">
+      th:replace="~{layout :: layout('Page introuvable', ~{::main-content}, ~{}, ~{})}">
+<body>
+<th:block th:fragment="main-content">
 
-<div class="text-center py-5">
-    <i class="bi bi-search" style="font-size:5rem;color:var(--color-muted)"></i>
-    <h1 class="mt-3 fw-bold" style="font-size:4rem;color:var(--color-muted)">404</h1>
-    <h4>Page introuvable</h4>
-    <p class="text-muted">La page que vous cherchez n'existe pas ou a été déplacée.</p>
-    <p th:if="${errorDetail != null}" class="text-danger small" th:text="${errorDetail}"></p>
-    <a th:href="@{/dashboard}" class="btn btn-primary mt-2">
-        <i class="bi bi-house me-1"></i>Retour au tableau de bord
-    </a>
+<div class="card form-panel mx-auto">
+    <div class="card-body text-center py-5">
+        <p class="mb-2" style="font-size:2.5rem;color:var(--c-border-strong)" aria-hidden="true">
+            <i class="bi bi-compass"></i>
+        </p>
+        <p class="text-muted mb-1" style="font-size:var(--fs-xs);letter-spacing:.1em">ERREUR 404</p>
+        <h1 class="h4">Cette page n'existe pas</h1>
+        <p class="text-muted">La page demandée est introuvable ou a été déplacée.</p>
+        <p th:if="${errorDetail != null}" class="pill pill-muted d-inline-flex" th:text="${errorDetail}"></p>
+        <div class="d-flex gap-2 justify-content-center mt-4">
+            <a th:href="@{/dashboard}" class="btn btn-primary">
+                <i class="bi bi-house" aria-hidden="true"></i>Tableau de bord
+            </a>
+        </div>
+    </div>
 </div>
 
-</th:block></body></html>
+</th:block>
+</body>
+</html>

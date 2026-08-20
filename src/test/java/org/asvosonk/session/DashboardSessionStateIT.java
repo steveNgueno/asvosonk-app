@@ -8,7 +8,7 @@ import org.asvosonk.support.AbstractIntegrationTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.dao.IncorrectResultSizeDataAccessException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
@@ -18,17 +18,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Regression test for F-01: the dashboard must derive "session in progress" and
- * "last closed session" from {@code currentStep} (the live workflow state), not
- * from {@code SessionStatus} (a dead state machine that is always left at
- * {@code open}).
+ * État des séances vu du tableau de bord (F-01).
  *
- * <p>The application creates every session with {@code SessionStatus.open} and
- * never moves it to {@code closed}. So as soon as a second session exists,
- * {@code findByStatus(open)} — which returns an {@code Optional} — matches more
- * than one row and throws {@link IncorrectResultSizeDataAccessException},
- * crashing the dashboard (HTTP 500). This test reproduces that root cause and
- * verifies the corrected, {@code currentStep}-based selection.
+ * <p>La séance en cours et la dernière séance close se lisent sur
+ * {@code currentStep}, l'avancement réel du déroulé, et non sur
+ * {@code SessionStatus} : ce dernier ne distingue que « terminée ou non ».</p>
+ *
+ * <p>Deux séances non clôturées ne peuvent plus coexister — la base l'interdit —
+ * si bien que la cause de F-01, plusieurs lignes {@code open} simultanées, est
+ * désormais hors d'atteinte. Le test vérifie les deux : l'invariant, et la
+ * sélection fondée sur l'étape.</p>
  */
 @SpringBootTest
 @Transactional
@@ -37,46 +36,46 @@ class DashboardSessionStateIT extends AbstractIntegrationTest {
     @Autowired
     private MeetingSessionRepository repository;
 
-    private MeetingSession newSession(LocalDate date, SessionStep step) {
-        // status is intentionally 'open' for every row: that is exactly what the
-        // application does today and what makes findByStatus(open) non-unique.
+    private MeetingSession newSession(LocalDate date, SessionStatus status, SessionStep step) {
         return new MeetingSession(
-            null, date, SessionStatus.open, "agenda",
+            null, date, status, "agenda",
             null, null, null, null, null, step);
     }
 
     @Test
-    void oldStatusBasedLookupIsNonUnique_reproducesF01() {
-        repository.save(newSession(LocalDate.of(2026, 1, 1), SessionStep.CREATED));
-        repository.save(newSession(LocalDate.of(2026, 1, 8), SessionStep.TONTINE_OPEN));
+    void deuxSeancesNonClotureesNePeuventPasCoexister() {
+        repository.save(newSession(LocalDate.of(2026, 1, 1), SessionStatus.open, SessionStep.CREATED));
 
-        // The pre-fix dashboard call: two 'open' rows -> not a single result.
-        assertThatThrownBy(() -> repository.findByStatus(SessionStatus.open))
-            .isInstanceOf(IncorrectResultSizeDataAccessException.class);
+        assertThatThrownBy(() -> repository.save(
+                newSession(LocalDate.of(2026, 1, 8), SessionStatus.open, SessionStep.CREATED)))
+            .isInstanceOf(DataIntegrityViolationException.class);
     }
 
     @Test
     void currentStepDrivesInProgressAndClosedSelection() {
-        var closed     = repository.save(newSession(LocalDate.of(2026, 2, 1),  SessionStep.REPORT_GENERATED));
-        var older      = repository.save(newSession(LocalDate.of(2026, 2, 8),  SessionStep.TONTINE_OPEN));
-        var mostRecent = repository.save(newSession(LocalDate.of(2026, 2, 15), SessionStep.CREATED));
+        var closed     = repository.save(newSession(LocalDate.of(2026, 2, 1),
+            SessionStatus.closed, SessionStep.REPORT_GENERATED));
+        var older      = repository.save(newSession(LocalDate.of(2026, 2, 8),
+            SessionStatus.closed, SessionStep.REPORT_GENERATED));
+        var mostRecent = repository.save(newSession(LocalDate.of(2026, 2, 15),
+            SessionStatus.open, SessionStep.CREATED));
 
         List<MeetingSession> all = repository.findAllByOrderBySessionDateDesc();
 
-        // "Session in progress" = most recent whose workflow is not finished.
+        // « Séance en cours » = la plus récente dont le déroulé n'est pas fini.
         MeetingSession inProgress = all.stream()
             .filter(s -> s.getCurrentStep() != SessionStep.REPORT_GENERATED)
             .findFirst().orElse(null);
         assertThat(inProgress).isNotNull();
         assertThat(inProgress.getId()).isEqualTo(mostRecent.getId());
 
-        // "Last closed session" = most recent whose workflow reached the report.
+        // « Dernière séance close » = la plus récente arrivée au rapport.
         MeetingSession lastClosed = all.stream()
             .filter(s -> s.getCurrentStep() == SessionStep.REPORT_GENERATED)
             .findFirst().orElse(null);
         assertThat(lastClosed).isNotNull();
-        assertThat(lastClosed.getId()).isEqualTo(closed.getId());
+        assertThat(lastClosed.getId()).isEqualTo(older.getId());
 
-        assertThat(older.getId()).isNotIn(inProgress.getId(), lastClosed.getId());
+        assertThat(closed.getId()).isNotIn(inProgress.getId(), lastClosed.getId());
     }
 }

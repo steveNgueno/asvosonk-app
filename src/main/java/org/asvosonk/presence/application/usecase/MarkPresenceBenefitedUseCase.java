@@ -10,31 +10,30 @@ import org.asvosonk.presence.domain.repository.PresenceTourRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class MarkPresenceBenefitedUseCase {
 
     private final PresenceTourParticipantRepository participantRepository;
-    private final PresenceTourRepository tourRepository;
-    private final ClosePresenceTourUseCase closePresenceTourUseCase;
+    private final PresenceTourRepository            tourRepository;
+    private final GetPresenceTourSummaryUseCase     summary;
+    private final ClosePresenceTourUseCase          closePresenceTourUseCase;
 
     /**
-     * Mark a participant as having benefited, then close the tour if everyone
-     * has now benefited.
+     * Enregistre qu'un membre a bénéficié de la tontine de présence, puis clôture
+     * le tour si plus personne n'attend.
      *
-     * <p>F-08 — These invariants used to live only in the UI (the button was
-     * hidden), so a forged/replayed POST could serve someone twice or out of
-     * order. They are now enforced server-side:
+     * <p>Invariants vérifiés côté serveur (une interface qui masque un bouton ne
+     * protège de rien) :</p>
      * <ul>
-     *   <li>the tour must still be open;</li>
-     *   <li>the participant must not already have benefited (no double-serving);</li>
-     *   <li>the participant must be the next one in draw order (rotation equity).</li>
+     *   <li>le tour doit être ouvert ;</li>
+     *   <li>le membre ne doit pas avoir déjà bénéficié dans ce tour ;</li>
+     *   <li>le membre doit faire partie des bénéficiaires éligibles : tant qu'un
+     *       membre présent au démarrage du tour n'a pas été servi, un arrivant en
+     *       cours de tour ne peut pas passer avant lui.</li>
      * </ul>
-     *
-     * @param tourId    the tour ID
-     * @param memberId  the member who benefited
-     * @param sessionId the session where they benefited
-     * @return the updated PresenceTourParticipant
      */
     @Transactional
     public PresenceTourParticipant execute(Long tourId, Long memberId, Long sessionId) {
@@ -51,23 +50,20 @@ public class MarkPresenceBenefitedUseCase {
 
         if (participant.isHasBenefited()) {
             throw new BusinessRuleException(
-                "Ce membre a déjà bénéficié dans ce tour de présence.");
+                "Ce membre a déjà bénéficié de la tontine de présence dans ce tour.");
         }
 
-        // Passage order: only the next non-benefited participant (smallest draw
-        // order) may be served, so the rotation stays fair.
-        PresenceTourParticipant next = participantRepository.findNextBeneficiary(tourId)
-            .orElseThrow(() -> new BusinessRuleException(
-                "Aucun bénéficiaire en attente dans ce tour."));
-        if (!next.getMemberId().equals(memberId)) {
+        List<PresenceTourParticipant> eligible = summary.findEligibleBeneficiaries(tourId);
+        boolean allowed = eligible.stream().anyMatch(p -> p.getMemberId().equals(memberId));
+        if (!allowed) {
             throw new BusinessRuleException(
-                "Ce membre n'est pas le prochain bénéficiaire dans l'ordre de passage.");
+                "Ce membre n'est pas éligible : les membres présents au démarrage du tour "
+              + "doivent tous avoir bénéficié avant les arrivants en cours de tour.");
         }
 
         participant.markAsBenefited(sessionId);
         PresenceTourParticipant saved = participantRepository.save(participant);
 
-        // If all participants have benefited → close the tour
         long total = participantRepository.findByTourId(tourId).size();
         long benefited = participantRepository.countByTourIdAndHasBenefited(tourId, true);
         if (total == benefited) {

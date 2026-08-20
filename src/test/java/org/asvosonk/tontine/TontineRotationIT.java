@@ -85,16 +85,18 @@ class TontineRotationIT extends AbstractIntegrationTest {
     }
 
     @Test
-    void contributingToOneselfIsRejected() {
-        // F-32 — contributor == beneficiary would create a self-referencing debt.
-        org.assertj.core.api.Assertions.assertThatThrownBy(
-                () -> useCase.execute(tourId, session1, memberA, memberA, AMOUNT))
-            .isInstanceOf(org.asvosonk.common.domain.exception.BusinessRuleException.class)
-            .hasMessageContaining("lui-même");
+    void leBeneficiaireCotisePourLuiMemeSansCreerDeDette() {
+        // Le bénéficiaire du jour cotise lui aussi : son versement grossit la
+        // somme qu'il perçoit, mais personne ne la lui doit en retour.
+        var contribution = useCase.execute(tourId, session1, memberA, memberA, AMOUNT);
 
+        em.flush();
         em.clear();
+
+        assertThat(contribution.getAmount()).isEqualByComparingTo(AMOUNT);
+        assertThat(contribution.isPaid()).isTrue();
         assertThat(debtRepository.findByTourIdAndStatus(tourId, DebtStatus.owed))
-            .as("no debt should be created by a rejected self-contribution")
+            .as("une cotisation à soi-même ne crée aucune dette")
             .isEmpty();
     }
 
@@ -117,10 +119,14 @@ class TontineRotationIT extends AbstractIntegrationTest {
             .executeUpdate();
     }
 
+    /**
+     * Séance historique : elle sert de point d'accroche aux cotisations. Elle est
+     * insérée close — une seule séance non clôturée peut exister à la fois.
+     */
     private Long insertSession(String date) {
         return ((Number) em.createNativeQuery(
                 "INSERT INTO meeting_session (session_date, status) "
-              + "VALUES (CAST(:d AS date), CAST('open' AS session_status)) RETURNING id")
+              + "VALUES (CAST(:d AS date), CAST('closed' AS session_status)) RETURNING id")
             .setParameter("d", date)
             .getSingleResult()).longValue();
     }

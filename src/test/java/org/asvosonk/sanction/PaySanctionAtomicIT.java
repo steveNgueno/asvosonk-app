@@ -9,7 +9,11 @@ import org.asvosonk.sanction.domain.model.Sanction;
 import org.asvosonk.sanction.domain.repository.SanctionRepository;
 import org.asvosonk.sanction.domain.valueobject.SanctionOrigin;
 import org.asvosonk.sanction.domain.valueobject.SanctionStatus;
+import org.asvosonk.security.domain.repository.AppUserRepository;
+import org.asvosonk.session.application.service.SessionService;
+import org.asvosonk.session.presentation.request.SessionForm;
 import org.asvosonk.support.AbstractIntegrationTest;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -36,6 +40,34 @@ class PaySanctionAtomicIT extends AbstractIntegrationTest {
     @Autowired PaySanctionUseCase    paySanction;
     @Autowired SanctionRepository    sanctionRepository;
     @Autowired CashboxRepository     cashboxRepository;
+    @Autowired SessionService        sessionService;
+    @Autowired AppUserRepository     appUserRepository;
+    @Autowired jakarta.persistence.EntityManager em;
+
+    /**
+     * Tout encaissement appartient à une séance : la réunion du jour est ouverte
+     * avant chaque paiement, faute de quoi il serait refusé.
+     */
+    @BeforeEach
+    void openSession() {
+        SessionForm form = new SessionForm();
+        form.setSessionDate(LocalDate.of(2026, 5, 4));
+        sessionService.create(form, appUserRepository.findByLogin("admin").orElseThrow());
+        em.flush();
+    }
+
+    @Test
+    void payingOutsideAnySession_isRejected() {
+        Sanction s = createSanction.execute(SEED_MEMBER_ID, LocalDate.now(),
+            new BigDecimal("500"), "retard", SanctionOrigin.manual, null);
+        em.createNativeQuery("UPDATE meeting_session SET status = 'closed'").executeUpdate();
+        em.flush();
+        em.clear();
+
+        assertThatThrownBy(() -> paySanction.execute(s.getId(), null))
+            .isInstanceOf(BusinessRuleException.class)
+            .hasMessageContaining("Aucune séance");
+    }
 
     @Test
     void payingCreditsCashboxAndMarksPaid_atomically() {

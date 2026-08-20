@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org">
+<!--
+  Récapitulatif de la cotisation de présence, partagé entre la page de séance et
+  le rapport. Ne calcule rien : tous les montants sont figés à la clôture.
+-->
+<body>
+
+<div th:fragment="presenceSummary(result)" class="card card-accent card-accent-success mb-4"
+     th:if="${result != null}">
+    <div class="card-header">
+        <i class="bi bi-clipboard-check" aria-hidden="true"></i>Présence clôturée
+    </div>
+    <div class="card-body">
+
+        <div class="row g-3 mb-4">
+            <div class="col-6 col-lg-3">
+                <div class="metric">
+                    <div class="metric-value" th:text="${result.totalCotisants}">0</div>
+                    <div class="metric-label">Cotisants</div>
+                </div>
+            </div>
+            <div class="col-6 col-lg-3">
+                <div class="metric">
+                    <div class="metric-value" style="color:var(--c-success)" th:text="${result.presentCount}">0</div>
+                    <div class="metric-label">Présents</div>
+                </div>
+            </div>
+            <div class="col-6 col-lg-3">
+                <div class="metric">
+                    <div class="metric-value" style="color:var(--c-warning)" th:text="${result.fundCoveredCount}">0</div>
+                    <div class="metric-label">Cotisés par le fond</div>
+                </div>
+            </div>
+            <div class="col-6 col-lg-3">
+                <div class="metric">
+                    <div class="metric-value" style="color:var(--c-danger)" th:text="${result.defaultCount}">0</div>
+                    <div class="metric-label">Échecs</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-4">
+            <div class="col-lg-6">
+                <table class="table">
+                    <caption class="visually-hidden">Tontine de présence</caption>
+                    <tbody>
+                        <tr>
+                            <th scope="row" class="fw-normal">Bénéficiaire</th>
+                            <td class="fw-semibold text-end"
+                                th:text="${result.beneficiary != null ? result.beneficiary.fullName : '—'}">—</td>
+                        </tr>
+                        <tr>
+                            <th scope="row" class="fw-normal">Net à percevoir</th>
+                            <td class="num money" th:text="${#numbers.formatInteger(result.grossTontine,1,'WHITESPACE')} + ' FCFA'">0</td>
+                        </tr>
+                        <tr th:if="${result.fundCatchUp != null and result.fundCatchUp.signum() > 0}">
+                            <th scope="row" class="fw-normal">
+                                Mise à jour du fond
+                                <span class="d-block small text-muted">régularisation obligatoire</span>
+                            </th>
+                            <td class="num money money-out"
+                                th:text="'− ' + ${#numbers.formatInteger(result.fundCatchUp,1,'WHITESPACE')} + ' FCFA'">0</td>
+                        </tr>
+                        <tr>
+                            <th scope="row" class="fw-normal">Retenues (sanctions)</th>
+                            <td class="num money"
+                                th:classappend="${result.sanctionDeductions.signum() > 0} ? 'money-out'"
+                                th:text="${result.sanctionDeductions.signum() > 0 ? '− ' : ''}
+                                         + ${#numbers.formatInteger(result.sanctionDeductions,1,'WHITESPACE')} + ' FCFA'">0</td>
+                        </tr>
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <th scope="row">Net perçu</th>
+                            <td class="num money money-in"
+                                th:text="${#numbers.formatInteger(result.netTontine,1,'WHITESPACE')} + ' FCFA'">0</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <div class="col-lg-6">
+                <table class="table">
+                    <caption class="visually-hidden">Caisses et fonds alimentés</caption>
+                    <tbody>
+                        <tr>
+                            <th scope="row" class="fw-normal">Caisse développement</th>
+                            <td class="num money money-in"
+                                th:text="'+ ' + ${#numbers.formatInteger(result.totalDevelopment,1,'WHITESPACE')} + ' FCFA'">0</td>
+                        </tr>
+                        <tr>
+                            <th scope="row" class="fw-normal">Reliquat boisson</th>
+                            <td class="num money money-in"
+                                th:text="'+ ' + ${#numbers.formatInteger(result.beverageReliquat,1,'WHITESPACE')} + ' FCFA'">0</td>
+                        </tr>
+                        <tr th:if="${result.returnToFund != null and result.returnToFund.signum() > 0}">
+                            <th scope="row" class="fw-normal">
+                                Retour en caisse
+                                <span class="d-block small text-muted">fonds de roulement — non remis au trésorier</span>
+                            </th>
+                            <td class="num money"
+                                th:text="${#numbers.formatInteger(result.returnToFund,1,'WHITESPACE')} + ' FCFA'">0</td>
+                        </tr>
+                        <tr th:if="${result.recoveryTotal != null and result.recoveryTotal.signum() > 0}">
+                            <th scope="row" class="fw-normal">
+                                Rattrapages d'échecs
+                                <span class="d-block small text-muted">à remettre aux anciens bénéficiaires</span>
+                            </th>
+                            <td class="num money"
+                                th:text="${#numbers.formatInteger(result.recoveryTotal,1,'WHITESPACE')} + ' FCFA'">0</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

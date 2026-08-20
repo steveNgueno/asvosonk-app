@@ -15,5 +15,8 @@ public interface TontineContributionRepository {
 
     List<TontineContribution> findByTourIdAndSessionId(Long tourId, Long sessionId);
 
+    /** Toutes les cotisations saisies pendant une séance, tous tours confondus. */
+    List<TontineContribution> findBySessionId(Long sessionId);
+
     List<TontineContribution> findByContributorIdAndTourId(Long contributorId, Long tourId);
 }

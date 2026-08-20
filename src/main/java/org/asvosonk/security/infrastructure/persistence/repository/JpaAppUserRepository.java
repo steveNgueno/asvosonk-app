@@ -23,7 +23,7 @@ public class JpaAppUserRepository implements AppUserRepository {
 
     @Override
     public Optional<AppUser> findById(Long id) {
-        return springData.findById(id).map(UserEntityMapper::toDomain);
+        return springData.findByIdWithMemberAndRole(id).map(UserEntityMapper::toDomain);
     }
 
     @Override

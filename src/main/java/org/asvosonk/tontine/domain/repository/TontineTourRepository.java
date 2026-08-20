@@ -12,6 +12,14 @@ public interface TontineTourRepository {
 
     Optional<TontineTour> findById(Long id);
 
+    /**
+     * Loads the tour under a PESSIMISTIC_WRITE lock (F-34). Serializes
+     * concurrent contribution submissions for the same tour so two defaults
+     * processed at once cannot both compute the same "next" draw order and
+     * collide on the (tour_id, draw_order) unique index.
+     */
+    Optional<TontineTour> findByIdForUpdate(Long id);
+
     List<TontineTour> findAllByOrderByStartDateDesc();
 
     List<TontineTour> findByStatusOrderByStartDateDesc(TontineTourStatus status);

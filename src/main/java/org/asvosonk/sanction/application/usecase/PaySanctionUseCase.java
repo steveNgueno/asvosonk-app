@@ -9,9 +9,12 @@ import org.asvosonk.sanction.domain.model.Sanction;
 import org.asvosonk.sanction.domain.repository.SanctionRepository;
 import org.asvosonk.sanction.domain.valueobject.SanctionStatus;
 import org.asvosonk.security.domain.model.AppUser;
+import org.asvosonk.session.application.usecase.RequireOpenSessionUseCase;
+import org.asvosonk.session.infrastructure.persistence.entity.MeetingSessionEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 
 /**
@@ -28,11 +31,17 @@ import java.time.LocalDate;
 @RequiredArgsConstructor
 public class PaySanctionUseCase {
 
-    private final SanctionRepository sanctionRepository;
-    private final CashboxService     cashboxService;
+    private final SanctionRepository        sanctionRepository;
+    private final CashboxService            cashboxService;
+    private final RequireOpenSessionUseCase requireOpenSession;
 
     @Transactional
     public Sanction execute(Long sanctionId, AppUser paidBy) {
+        // Tout encaissement appartient à une séance : celle du jour où l'argent
+        // a été remis. C'est ce rattachement qui le fait figurer dans les
+        // entrées du jour et dans le total remis au trésorier.
+        MeetingSessionEntity session = requireOpenSession.require("le paiement d'une sanction");
+
         Sanction sanction = sanctionRepository.findById(sanctionId)
             .orElseThrow(() -> new BusinessRuleException("Sanction introuvable : " + sanctionId));
         if (sanction.getStatus() != SanctionStatus.unpaid) {
@@ -42,21 +51,28 @@ public class PaySanctionUseCase {
             throw new BusinessRuleException(msg);
         }
 
-        // Mark as paid.
+        // Seul le reste à payer est encaissé : une partie a pu être retenue sur
+        // une tontine antérieure (imputation partielle).
+        BigDecimal due = sanction.getRemaining();
+        if (due.signum() <= 0) {
+            throw new BusinessRuleException("Cette sanction est déjà entièrement réglée.");
+        }
+
         Sanction updated = new Sanction(
             sanction.getId(), sanction.getMemberId(),
             sanction.getSanctionDate(), sanction.getAmount(),
+            sanction.getAmount(),               // soldée : montant encaissé = montant dû
             sanction.getReason(), sanction.getOrigin(),
             sanction.getReferenceId(), SanctionStatus.paid,
-            LocalDate.now(), sanction.getCreatedAt(),
+            LocalDate.now(), sanction.getCancelReason(), sanction.getCreatedAt(),
             java.time.LocalDateTime.now()
         );
         Sanction saved = sanctionRepository.save(updated);
 
         // Same transaction: cash actually enters the sanction cashbox (F-05).
-        cashboxService.credit(CashboxType.sanction, saved.getAmount(),
+        cashboxService.credit(CashboxType.sanction, due,
             "Paiement cash sanction #" + saved.getId() + " — " + saved.getReason(),
-            MovementOrigin.sanction, null, null, saved.getId(), paidBy);
+            MovementOrigin.sanction, session, null, saved.getId(), paidBy);
 
         return saved;
     }

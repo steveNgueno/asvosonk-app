@@ -1,62 +1,85 @@
 <!DOCTYPE html>
 <html lang="fr" xmlns:th="http://www.thymeleaf.org"
-      th:replace="~{layout :: layout(pageTitle=${pageTitle}, content=~{::main-content}, extraHead=~{}, extraScripts=~{})}">
-<body><th:block th:fragment="main-content">
+      th:replace="~{layout :: layout(${pageTitle}, ~{::main-content}, ~{}, ~{})}">
+<body>
+<th:block th:fragment="main-content">
 
-<div class="page-header mb-4">
-    <h2 th:text="${editMode ? 'Modifier le membre' : 'Nouveau membre'}"></h2>
+<div class="page-head">
+    <div>
+        <h1>
+            <i class="bi" th:classappend="${editMode ? 'bi-pencil-square' : 'bi-person-plus'}" aria-hidden="true"></i>
+            <span th:text="${editMode ? 'Modifier le membre' : 'Nouveau membre'}">Membre</span>
+        </h1>
+        <p class="page-subtitle">
+            Les informations d'identité du membre. Les frais d'adhésion sont initialisés
+            automatiquement à l'enregistrement.
+        </p>
+    </div>
+    <div class="page-actions">
+        <a th:href="${editMode} ? @{/members/{id}(id=${memberId})} : @{/members}"
+           class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left" aria-hidden="true"></i>Retour
+        </a>
+    </div>
 </div>
 
-<div class="card border-0 shadow-sm" style="max-width:600px;">
-    <div class="card-body p-4">
-        <form th:action="${editMode ? '/members/' + memberId + '/edit' : '/members/new'}"
-              th:object="${memberRequest}" method="post">
+<div class="card form-panel">
+    <div class="card-body">
+        <form th:action="${editMode} ? @{/members/{id}/edit(id=${memberId})} : @{/members/new}"
+              th:object="${memberRequest}" method="post" novalidate>
 
-            <div class="mb-3">
-                <label class="form-label fw-semibold">Nom complet *</label>
-                <input type="text" class="form-control" th:field="*{fullName}"
+            <div th:if="${#fields.hasAnyErrors()}" class="alert alert-danger" role="alert">
+                <i class="bi bi-exclamation-triangle-fill flex-shrink-0" aria-hidden="true"></i>
+                <span>Certaines informations sont invalides. Corrigez les champs signalés ci-dessous.</span>
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label req" for="fullName">Nom complet</label>
+                <input type="text" id="fullName" class="form-control" th:field="*{fullName}"
                        th:classappend="${#fields.hasErrors('fullName')} ? 'is-invalid'"
-                       placeholder="ex : DUPONT Jean-Pierre">
+                       placeholder="ex. NKOU Jean-Pierre" autocomplete="name" required>
                 <div class="invalid-feedback" th:errors="*{fullName}"></div>
             </div>
 
-            <div class="mb-3">
-                <label class="form-label fw-semibold">Téléphone</label>
-                <input type="tel" class="form-control" th:field="*{phone}" placeholder="+237 6XX XXX XXX">
+            <div class="mb-4">
+                <label class="form-label" for="phone">Téléphone</label>
+                <input type="tel" id="phone" class="form-control" th:field="*{phone}"
+                       th:classappend="${#fields.hasErrors('phone')} ? 'is-invalid'"
+                       placeholder="ex. +237 6 XX XX XX XX" autocomplete="tel">
+                <div class="invalid-feedback" th:errors="*{phone}"></div>
             </div>
 
-            <div class="mb-3">
-                <label class="form-label fw-semibold">Date d'adhésion *</label>
-                <input type="date" class="form-control" th:field="*{joinDate}"
-                       th:classappend="${#fields.hasErrors('joinDate')} ? 'is-invalid'">
+            <div class="mb-4">
+                <label class="form-label req" for="joinDate">Date d'adhésion</label>
+                <input type="date" id="joinDate" class="form-control" th:field="*{joinDate}"
+                       th:classappend="${#fields.hasErrors('joinDate')} ? 'is-invalid'" required>
                 <div class="invalid-feedback" th:errors="*{joinDate}"></div>
-                <div class="form-text">
-                    <i class="bi bi-info-circle me-1"></i>
-                    Date à laquelle le membre a intégré l'association
-                </div>
+                <p class="form-text">Date à laquelle le membre a intégré l'association.</p>
             </div>
 
-            <div class="mb-3 form-check">
-                <input type="checkbox" class="form-check-input" th:field="*{resident}" id="residentCheck">
-                <label class="form-check-label" for="residentCheck">Résident Nkou-Assi</label>
+            <div class="form-check mb-4">
+                <input type="checkbox" class="form-check-input" id="resident" th:field="*{resident}">
+                <label class="form-check-label" for="resident">Résident à Nkou-Assi</label>
             </div>
 
             <div class="mb-4" th:if="${editMode}">
-                <label class="form-label fw-semibold">Statut</label>
-                <select class="form-select" th:field="*{status}">
+                <label class="form-label" for="status">Statut</label>
+                <select id="status" class="form-select" th:field="*{status}">
                     <option th:each="s : ${statuses}" th:value="${s}" th:text="${s.name()}"></option>
                 </select>
             </div>
 
-            <div class="d-flex gap-2">
+            <div class="form-actions">
                 <button type="submit" class="btn btn-primary">
-                    <i class="bi bi-save me-1"></i>Enregistrer
+                    <i class="bi bi-check-lg" aria-hidden="true"></i>Enregistrer
                 </button>
-                <a th:href="${editMode ? '/members/' + memberId : '/members'}"
+                <a th:href="${editMode} ? @{/members/{id}(id=${memberId})} : @{/members}"
                    class="btn btn-outline-secondary">Annuler</a>
             </div>
         </form>
     </div>
 </div>
 
-</th:block></body></html>
+</th:block>
+</body>
+</html>

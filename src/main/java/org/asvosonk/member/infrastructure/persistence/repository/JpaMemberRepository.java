@@ -28,6 +28,18 @@ public class JpaMemberRepository implements MemberRepository {
     }
 
     @Override
+    public java.util.Map<Long, String> findFullNamesByIds(java.util.Collection<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return java.util.Map.of();
+        }
+        java.util.Map<Long, String> names = new java.util.HashMap<>();
+        for (Object[] row : springData.findIdAndFullNameByIds(new java.util.HashSet<>(ids))) {
+            names.put((Long) row[0], (String) row[1]);
+        }
+        return names;
+    }
+
+    @Override
     public List<Member> findAllByOrderByFullNameAsc() {
         return springData.findAllByOrderByFullNameAsc().stream()
             .map(MemberEntityMapper::toDomain)

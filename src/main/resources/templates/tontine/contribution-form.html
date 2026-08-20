@@ -1,197 +1,125 @@
 <!DOCTYPE html>
 <html lang="fr" xmlns:th="http://www.thymeleaf.org"
-      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
-      th:replace="~{layout :: layout(pageTitle=${pageTitle}, content=~{::main-content}, extraHead=~{}, extraScripts=~{::extraScripts})}">
+      th:replace="~{layout :: layout(${pageTitle}, ~{::main-content}, ~{}, ~{::extraScripts})}">
 <body>
 <th:block th:fragment="main-content">
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h1 class="h3 mb-0">
-        <i class="bi bi-cash-coin me-2"></i>Cotisation — Tour #<span th:text="${tour.id}"></span>
-    </h1>
-    <a th:href="@{/tontine/{id}(id=${tour.id})}" class="btn btn-outline-secondary btn-sm">
-        <i class="bi bi-arrow-left me-1"></i>Retour
-    </a>
-</div>
-
-<!-- ── Beneficiary selection ───────────────────────────── -->
-<div class="card mb-4">
-    <div class="card-header bg-primary text-white">
-        <i class="bi bi-person-check me-1"></i>Bénéficiaire du jour
+<div class="page-head">
+    <div>
+        <h1><i class="bi bi-cash-coin" aria-hidden="true"></i>Enregistrer une cotisation</h1>
+        <p class="page-subtitle">Grande Tontine · tour #<span th:text="${tour.id}">1</span></p>
     </div>
-    <div class="card-body">
-        <p class="text-muted small mb-2">
-            Sélectionnez le membre qui bénéficie de la grande tontine pour cette séance.
-            Seuls les membres n'ayant pas encore bénéficié sont affichés.
-        </p>
-        <div class="d-flex flex-wrap gap-2 mb-2">
-            <button th:each="p : ${notBenefitedYet}" type="button"
-                    class="btn btn-outline-primary beneficiary-btn"
-                    th:data-member-id="${p.memberId}"
-                    th:text="${memberNames[p.memberId]} + ' (Ordre ' + ${p.drawOrder} + ')'">
-            </button>
-        </div>
-        <p th:if="${#lists.isEmpty(notBenefitedYet)}" class="text-warning mb-0">
-            <i class="bi bi-exclamation-triangle me-1"></i>Tous les participants ont déjà bénéficié.
-        </p>
-    </div>
-</div>
-
-<!-- ── Contribution form ───────────────────────────────── -->
-<form th:action="@{/tontine/{id}/contribute(id=${tour.id})}" method="post"
-      th:object="${form}" class="needs-validation">
-
-    <!-- Hidden fields bound to form -->
-    <input type="hidden" name="beneficiaryId" id="beneficiaryId" th:value="*{beneficiaryId}">
-    <input type="hidden" name="amount" id="amountField" th:value="*{amount}">
-    <input type="hidden" name="sessionId" id="sessionId" th:value="*{sessionId}">
-
-    <div class="table-responsive mb-4">
-        <table class="table table-hover align-middle">
-            <thead class="table-dark">
-                <tr>
-                    <th>Cotisant</th>
-                    <th style="width:260px">Montant (imposé 5 000 + libre)</th>
-                    <th style="width:80px">Échec</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr th:each="p, iter : ${participants}">
-                    <td>
-                        <div class="form-check">
-                            <input type="radio" class="form-check-input contributor-radio"
-                                   name="contributorId" th:value="${p.memberId}"
-                                   th:id="'contributor_' + ${p.memberId}"
-                                   th:checked="${iter.index == 0}">
-                            <label class="form-check-label fw-medium"
-                                   th:for="'contributor_' + ${p.memberId}"
-                                   th:text="${memberNames[p.memberId]}"></label>
-                        </div>
-                    </td>
-                    <td>
-                        <div class="d-flex align-items-center gap-2">
-                            <span class="badge bg-secondary" title="Part imposée à chaque cotisant">
-                                <i class="bi bi-lock-fill me-1"></i>5 000
-                            </span>
-                            <span class="badge bg-info text-dark">+ Libre</span>
-                            <div class="input-group input-group-sm" style="width:150px">
-                                <input type="number" class="form-control contributor-amount"
-                                       th:data-member-id="${p.memberId}"
-                                       min="5000" step="5000"
-                                       placeholder="5000"
-                                       th:disabled="${iter.index != 0}">
-                                <span class="input-group-text">FCFA</span>
-                            </div>
-                        </div>
-                    </td>
-                    <td class="text-center">
-                        <input type="checkbox" class="form-check-input default-checkbox"
-                               th:id="'default_' + ${p.memberId}">
-                    </td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
-
-    <div class="d-flex gap-2">
-        <button type="submit" class="btn btn-primary">
-            <i class="bi bi-save me-1"></i>Enregistrer
-        </button>
-        <a th:href="@{/tontine/{id}(id=${tour.id})}" class="btn btn-secondary">
-            <i class="bi bi-x me-1"></i>Annuler
+    <div class="page-actions">
+        <a th:href="@{/tontine/{id}(id=${tour.id})}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left" aria-hidden="true"></i>Retour au tour
         </a>
+    </div>
+</div>
+
+<div class="alert alert-warning" role="alert" th:if="${form.sessionId == null}">
+    <i class="bi bi-exclamation-triangle-fill flex-shrink-0" aria-hidden="true"></i>
+    <span>
+        Aucune séance ouverte : une cotisation doit être rattachée à une séance.
+        Créez ou ouvrez une séance avant d'enregistrer une cotisation.
+    </span>
+</div>
+
+<div class="alert alert-warning" role="alert" th:if="${#lists.isEmpty(notBenefitedYet)}">
+    <i class="bi bi-exclamation-triangle-fill flex-shrink-0" aria-hidden="true"></i>
+    <span>Tous les participants de ce tour ont déjà bénéficié.</span>
+</div>
+
+<form th:action="@{/tontine/{id}/contribute(id=${tour.id})}" method="post" th:object="${form}" novalidate>
+    <input type="hidden" th:field="*{sessionId}">
+
+    <div th:if="${#fields.hasAnyErrors()}" class="alert alert-danger" role="alert">
+        <i class="bi bi-exclamation-triangle-fill flex-shrink-0" aria-hidden="true"></i>
+        <span>Sélectionnez un bénéficiaire, un cotisant et un montant.</span>
+    </div>
+
+    <div class="row g-4">
+        <!-- ── Bénéficiaire ──────────────────────────────── -->
+        <div class="col-lg-6">
+            <div class="card h-100">
+                <div class="card-header">
+                    <i class="bi bi-trophy" aria-hidden="true"></i>Bénéficiaire de la séance
+                </div>
+                <div class="card-body">
+                    <p class="form-text mb-3">
+                        Seuls les membres n'ayant pas encore bénéficié dans ce tour sont proposés,
+                        dans l'ordre de passage.
+                    </p>
+                    <div class="form-check mb-2" th:each="p : ${notBenefitedYet}">
+                        <input type="radio" class="form-check-input" th:field="*{beneficiaryId}"
+                               th:value="${p.memberId}" th:id="'benef-' + ${p.memberId}">
+                        <label class="form-check-label" th:for="'benef-' + ${p.memberId}">
+                            <span th:text="${memberNames.get(p.memberId) ?: '—'}">Nom</span>
+                            <span class="pill pill-brand ms-1">Ordre <span th:text="${p.drawOrder}">1</span></span>
+                        </label>
+                    </div>
+                    <div class="invalid-feedback d-block" th:if="${#fields.hasErrors('beneficiaryId')}"
+                         th:errors="*{beneficiaryId}"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Cotisant + montant ────────────────────────── -->
+        <div class="col-lg-6">
+            <div class="card h-100">
+                <div class="card-header">
+                    <i class="bi bi-person-fill" aria-hidden="true"></i>Cotisant
+                </div>
+                <div class="card-body">
+                    <div class="mb-4">
+                        <label class="form-label req" for="contributorId">Membre qui cotise</label>
+                        <select id="contributorId" class="form-select" th:field="*{contributorId}"
+                                th:classappend="${#fields.hasErrors('contributorId')} ? 'is-invalid'" required>
+                            <option value="">— Sélectionner —</option>
+                            <option th:each="p : ${participants}" th:value="${p.memberId}"
+                                    th:text="${memberNames.get(p.memberId) ?: '—'}"></option>
+                        </select>
+                        <div class="invalid-feedback" th:errors="*{contributorId}"></div>
+                        <p class="form-text">Un membre ne peut pas cotiser pour lui-même.</p>
+                    </div>
+
+                    <div>
+                        <label class="form-label req" for="contributionAmount">Montant versé</label>
+                        <div class="input-group">
+                            <input type="number" id="contributionAmount" class="form-control num"
+                                   th:field="*{amount}" min="0" step="1" inputmode="numeric" required>
+                            <span class="input-group-text">FCFA</span>
+                        </div>
+                        <div class="invalid-feedback" th:if="${#fields.hasErrors('amount')}" th:errors="*{amount}"></div>
+                        <div class="d-flex flex-wrap gap-2 mt-3">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" data-amount="5000">
+                                Imposée (5 000)
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" data-amount-add="5000">
+                                +5 000
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-danger" data-amount="0">
+                                Échec (0)
+                            </button>
+                        </div>
+                        <p class="form-text mt-3 mb-0" id="amountHint" aria-live="polite"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary" th:disabled="${form.sessionId == null}">
+            <i class="bi bi-check-lg" aria-hidden="true"></i>Enregistrer
+        </button>
+        <a th:href="@{/tontine/{id}(id=${tour.id})}" class="btn btn-outline-secondary">Annuler</a>
     </div>
 </form>
 
 </th:block>
 
 <th:block th:fragment="extraScripts">
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const beneficiaryInput = document.getElementById('beneficiaryId');
-    const amountField = document.getElementById('amountField');
-    const sessionIdField = document.getElementById('sessionId');
-
-    // ── Beneficiary button handlers ──────────────────────
-    document.querySelectorAll('.beneficiary-btn').forEach(function(btn) {
-        btn.addEventListener('click', function() {
-            document.querySelectorAll('.beneficiary-btn').forEach(function(b) {
-                b.classList.remove('btn-primary');
-                b.classList.add('btn-outline-primary');
-            });
-            this.classList.remove('btn-outline-primary');
-            this.classList.add('btn-primary');
-            beneficiaryInput.value = this.getAttribute('data-member-id');
-        });
-    });
-
-    // Auto-select first beneficiary
-    var firstBeneficiary = document.querySelector('.beneficiary-btn');
-    if (firstBeneficiary) firstBeneficiary.click();
-
-    // ── Contributor radio: enable/disable amount fields ──
-    document.querySelectorAll('.contributor-radio').forEach(function(radio) {
-        radio.addEventListener('change', function() {
-            var memberId = this.value;
-            document.querySelectorAll('.contributor-amount').forEach(function(input) {
-                input.disabled = (input.getAttribute('data-member-id') !== memberId);
-                if (!input.disabled) {
-                    // Sync the hidden amount field
-                    amountField.value = input.value || '';
-                }
-            });
-        });
-    });
-
-    // ── Amount input: sync to hidden field ───────────────
-    document.querySelectorAll('.contributor-amount').forEach(function(input) {
-        input.addEventListener('input', function() {
-            if (!this.disabled) {
-                amountField.value = this.value || '';
-            }
-        });
-    });
-
-    // ── Default checkbox: set amount to 0 ────────────────
-    document.querySelectorAll('.default-checkbox').forEach(function(cb) {
-        cb.addEventListener('change', function() {
-            var row = this.closest('tr');
-            var amountInput = row.querySelector('.contributor-amount');
-            var radio = row.querySelector('.contributor-radio');
-            if (this.checked) {
-                amountInput.value = 0;
-                amountInput.disabled = true;
-                radio.checked = true;
-                amountField.value = '0';
-                // Disable all other amount fields
-                document.querySelectorAll('.contributor-amount').forEach(function(inp) {
-                    if (inp !== amountInput) inp.disabled = true;
-                });
-            } else {
-                // Re-enable only the selected contributor's field
-                var selectedRadio = document.querySelector('.contributor-radio:checked');
-                document.querySelectorAll('.contributor-amount').forEach(function(inp) {
-                    inp.disabled = (inp.getAttribute('data-member-id') !== (selectedRadio ? selectedRadio.value : null));
-                });
-                amountInput.value = '';
-                amountField.value = '';
-            }
-        });
-    });
-
-    // ── Sync amount on form submit ───────────────────────
-    document.querySelector('form').addEventListener('submit', function() {
-        var checked = document.querySelector('.contributor-radio:checked');
-        if (checked) {
-            var memberId = checked.value;
-            var amountInput = document.querySelector('.contributor-amount[data-member-id="' + memberId + '"]');
-            if (amountInput) {
-                amountField.value = amountInput.value || '0';
-            }
-        }
-    });
-});
-</script>
+<script th:src="@{/js/contribution.js}"></script>
 </th:block>
 </body>
 </html>

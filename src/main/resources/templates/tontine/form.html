@@ -1,65 +1,117 @@
 <!DOCTYPE html>
 <html lang="fr" xmlns:th="http://www.thymeleaf.org"
-      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
-      th:replace="~{layout :: layout(pageTitle=${pageTitle}, content=~{::main-content}, extraHead=~{}, extraScripts=~{})}">
+      th:replace="~{layout :: layout(${pageTitle}, ~{::main-content}, ~{}, ~{::extraScripts})}">
 <body>
 <th:block th:fragment="main-content">
 
-<h1 class="h3 mb-3">
-    <i class="bi bi-plus-circle me-2"></i>Nouveau tour de grande tontine
-</h1>
-
-<form th:action="@{/tontine/new}" method="post" th:object="${form}" class="needs-validation">
-    <!-- Date de début -->
-    <div class="mb-3">
-        <label class="form-label" for="startDate">Date de début</label>
-        <input type="date" class="form-control" th:field="*{startDate}" id="startDate" required>
-        <div class="invalid-feedback" th:if="${#fields.hasErrors('startDate')}"
-             th:errors="*{startDate}"></div>
+<div class="page-head">
+    <div>
+        <h1><i class="bi bi-plus-circle" aria-hidden="true"></i>Nouveau tour de grande tontine</h1>
+        <p class="page-subtitle">
+            Sélectionnez les participants et leur ordre de passage, tel que tiré au sort en assemblée.
+        </p>
     </div>
-
-    <!-- Sélecteur de participants -->
-    <div class="mb-3">
-        <label class="form-label">Participants</label>
-        <div class="alert alert-info small py-2">
-            <i class="bi bi-info-circle me-1"></i>
-            Sélectionnez les membres participants et indiquez leur ordre de passage
-            (selon le tirage au sort effectué en assemblée).
-        </div>
-        <table class="table table-sm">
-            <thead>
-                <tr>
-                    <th>Sélectionné</th>
-                    <th>Membre</th>
-                    <th>Ordre de passage</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr th:each="member, iter : ${members}">
-                    <td>
-                        <input type="checkbox" class="form-check-input"
-                               th:field="*{participantIds}" th:value="${member.id}">
-                    </td>
-                    <td th:text="${member.fullName}"></td>
-                    <td>
-                        <input type="number" class="form-control form-control-sm"
-                               th:field="*{drawOrders}" style="width:80px" min="1">
-                    </td>
-                </tr>
-            </tbody>
-        </table>
-        <div class="invalid-feedback" th:if="${#fields.hasErrors('participantIds')}"
-             th:errors="*{participantIds}"></div>
-    </div>
-
-    <div class="d-flex gap-2">
-        <button type="submit" class="btn btn-primary">
-            <i class="bi bi-save me-1"></i>Créer le tour
-        </button>
-        <a th:href="@{/tontine}" class="btn btn-secondary">
-            <i class="bi bi-x me-1"></i>Annuler
+    <div class="page-actions">
+        <a th:href="@{/tontine}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left" aria-hidden="true"></i>Retour
         </a>
+    </div>
+</div>
+
+<form th:action="@{/tontine/new}" method="post" th:object="${form}" novalidate>
+
+    <div th:if="${#fields.hasAnyErrors()}" class="alert alert-danger" role="alert">
+        <i class="bi bi-exclamation-triangle-fill flex-shrink-0" aria-hidden="true"></i>
+        <span>Vérifiez la date de début et la sélection des participants.</span>
+    </div>
+
+    <div class="card mb-4 form-panel">
+        <div class="card-body">
+            <label class="form-label req" for="startDate">Date de début du tour</label>
+            <input type="date" id="startDate" class="form-control" th:field="*{startDate}"
+                   th:classappend="${#fields.hasErrors('startDate')} ? 'is-invalid'" required>
+            <div class="invalid-feedback" th:errors="*{startDate}"></div>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <i class="bi bi-people" aria-hidden="true"></i>Participants
+            <span class="text-muted small ms-2">
+                <span id="participantCount">0</span> sélectionné(s) — 2 minimum
+            </span>
+            <span class="card-header-actions">
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="selectAllParticipants">
+                    Tout sélectionner
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="clearAllParticipants">
+                    Tout effacer
+                </button>
+            </span>
+        </div>
+
+        <div class="alert alert-warning m-4 mb-0" id="orderWarning" role="alert" hidden>
+            <i class="bi bi-exclamation-triangle-fill flex-shrink-0" aria-hidden="true"></i>
+            <span>Deux participants ne peuvent pas avoir le même ordre de passage.</span>
+        </div>
+
+        <div class="table-wrap">
+            <table class="table table-hover" id="participantsTable">
+                <caption class="visually-hidden">Sélection des participants et de leur ordre de passage</caption>
+                <thead>
+                    <tr>
+                        <th scope="col" style="width:4rem">Inclus</th>
+                        <th scope="col">Membre</th>
+                        <th scope="col" style="width:11rem">Ordre de passage</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="member : ${members}">
+                        <td>
+                            <input type="checkbox" class="form-check-input js-participant"
+                                   th:id="'member-' + ${member.id}"
+                                   th:field="*{participantIds}" th:value="${member.id}">
+                        </td>
+                        <th scope="row">
+                            <label class="form-check-label fw-semibold" th:for="'member-' + ${member.id}"
+                                   th:text="${member.fullName}">Nom</label>
+                        </th>
+                        <td>
+                            <!-- Pas d'index dans le nom : seuls les champs actifs (donc les
+                                 membres cochés) sont envoyés, dans l'ordre des lignes — les deux
+                                 listes restent ainsi alignées sur les mêmes membres. -->
+                            <input type="number" name="drawOrders" class="form-control form-control-sm num js-order"
+                                   min="1" step="1" disabled
+                                   th:attr="aria-label='Ordre de passage de ' + ${member.fullName}">
+                        </td>
+                    </tr>
+                    <tr th:replace="~{fragments/ui :: emptyRow(3, 'Aucun membre actif disponible', ${#lists.isEmpty(members)})}"></tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="card-footer">
+            <div class="invalid-feedback d-block" th:if="${#fields.hasErrors('participantIds')}"
+                 th:errors="*{participantIds}"></div>
+            <div class="invalid-feedback d-block" th:if="${#fields.hasErrors('drawOrders')}"
+                 th:errors="*{drawOrders}"></div>
+            <p class="form-text mb-0">
+                L'ordre de passage détermine qui bénéficie de la tontine à chaque séance.
+            </p>
+        </div>
+    </div>
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary" id="tourSubmit">
+            <i class="bi bi-check-lg" aria-hidden="true"></i>Créer le tour
+        </button>
+        <a th:href="@{/tontine}" class="btn btn-outline-secondary">Annuler</a>
     </div>
 </form>
 
-</th:block></body></html>
+</th:block>
+
+<th:block th:fragment="extraScripts">
+<script th:src="@{/js/tour-form.js}"></script>
+</th:block>
+</body>
+</html>

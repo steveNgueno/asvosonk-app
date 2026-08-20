@@ -1,148 +1,190 @@
 <!DOCTYPE html>
 <html lang="fr" xmlns:th="http://www.thymeleaf.org"
-      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
-      th:replace="~{layout :: layout(pageTitle=${pageTitle}, content=~{::main-content}, extraHead=~{}, extraScripts=~{})}">
+               xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      th:replace="~{layout :: layout(${pageTitle}, ~{::main-content}, ~{}, ~{})}">
 <body>
 <th:block th:fragment="main-content">
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h1 class="h3 mb-0">
-        <i class="bi bi-cash-stack me-2"></i>Tour #<span th:text="${tour.id}"></span>
-    </h1>
+<div class="page-head">
     <div>
-        <a th:href="@{/tontine}" class="btn btn-outline-secondary btn-sm">
-            <i class="bi bi-arrow-left me-1"></i>Retour
+        <h1><i class="bi bi-cash-stack" aria-hidden="true"></i>Tour #<span th:text="${tour.id}">1</span></h1>
+        <p class="page-subtitle">
+            Grande Tontine · démarré le
+            <span th:text="${#temporals.format(tour.startDate,'dd/MM/yyyy')}">date</span>
+            <span th:if="${tour.endDate != null}">
+                · clôturé le <span th:text="${#temporals.format(tour.endDate,'dd/MM/yyyy')}">date</span>
+            </span>
+        </p>
+    </div>
+    <div class="page-actions">
+        <a th:if="${tour.isOpen()}" th:href="@{/tontine/{id}/contribute(id=${tour.id})}"
+           class="btn btn-primary" sec:authorize="hasAuthority('TONTINE_CONTRIBUTION_RECORD')">
+            <i class="bi bi-plus-circle" aria-hidden="true"></i>Enregistrer une cotisation
+        </a>
+        <a th:href="@{/tontine}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left" aria-hidden="true"></i>Tours
         </a>
     </div>
 </div>
 
-<!-- ── Tour info card ──────────────────────────────────── -->
-<div class="card mb-4">
-    <div class="card-body">
-        <div class="row">
-            <div class="col-md-3">
-                <small class="text-muted">Date début</small>
-                <p class="fw-bold mb-0" th:text="${tour.startDate}"></p>
-            </div>
-            <div class="col-md-3">
-                <small class="text-muted">Date fin</small>
-                <p class="fw-bold mb-0" th:text="${tour.endDate} != null ? ${tour.endDate} : '—'"></p>
-            </div>
-            <div class="col-md-3">
-                <small class="text-muted">Participants</small>
-                <p class="fw-bold mb-0" th:text="${participants.size()}"></p>
-            </div>
-            <div class="col-md-3">
-                <small class="text-muted">Statut</small>
-                <p class="mb-0">
-                    <span th:if="${tour.isOpen()}" class="badge bg-success fs-6">En cours</span>
-                    <span th:unless="${tour.isOpen()}" class="badge bg-secondary fs-6">Terminé</span>
-                </p>
-            </div>
+<!-- ── Chiffres clés ────────────────────────────────────── -->
+<div class="row g-3 mb-5">
+    <div class="col-6 col-lg-3">
+        <div class="stat">
+            <span class="stat-label">Statut</span>
+            <span class="stat-value sm">
+                <span class="pill pill-success" th:if="${tour.isOpen()}">
+                    <span class="dot dot-success" aria-hidden="true"></span>En cours
+                </span>
+                <span class="pill pill-muted" th:unless="${tour.isOpen()}">Terminé</span>
+            </span>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="stat">
+            <span class="stat-label">Participants</span>
+            <span class="stat-value sm" th:text="${#lists.size(participants)}">0</span>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="stat">
+            <span class="stat-label">Total collecté</span>
+            <span class="stat-value sm money money-in">
+                <span th:text="${#numbers.formatInteger(totalCollected,1,'WHITESPACE')}">0</span>
+                <span class="money-unit">FCFA</span>
+            </span>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="stat">
+            <span class="stat-label">Dettes ouvertes</span>
+            <span class="stat-value sm" th:text="${#lists.size(owedDebts)}">0</span>
         </div>
     </div>
 </div>
 
-<!-- ── Participants table ──────────────────────────────── -->
-<h5 class="mb-2">Participants</h5>
-<div class="table-responsive mb-4">
-    <table class="table table-sm table-hover align-middle">
-        <thead class="table-dark">
-            <tr>
-                <th>Ordre</th>
-                <th>Membre</th>
-                <th>A bénéficié</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr th:each="p : ${participants}">
-                <td th:text="${p.drawOrder}"></td>
-                <td th:text="${memberNames[p.memberId]}"></td>
-                <td>
-                    <span th:if="${p.hasBenefited}" class="badge bg-success">
-                        <i class="bi bi-check"></i> Oui
-                    </span>
-                    <span th:unless="${p.hasBenefited}" class="badge bg-warning text-dark">
-                        <i class="bi bi-clock"></i> En attente
-                    </span>
-                </td>
-            </tr>
-        </tbody>
-    </table>
+<!-- ── Participants ─────────────────────────────────────── -->
+<div class="card mb-4">
+    <div class="card-header"><i class="bi bi-people" aria-hidden="true"></i>Ordre de passage</div>
+    <div class="table-wrap">
+        <table class="table">
+            <caption class="visually-hidden">Participants et ordre de passage</caption>
+            <thead>
+                <tr>
+                    <th scope="col" style="width:5rem">Ordre</th>
+                    <th scope="col">Membre</th>
+                    <th scope="col">A bénéficié</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="p : ${participants}">
+                    <td th:text="${p.drawOrder}">1</td>
+                    <th scope="row" th:text="${memberNames.get(p.memberId) ?: '—'}">Nom</th>
+                    <td>
+                        <span class="pill pill-success" th:if="${p.hasBenefited}">
+                            <i class="bi bi-check2" aria-hidden="true"></i>Oui
+                        </span>
+                        <span class="pill pill-muted" th:unless="${p.hasBenefited}">En attente</span>
+                    </td>
+                </tr>
+                <tr th:replace="~{fragments/ui :: emptyRow(3, 'Aucun participant', ${#lists.isEmpty(participants)})}"></tr>
+            </tbody>
+        </table>
+    </div>
 </div>
 
-<!-- ── Owed debts section ──────────────────────────────── -->
-<h5 class="mb-2">Dettes en cours</h5>
-<div th:if="${#lists.isEmpty(owedDebts)}" class="alert alert-info mb-4">
-    <i class="bi bi-info-circle me-1"></i>Aucune dette en cours pour ce tour.
-</div>
-<div th:unless="${#lists.isEmpty(owedDebts)}" class="table-responsive mb-4">
-    <table class="table table-sm table-hover align-middle">
-        <thead class="table-dark">
-            <tr>
-                <th>Débiteur</th>
-                <th>Créancier</th>
-                <th>Montant</th>
-                <th>Statut</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr th:each="d : ${owedDebts}">
-                <td th:text="${memberNames[d.debtorId]}"></td>
-                <td th:text="${memberNames[d.creditorId]}"></td>
-                <td class="fw-bold" th:text="${d.amount} + ' FCFA'"></td>
-                <td>
-                    <span class="badge bg-warning text-dark">À rembourser</span>
-                </td>
-            </tr>
-        </tbody>
-    </table>
-</div>
-
-<!-- ── Contributions history ───────────────────────────── -->
-<h5 class="mb-2">Historique des cotisations</h5>
-<div th:if="${#lists.isEmpty(contributions)}" class="alert alert-info mb-4">
-    <i class="bi bi-info-circle me-1"></i>Aucune cotisation pour ce tour.
-</div>
-<div th:unless="${#lists.isEmpty(contributions)}" class="table-responsive mb-4">
-    <table class="table table-sm table-hover align-middle">
-        <thead class="table-dark">
-            <tr>
-                <th>Date</th>
-                <th>Cotisant</th>
-                <th>Bénéficiaire</th>
-                <th>Montant</th>
-                <th>Statut</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr th:each="c : ${contributions}">
-                <td th:text="${c.createdAt.toLocalDate()}"></td>
-                <td th:text="${memberNames[c.contributorId]}"></td>
-                <td th:text="${memberNames[c.beneficiaryId]}"></td>
-                <td th:text="${c.amount} + ' FCFA'"></td>
-                <td>
-                    <span th:if="${c.isPaid()}" class="badge bg-success">Payé</span>
-                    <span th:unless="${c.isPaid()}" class="badge bg-danger">Défaut</span>
-                </td>
-            </tr>
-        </tbody>
-    </table>
+<!-- ── Dettes ───────────────────────────────────────────── -->
+<div class="card mb-4" th:classappend="${!#lists.isEmpty(owedDebts)} ? 'card-accent card-accent-warning'">
+    <div class="card-header">
+        <i class="bi bi-arrow-left-right" aria-hidden="true"></i>Dettes entre participants
+    </div>
+    <div class="table-wrap" th:if="${!#lists.isEmpty(owedDebts)}">
+        <table class="table">
+            <caption class="visually-hidden">Dettes en cours pour ce tour</caption>
+            <thead>
+                <tr>
+                    <th scope="col">Débiteur</th>
+                    <th scope="col">Créancier</th>
+                    <th scope="col" class="num">Montant</th>
+                    <th scope="col">Statut</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="d : ${owedDebts}">
+                    <th scope="row" th:text="${memberNames.get(d.debtorId) ?: '—'}">Nom</th>
+                    <td th:text="${memberNames.get(d.creditorId) ?: '—'}">Nom</td>
+                    <td class="num money money-out"
+                        th:text="${#numbers.formatInteger(d.amount,1,'WHITESPACE')} + ' FCFA'">0</td>
+                    <td><span class="pill pill-warning">À rembourser</span></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <div class="card-body" th:if="${#lists.isEmpty(owedDebts)}">
+        <p class="mb-0 d-flex align-items-center gap-2">
+            <i class="bi bi-check-circle-fill" style="color:var(--c-success)" aria-hidden="true"></i>
+            Aucune dette en cours pour ce tour.
+        </p>
+    </div>
 </div>
 
-<!-- ── Actions ─────────────────────────────────────────── -->
-<div class="d-flex gap-2 mt-3" th:if="${tour.isOpen()}">
-    <a sec:authorize="hasAuthority('TONTINE_CONTRIBUTION_RECORD')"
-       class="btn btn-primary" th:href="@{/tontine/{id}/contribute(id=${tour.id})}">
-        <i class="bi bi-plus-circle me-1"></i>Enregistrer une cotisation
-    </a>
-    <form th:if="${allBenefited}" th:action="@{/tontine/{id}/close(id=${tour.id})}" method="post"
-          sec:authorize="hasAuthority('TONTINE_TOUR_CREATE')"
-          onsubmit="return confirm('Clôturer ce tour ? Cette action est irréversible.');">
-        <button type="submit" class="btn btn-success">
-            <i class="bi bi-check-circle me-1"></i>Clôturer le tour
-        </button>
-    </form>
+<!-- ── Cotisations ──────────────────────────────────────── -->
+<div class="card mb-4">
+    <div class="card-header">
+        <i class="bi bi-clock-history" aria-hidden="true"></i>Historique des cotisations
+    </div>
+    <div class="table-wrap">
+        <table class="table">
+            <caption class="visually-hidden">Cotisations enregistrées pour ce tour</caption>
+            <thead>
+                <tr>
+                    <th scope="col">Date</th>
+                    <th scope="col">Cotisant</th>
+                    <th scope="col">Bénéficiaire</th>
+                    <th scope="col" class="num">Montant</th>
+                    <th scope="col">Statut</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="c : ${contributions}">
+                    <td th:text="${#temporals.format(c.createdAt,'dd/MM/yyyy')}">date</td>
+                    <th scope="row" th:text="${memberNames.get(c.contributorId) ?: '—'}">Nom</th>
+                    <td th:text="${memberNames.get(c.beneficiaryId) ?: '—'}">Nom</td>
+                    <td class="num money" th:text="${#numbers.formatInteger(c.amount,1,'WHITESPACE')} + ' FCFA'">0</td>
+                    <td>
+                        <span class="pill pill-success" th:if="${c.isPaid()}">Payée</span>
+                        <span class="pill pill-danger" th:unless="${c.isPaid()}">Échec</span>
+                    </td>
+                </tr>
+                <tr th:replace="~{fragments/ui :: emptyRow(5, 'Aucune cotisation enregistrée pour ce tour', ${#lists.isEmpty(contributions)})}"></tr>
+            </tbody>
+        </table>
+    </div>
 </div>
 
-</th:block></body></html>
+<!-- ── Clôture ──────────────────────────────────────────── -->
+<div class="callout" th:if="${tour.isOpen()}" sec:authorize="hasAuthority('TONTINE_TOUR_CREATE')">
+    <i class="bi bi-lock callout-icon" style="color:var(--c-brand-500)" aria-hidden="true"></i>
+    <div class="callout-body">
+        <p class="mb-0 fw-semibold">Clôturer le tour</p>
+        <p class="mb-0 small text-muted" th:if="${allBenefited and #lists.isEmpty(owedDebts)}">
+            Tous les participants ont bénéficié et aucune dette n'est ouverte : le tour peut être clôturé.
+        </p>
+        <p class="mb-0 small text-muted" th:unless="${allBenefited and #lists.isEmpty(owedDebts)}">
+            La clôture exige que tous les participants aient bénéficié et que toutes les dettes
+            entre membres soient soldées.
+        </p>
+    </div>
+    <div class="callout-actions" th:if="${allBenefited and #lists.isEmpty(owedDebts)}">
+        <form th:action="@{/tontine/{id}/close(id=${tour.id})}" method="post"
+              data-confirm="Clôturer ce tour de grande tontine ? Cette action est irréversible.">
+            <button type="submit" class="btn btn-success">
+                <i class="bi bi-check-circle" aria-hidden="true"></i>Clôturer le tour
+            </button>
+        </form>
+    </div>
+</div>
+
+</th:block>
+</body>
+</html>

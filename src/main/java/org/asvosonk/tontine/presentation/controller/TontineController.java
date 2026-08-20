@@ -6,7 +6,6 @@ import org.asvosonk.member.application.usecase.SearchMemberUseCase;
 import org.asvosonk.tontine.application.usecase.CloseTourUseCase;
 import org.asvosonk.tontine.application.usecase.CreateTourUseCase;
 import org.asvosonk.tontine.application.usecase.GetTourSummaryUseCase;
-import org.asvosonk.tontine.application.usecase.MarkBenefitedUseCase;
 import org.asvosonk.tontine.application.usecase.RecordTontineContributionUseCase;
 import org.asvosonk.tontine.domain.model.TontineContribution;
 import org.asvosonk.tontine.domain.model.TontineDebt;
@@ -25,10 +24,9 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 @Controller
 @RequestMapping("/tontine")
@@ -38,7 +36,6 @@ public class TontineController {
     private final GetTourSummaryUseCase               getTourSummaryUseCase;
     private final CreateTourUseCase                   createTourUseCase;
     private final RecordTontineContributionUseCase     recordContributionUseCase;
-    private final MarkBenefitedUseCase                markBenefitedUseCase;
     private final CloseTourUseCase                    closeTourUseCase;
     private final SearchMemberUseCase                 searchMemberUseCase;
     private final SpringDataMeetingSessionRepository  meetingSessionRepository;
@@ -57,18 +54,12 @@ public class TontineController {
             BigDecimal totalCollected = getTourSummaryUseCase
                 .calculateTotalCollected(currentOpen.getId());
 
-            Map<Long, String> memberNames = participants.stream()
-                .map(TontineParticipant::getMemberId)
-                .distinct()
-                .collect(Collectors.toMap(
-                    Function.identity(),
-                    mid -> searchMemberUseCase.findById(mid).getFullName()
-                ));
-
             model.addAttribute("openTour", currentOpen);
             model.addAttribute("openParticipants", participants);
             model.addAttribute("openTotalCollected", totalCollected);
-            model.addAttribute("memberNames", memberNames);
+            model.addAttribute("openBenefitedCount", participants.stream()
+                .filter(TontineParticipant::isHasBenefited).count());
+            model.addAttribute("memberNames", namesOfParticipants(participants));
         }
 
         model.addAttribute("tours", tours);
@@ -105,7 +96,7 @@ public class TontineController {
             ra.addFlashAttribute("successMessage",
                 "Tour de grande tontine créé avec " + form.getParticipantIds().size() + " participants.");
             return "redirect:/tontine/" + tour.getId();
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             ra.addFlashAttribute("errorMessage", e.getMessage());
             return "redirect:/tontine/new";
         }
@@ -119,39 +110,23 @@ public class TontineController {
         TontineTour tour = getTourSummaryUseCase.findTourById(id);
         List<TontineParticipant> participants = getTourSummaryUseCase
             .findParticipantsByTourId(id);
-        var contributions = getTourSummaryUseCase.findContributionsByTourId(id);
-        var owedDebts = getTourSummaryUseCase.findOwedDebtsByTourId(id);
+        List<TontineContribution> contributions = getTourSummaryUseCase.findContributionsByTourId(id);
+        List<TontineDebt> owedDebts = getTourSummaryUseCase.findOwedDebtsByTourId(id);
         boolean allBenefited = getTourSummaryUseCase.allParticipantsBenefited(id);
 
-        // Build member name lookup for participants, debtors, creditors, contributors
-        Map<Long, String> memberNames = participants.stream()
-            .map(TontineParticipant::getMemberId)
-            .distinct()
-            .collect(Collectors.toMap(
-                Function.identity(),
-                mid -> searchMemberUseCase.findById(mid).getFullName()
-            ));
-        // Add names for debtors/creditors that might not be participants
-        for (var d : owedDebts) {
-            memberNames.putIfAbsent(d.getDebtorId(),
-                searchMemberUseCase.findById(d.getDebtorId()).getFullName());
-            memberNames.putIfAbsent(d.getCreditorId(),
-                searchMemberUseCase.findById(d.getCreditorId()).getFullName());
-        }
-        // Add names for contributors/beneficiaries that might not be current participants
-        for (var c : contributions) {
-            memberNames.putIfAbsent(c.getContributorId(),
-                searchMemberUseCase.findById(c.getContributorId()).getFullName());
-            memberNames.putIfAbsent(c.getBeneficiaryId(),
-                searchMemberUseCase.findById(c.getBeneficiaryId()).getFullName());
-        }
+        // One batched lookup covering participants, debtors, creditors,
+        // contributors and beneficiaries (some may no longer be participants).
+        List<Long> ids = new ArrayList<>(namesToResolve(participants));
+        owedDebts.forEach(d -> { ids.add(d.getDebtorId()); ids.add(d.getCreditorId()); });
+        contributions.forEach(c -> { ids.add(c.getContributorId()); ids.add(c.getBeneficiaryId()); });
 
         model.addAttribute("tour", tour);
         model.addAttribute("participants", participants);
         model.addAttribute("contributions", contributions);
         model.addAttribute("owedDebts", owedDebts);
         model.addAttribute("allBenefited", allBenefited);
-        model.addAttribute("memberNames", memberNames);
+        model.addAttribute("totalCollected", getTourSummaryUseCase.calculateTotalCollected(id));
+        model.addAttribute("memberNames", searchMemberUseCase.findNamesByIds(ids));
         model.addAttribute("pageTitle", "Tour #" + tour.getId() + " — Grande Tontine");
         return "tontine/tour-detail";
     }
@@ -169,8 +144,6 @@ public class TontineController {
 
         List<TontineParticipant> participants = getTourSummaryUseCase
             .findParticipantsByTourId(id);
-        List<TontineParticipant> notBenefitedYet = getTourSummaryUseCase
-            .findNotBenefitedYet(id);
 
         // Load the current open session so the contribution form can link to it
         MeetingSessionEntity openSession = meetingSessionRepository
@@ -178,31 +151,21 @@ public class TontineController {
             .stream()
             .findFirst()
             .orElse(null);
-        model.addAttribute("openSession", openSession);
 
-        // Pre-fill the form with the open session ID
+        // Pre-fill the form: current session, next beneficiary in draw order and
+        // the imposed contribution amount. These are only saisie defaults — the
+        // use case re-validates everything server-side.
         ContributionForm form = new ContributionForm();
         if (openSession != null) {
             form.setSessionId(openSession.getId());
         }
+        getTourSummaryUseCase.findNotBenefitedYet(id).stream().findFirst()
+            .ifPresent(next -> form.setBeneficiaryId(next.getMemberId()));
+        form.setAmount(new BigDecimal("5000"));
 
-        model.addAttribute("tour", tour);
-        model.addAttribute("participants", participants);
-        model.addAttribute("notBenefitedYet", notBenefitedYet);
+        model.addAttribute("openSession", openSession);
         model.addAttribute("form", form);
-        model.addAttribute("members", searchMemberUseCase.findAllActive());
-
-        // Build member name lookup for participants
-        Map<Long, String> memberNames = participants.stream()
-            .map(TontineParticipant::getMemberId)
-            .distinct()
-            .collect(Collectors.toMap(
-                Function.identity(),
-                mid -> searchMemberUseCase.findById(mid).getFullName()
-            ));
-        model.addAttribute("memberNames", memberNames);
-
-        model.addAttribute("pageTitle", "Cotisation — Tour #" + tour.getId());
+        addContributionFormModel(id, participants, model);
         return "tontine/contribution-form";
     }
 
@@ -214,30 +177,15 @@ public class TontineController {
                                      Model model,
                                      RedirectAttributes ra) {
         if (result.hasErrors()) {
-            TontineTour tour = getTourSummaryUseCase.findTourById(id);
-            List<TontineParticipant> participants = getTourSummaryUseCase
-                .findParticipantsByTourId(id);
-            Map<Long, String> memberNames = participants.stream()
-                .map(TontineParticipant::getMemberId)
-                .distinct()
-                .collect(Collectors.toMap(
-                    Function.identity(),
-                    mid -> searchMemberUseCase.findById(mid).getFullName()
-                ));
-            model.addAttribute("tour", tour);
-            model.addAttribute("participants", participants);
-            model.addAttribute("memberNames", memberNames);
-            model.addAttribute("notBenefitedYet", getTourSummaryUseCase
-                .findNotBenefitedYet(id));
-            model.addAttribute("members", searchMemberUseCase.findAllActive());
-            model.addAttribute("pageTitle", "Cotisation — Tour #" + tour.getId());
+            addContributionFormModel(id, getTourSummaryUseCase.findParticipantsByTourId(id), model);
             return "tontine/contribution-form";
         }
 
         try {
             Long actualSessionId = form.getSessionId();
             if (actualSessionId == null) {
-                throw new IllegalArgumentException("La séance de référence est obligatoire pour enregistrer une cotisation.");
+                throw new IllegalArgumentException(
+                    "La séance de référence est obligatoire pour enregistrer une cotisation.");
             }
             TontineContribution contribution = recordContributionUseCase.execute(
                 id, actualSessionId, form.getContributorId(),
@@ -249,7 +197,7 @@ public class TontineController {
                 ra.addFlashAttribute("successMessage",
                     "Échec de cotisation enregistré.");
             }
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             ra.addFlashAttribute("errorMessage", e.getMessage());
         }
         return "redirect:/tontine/" + id;
@@ -263,9 +211,30 @@ public class TontineController {
         try {
             closeTourUseCase.execute(id);
             ra.addFlashAttribute("successMessage", "Tour de grande tontine clôturé.");
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             ra.addFlashAttribute("errorMessage", e.getMessage());
         }
         return "redirect:/tontine/" + id;
+    }
+
+    // ── Helpers ──────────────────────────────────────────────
+
+    private void addContributionFormModel(Long tourId,
+                                          List<TontineParticipant> participants,
+                                          Model model) {
+        TontineTour tour = getTourSummaryUseCase.findTourById(tourId);
+        model.addAttribute("tour", tour);
+        model.addAttribute("participants", participants);
+        model.addAttribute("notBenefitedYet", getTourSummaryUseCase.findNotBenefitedYet(tourId));
+        model.addAttribute("memberNames", namesOfParticipants(participants));
+        model.addAttribute("pageTitle", "Cotisation — Tour #" + tourId);
+    }
+
+    private Map<Long, String> namesOfParticipants(List<TontineParticipant> participants) {
+        return searchMemberUseCase.findNamesByIds(namesToResolve(participants));
+    }
+
+    private List<Long> namesToResolve(List<TontineParticipant> participants) {
+        return participants.stream().map(TontineParticipant::getMemberId).distinct().toList();
     }
 }

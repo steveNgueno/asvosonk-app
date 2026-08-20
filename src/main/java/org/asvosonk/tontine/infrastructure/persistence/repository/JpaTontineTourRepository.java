@@ -37,6 +37,11 @@ public class JpaTontineTourRepository implements TontineTourRepository {
     }
 
     @Override
+    public Optional<TontineTour> findByIdForUpdate(Long id) {
+        return springData.findByIdForUpdate(id).map(MAPPER::toDomain);
+    }
+
+    @Override
     public List<TontineTour> findAllByOrderByStartDateDesc() {
         return springData.findAllByOrderByStartDateDesc().stream()
             .map(MAPPER::toDomain)

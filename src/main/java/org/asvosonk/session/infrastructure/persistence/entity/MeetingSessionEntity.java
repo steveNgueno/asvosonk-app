@@ -49,6 +49,12 @@ public class MeetingSessionEntity {
     @Column(name = "tontine_closed_at")
     private LocalDateTime tontineClosedAt;
 
+    @Column(name = "banque_projet_closed_at")
+    private LocalDateTime banqueProjetClosedAt;
+
+    @Column(name = "banque_annuelle_closed_at")
+    private LocalDateTime banqueAnnuelleClosedAt;
+
     @Column(name = "report_generated_at")
     private LocalDateTime reportGeneratedAt;
 

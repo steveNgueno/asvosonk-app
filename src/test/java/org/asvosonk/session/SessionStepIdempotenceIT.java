@@ -31,6 +31,26 @@ class SessionStepIdempotenceIT extends AbstractIntegrationTest {
     @Autowired SessionService     sessionService;
     @Autowired SessionStepService sessionStepService;
     @Autowired AppUserRepository  appUserRepository;
+    @Autowired org.asvosonk.presence.application.usecase.CreatePresenceTourUseCase createPresenceTour;
+    @Autowired jakarta.persistence.EntityManager em;
+
+    /**
+     * La présence ne s.ouvre plus sans tour en cours : c.est lui qui porte la
+     * rotation des bénéficiaires. Les séances de test en ouvrent donc un.
+     */
+    @org.junit.jupiter.api.BeforeEach
+    void openPresenceTour() {
+        // Un tour regroupe tous les membres actifs et en demande au moins deux.
+        for (String name : java.util.List.of("Step M1", "Step M2")) {
+            em.createNativeQuery(
+                    "INSERT INTO member (full_name, join_date) VALUES (:n, CURRENT_DATE)")
+                .setParameter("n", name)
+                .executeUpdate();
+        }
+        em.flush();
+        createPresenceTour.execute(LocalDate.now().minusMonths(1));
+        em.flush();
+    }
 
     private MeetingSessionEntity freshSession() {
         AppUser admin = appUserRepository.findByLogin("admin").orElseThrow();
@@ -66,6 +86,14 @@ class SessionStepIdempotenceIT extends AbstractIntegrationTest {
         MeetingSessionEntity s = freshSession();
 
         sessionStepService.transitionToNext(s.getId(), admin, SessionStep.CREATED);
+
+        // La clôture de la présence exige un bénéficiaire : c'est lui qui reçoit
+        // la tontine et qui détermine le montant dû par chacun.
+        Long beneficiary = ((Number) em.createNativeQuery(
+                "SELECT member_id FROM presence_tour_participant ORDER BY draw_order LIMIT 1")
+            .getSingleResult()).longValue();
+        sessionService.setBeneficiary(s.getId(), beneficiary);
+
         // Next legitimate step declares PRESENCE_OPEN and succeeds.
         sessionStepService.transitionToNext(s.getId(), admin, SessionStep.PRESENCE_OPEN);
 

@@ -15,11 +15,13 @@ public class SanctionMapper {
             entity.getMember().getId(),
             entity.getSanctionDate(),
             entity.getAmount(),
+            entity.getAmountPaid(),
             entity.getReason(),
             entity.getOrigin(),
             entity.getReferenceId(),
             entity.getStatus(),
             entity.getPaymentDate(),
+            entity.getCancelReason(),
             entity.getCreatedAt(),
             entity.getUpdatedAt()
         );
@@ -31,11 +33,13 @@ public class SanctionMapper {
         entity.setId(domain.getId());
         entity.setSanctionDate(domain.getSanctionDate());
         entity.setAmount(domain.getAmount());
+        entity.setAmountPaid(domain.getAmountPaid());
         entity.setReason(domain.getReason());
         entity.setOrigin(domain.getOrigin());
         entity.setReferenceId(domain.getReferenceId());
         entity.setStatus(domain.getStatus());
         entity.setPaymentDate(domain.getPaymentDate());
+        entity.setCancelReason(domain.getCancelReason());
         return entity;
     }
 }

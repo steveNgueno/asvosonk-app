@@ -51,6 +51,26 @@ public class GetTourSummaryUseCase {
         return contributionRepository.findByTourIdOrderByCreatedAtDesc(tourId);
     }
 
+    /** Cotisations saisies pendant une séance, tous tours confondus. */
+    public List<TontineContribution> findContributionsBySessionId(Long sessionId) {
+        return contributionRepository.findBySessionId(sessionId);
+    }
+
+    /**
+     * Dettes dues AU bénéficiaire du jour : ce sont les membres qui ont déjà
+     * bénéficié et doivent lui rendre exactement ce qu'il leur avait cotisé.
+     * Indexées par identifiant du débiteur, pour afficher le montant imposé.
+     */
+    public java.util.Map<Long, BigDecimal> debtsOwedTo(Long tourId, Long beneficiaryId) {
+        java.util.Map<Long, BigDecimal> owed = new java.util.HashMap<>();
+        for (TontineDebt debt : getTourDebtsUseCase.execute(tourId)) {
+            if (debt.getStatus() == DebtStatus.owed && beneficiaryId.equals(debt.getCreditorId())) {
+                owed.put(debt.getDebtorId(), debt.getAmount());
+            }
+        }
+        return owed;
+    }
+
     public BigDecimal calculateTotalCollected(Long tourId) {
         return contributionRepository.findByTourIdOrderByCreatedAtDesc(tourId).stream()
             .filter(TontineContribution::isPaid)

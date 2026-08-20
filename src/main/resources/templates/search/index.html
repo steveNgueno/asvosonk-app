@@ -1,92 +1,170 @@
 <!DOCTYPE html>
 <html lang="fr" xmlns:th="http://www.thymeleaf.org"
-      th:replace="~{layout :: layout(pageTitle=${pageTitle}, content=~{::main-content}, extraHead=~{}, extraScripts=~{})}">
-<body><th:block th:fragment="main-content">
+      th:replace="~{layout :: layout(${pageTitle}, ~{::main-content}, ~{}, ~{})}">
+<body>
+<th:block th:fragment="main-content">
 
-<div class="page-header mb-4">
-    <h2><i class="bi bi-search me-2"></i>Recherche globale</h2>
+<div class="page-head">
+    <div>
+        <h1><i class="bi bi-search" aria-hidden="true"></i>Recherche globale</h1>
+        <p class="page-subtitle">Membres et mouvements financiers, tous modules confondus</p>
+    </div>
 </div>
 
-<div class="card border-0 shadow-sm mb-4" style="max-width:600px;">
-    <div class="card-body p-4">
-        <form th:action="@{/search}" method="get" class="d-flex gap-2">
-            <input type="text" name="q" class="form-control"
-                   th:value="${query}"
-                   placeholder="Nom, téléphone…" autofocus>
-            <button type="submit" class="btn btn-primary">
-                <i class="bi bi-search me-1"></i>Rechercher
-            </button>
+<!-- ── Recherche par mot-clé ────────────────────────────── -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form th:action="@{/search}" method="get" class="row g-3 align-items-end">
+            <div class="col-md-8">
+                <label class="form-label" for="q">Nom, téléphone ou numéro de membre</label>
+                <div class="input-group">
+                    <span class="input-group-text" aria-hidden="true"><i class="bi bi-search"></i></span>
+                    <input type="search" id="q" name="q" class="form-control" th:value="${query}"
+                           placeholder="ex. NKOU, 6XXXXXXXX, 12" autofocus>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <button type="submit" class="btn btn-primary w-100 justify-content-center">
+                    <i class="bi bi-search" aria-hidden="true"></i>Rechercher
+                </button>
+            </div>
         </form>
     </div>
 </div>
 
-<!-- Module filter tabs -->
-<div class="card border-0 shadow-sm mb-3" th:if="${query != null}">
+<!-- ── Recherche par filtres ────────────────────────────── -->
+<div class="card mb-5">
+    <div class="card-header"><i class="bi bi-funnel" aria-hidden="true"></i>Filtrer les mouvements</div>
     <div class="card-body">
-        <div class="mb-3">
-            <span class="text-muted">
-                Résultats pour « <strong th:text="${query}"></strong> »
-                — <span th:text="${#lists.size(memberResults)}"></span> membre(s)
-            </span>
-        </div>
-
-        <th:block th:if="${!#lists.isEmpty(memberResults)}">
-            <h6 class="text-muted mb-2"><i class="bi bi-person-fill me-1"></i>Membres</h6>
-            <div class="list-group shadow-sm mb-3">
-                <a th:each="m : ${memberResults}"
-                   th:href="@{'/members/' + ${m.id}}"
-                   class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
-                    <span>
-                        <i class="bi bi-person-fill me-2 text-primary"></i>
-                        <span th:text="${m.fullName}">Nom</span>
-                    </span>
-                    <small class="text-muted" th:text="${m.phone}">Tél</small>
-                </a>
+        <form th:action="@{/search}" method="get" class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label" for="module">Module</label>
+                <select id="module" name="module" class="form-select">
+                    <option value="">Tous les modules</option>
+                    <option th:each="m : ${modules}" th:value="${m}"
+                            th:selected="${selectedModule != null and selectedModule == m}"
+                            th:text="${m == 'presence' ? 'Présence' :
+                                     (m == 'grand_tontine' ? 'Grande Tontine' :
+                                     (m == 'sanction' ? 'Sanctions' :
+                                     (m == 'cashbox_development' ? 'Caisse Développement' :
+                                     (m == 'cashbox_sanction' ? 'Caisse Sanction' :
+                                     (m == 'cashbox_beverage' ? 'Caisse Boisson' : 'Caisse Banque')))))}"></option>
+                </select>
             </div>
-        </th:block>
-
-        <th:block th:if="${!#lists.isEmpty(movements)}">
-            <h6 class="text-muted mb-2 mt-3"><i class="bi bi-arrow-left-right me-1"></i>Mouvements</h6>
-            <div class="table-responsive">
-                <table class="table table-sm table-hover">
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Module</th>
-                            <th>Membre</th>
-                            <th class="text-end">Montant</th>
-                            <th>Statut</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr th:each="mv : ${movements}">
-                            <td th:text="${mv.eventDate}"></td>
-                            <td>
-                                <span class="badge"
-                                      th:classappend="${mv.module.startsWith('cashbox') ? 'bg-info text-dark' :
-                                                      (mv.module == 'presence' ? 'bg-success' :
-                                                      (mv.module == 'sanction' ? 'bg-danger' :
-                                                      (mv.module == 'grand_tontine' ? 'bg-warning text-dark' : 'bg-secondary')))}"
-                                      th:text="${mv.module.startsWith('cashbox') ? 'Caisse' :
-                                               (mv.module == 'presence' ? 'Présence' :
-                                               (mv.module == 'sanction' ? 'Sanction' :
-                                               (mv.module == 'grand_tontine' ? 'Tontine' : mv.module)))}"></span>
-                            </td>
-                            <td th:text="${mv.memberId}"></td>
-                            <td class="amount text-end" th:text="${#numbers.formatDecimal(mv.amount, 1, 'COMMA', 0, 'POINT')} + ' FCFA'"></td>
-                            <td th:text="${mv.status}"></td>
-                        </tr>
-                    </tbody>
-                </table>
+            <div class="col-md-5">
+                <label class="form-label" for="memberId">Membre</label>
+                <select id="memberId" name="memberId" class="form-select">
+                    <option value="">Tous les membres</option>
+                    <option th:each="m : ${members}" th:value="${m.id}" th:text="${m.fullName}"
+                            th:selected="${selectedMemberId != null and selectedMemberId == m.id}"></option>
+                </select>
             </div>
-        </th:block>
-
-        <th:block th:if="${#lists.isEmpty(memberResults) and #lists.isEmpty(movements)}">
-            <div class="alert alert-info">
-                <i class="bi bi-info-circle me-1"></i>Aucun résultat ne correspond à votre recherche.
+            <div class="col-md-3 d-flex gap-2">
+                <button type="submit" class="btn btn-primary flex-grow-1 justify-content-center">
+                    <i class="bi bi-funnel" aria-hidden="true"></i>Filtrer
+                </button>
+                <a th:href="@{/search}" class="btn btn-outline-secondary">Réinit.</a>
             </div>
-        </th:block>
+        </form>
     </div>
 </div>
 
-</th:block></body></html>
+<!-- ── Résultats ────────────────────────────────────────── -->
+<th:block th:if="${searched != null}">
+
+    <h2 class="section-title" th:if="${query != null}">
+        <i class="bi bi-person" aria-hidden="true"></i>
+        Membres — <span th:text="${#lists.size(memberResults)}">0</span> résultat(s)
+    </h2>
+    <div class="card mb-5" th:if="${query != null}">
+        <div class="table-wrap" th:if="${!#lists.isEmpty(memberResults)}">
+            <table class="table table-hover">
+                <caption class="visually-hidden">Membres correspondant à la recherche</caption>
+                <thead>
+                    <tr>
+                        <th scope="col">Membre</th>
+                        <th scope="col">Téléphone</th>
+                        <th scope="col">Statut</th>
+                        <th scope="col" class="text-end">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="m : ${memberResults}" data-row
+                        th:attr="data-href=@{/members/{id}(id=${m.id})}">
+                        <th scope="row" th:text="${m.fullName}">Nom</th>
+                        <td th:text="${m.phone ?: '—'}">—</td>
+                        <td>
+                            <span th:replace="~{fragments/ui :: memberStatus(${m.status}, ${m.statusLabel})}"></span>
+                        </td>
+                        <td class="text-end">
+                            <a class="btn btn-sm btn-outline-secondary" th:href="@{/members/{id}(id=${m.id})}">
+                                Fiche<i class="bi bi-chevron-right" aria-hidden="true"></i>
+                            </a>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="card-body" th:if="${#lists.isEmpty(memberResults)}">
+            <div th:replace="~{fragments/ui :: empty('bi-person-x', 'Aucun membre trouvé', 'Aucun membre ne correspond à ce nom ou numéro de téléphone.')}"></div>
+        </div>
+    </div>
+
+    <h2 class="section-title">
+        <i class="bi bi-arrow-left-right" aria-hidden="true"></i>
+        Mouvements — <span th:text="${#lists.size(movements)}">0</span> résultat(s)
+    </h2>
+    <div class="card">
+        <div class="table-wrap" th:if="${!#lists.isEmpty(movements)}">
+            <table class="table">
+                <caption class="visually-hidden">Mouvements financiers correspondant à la recherche</caption>
+                <thead>
+                    <tr>
+                        <th scope="col">Date</th>
+                        <th scope="col">Module</th>
+                        <th scope="col">Membre</th>
+                        <th scope="col" class="num">Montant</th>
+                        <th scope="col">Statut</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="mv : ${movements}">
+                        <th scope="row" class="fw-normal"
+                            th:text="${mv.eventDate != null ? #temporals.format(mv.eventDate,'dd/MM/yyyy') : '—'}">date</th>
+                        <td>
+                            <span class="pill"
+                                  th:classappend="${mv.module != null and #strings.startsWith(mv.module,'cashbox') ? 'pill-info' :
+                                                  (mv.module == 'presence' ? 'pill-success' :
+                                                  (mv.module == 'sanction' ? 'pill-danger' :
+                                                  (mv.module == 'grand_tontine' ? 'pill-accent' : 'pill-muted')))}"
+                                  th:text="${mv.moduleLabel}">Module</span>
+                        </td>
+                        <td th:text="${mv.memberId != null
+                                        ? (movementMemberNames.get(mv.memberId) ?: 'Membre #' + mv.memberId)
+                                        : '—'}">—</td>
+                        <td class="num money" th:text="${#numbers.formatInteger(mv.amount ?: 0,1,'WHITESPACE')} + ' FCFA'">0</td>
+                        <td class="text-muted small" th:text="${mv.status ?: '—'}">—</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="card-body" th:if="${#lists.isEmpty(movements)}">
+            <div th:replace="~{fragments/ui :: empty('bi-inbox', 'Aucun mouvement trouvé', 'Affinez la recherche ou utilisez les filtres par module et par membre.')}"></div>
+        </div>
+        <div class="card-footer text-muted small">
+            La recherche par mot-clé porte sur les membres, le module et le statut des mouvements ;
+            utilisez le filtre « membre » pour lister tous les mouvements d'une personne.
+            200 mouvements maximum sont affichés.
+        </div>
+    </div>
+</th:block>
+
+<div class="card" th:if="${searched == null}">
+    <div class="card-body">
+        <div th:replace="~{fragments/ui :: empty('bi-search', 'Lancez une recherche', 'Saisissez un nom, un téléphone ou un numéro de membre, ou utilisez les filtres ci-dessus.')}"></div>
+    </div>
+</div>
+
+</th:block>
+</body>
+</html>

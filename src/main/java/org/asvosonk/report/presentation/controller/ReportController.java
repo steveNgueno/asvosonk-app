@@ -54,6 +54,17 @@ public class ReportController {
     @GetMapping
     @PreAuthorize("hasAuthority('REPORT_SESSION')")
     public String index(Model model) {
+        // Périodes proposées par défaut dans les formulaires (simple confort de
+        // saisie : l'utilisateur reste libre de choisir d'autres bornes).
+        LocalDate today = LocalDate.now();
+        LocalDate monthStart = today.withDayOfMonth(1);
+        LocalDate quarterStart = today.withDayOfMonth(1).minusMonths(2);
+
+        model.addAttribute("today", today);
+        model.addAttribute("monthStart", monthStart);
+        model.addAttribute("monthEnd", today.withDayOfMonth(today.lengthOfMonth()));
+        model.addAttribute("quarterStart", quarterStart);
+        model.addAttribute("quarterEnd", today.withDayOfMonth(today.lengthOfMonth()));
         model.addAttribute("pageTitle", "Rapports");
         return "reports/index";
     }

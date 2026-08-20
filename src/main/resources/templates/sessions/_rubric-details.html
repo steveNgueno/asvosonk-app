@@ -1,0 +1,201 @@
+
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org">
+<!--
+  Détails chiffrés d'une rubrique de séance.
+
+  Les mêmes tableaux servent dans la page de séance, au fil des étapes, et dans
+  le rapport final : la rubrique montre son détail dès qu'il est connu, sans
+  attendre la fin de la réunion. Les fragments lisent le modèle de la page — ils
+  n'ont donc rien à recevoir en paramètre.
+-->
+<body>
+
+<!-- ══ Présence : cotisation membre par membre ═══════════════ -->
+<div th:fragment="presenceDetail" class="card mb-4">
+    <div class="card-header">
+        <i class="bi bi-list-ul" aria-hidden="true"></i>Détail de la présence
+    </div>
+    <div class="table-wrap">
+        <table class="table">
+            <caption class="visually-hidden">Cotisation de présence par membre</caption>
+            <thead>
+                <tr>
+                    <th scope="col">Membre</th>
+                    <th scope="col" class="text-center">Présent</th>
+                    <th scope="col" class="num">Dû</th>
+                    <th scope="col" class="num">Versé</th>
+                    <th scope="col">Situation</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="a : ${attendances}">
+                    <th scope="row" th:text="${a.member.fullName}">Nom</th>
+                    <td class="text-center" th:text="${a.present ? 'Oui' : 'Non'}">—</td>
+                    <td class="num money" th:text="${#numbers.formatInteger(a.amountDue,1,'WHITESPACE')}">0</td>
+                    <td class="num money" th:text="${#numbers.formatInteger(a.amountPaid,1,'WHITESPACE')}">0</td>
+                    <td>
+                        <span class="pill"
+                              th:classappend="${a.attendanceStatus.name() == 'up_to_date' ? 'pill-success' :
+                                              (a.attendanceStatus.name() == 'covered_by_fund' ? 'pill-warning' :
+                                              (a.attendanceStatus.name() == 'recovered' ? 'pill-info' : 'pill-danger'))}"
+                              th:text="${a.attendanceStatus.name() == 'up_to_date' ? 'À jour' :
+                                       (a.attendanceStatus.name() == 'covered_by_fund' ? 'Cotisé par le fond' :
+                                       (a.attendanceStatus.name() == 'recovered' ? 'Échec recouvert' : 'Échec'))}">Statut</span>
+                    </td>
+                </tr>
+                <tr th:replace="~{fragments/ui :: emptyRow(5, 'Aucune ligne de présence', ${#lists.isEmpty(attendances)})}"></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ══ Rattrapages d'échecs recouverts pendant la séance ═════ -->
+<div th:fragment="recoveryDetail" class="card mb-4"
+     th:if="${sessionRecoveries != null and !#lists.isEmpty(sessionRecoveries)}">
+    <div class="card-header">
+        <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>Rattrapages d'échecs
+    </div>
+    <div class="table-wrap">
+        <table class="table">
+            <caption class="visually-hidden">Échecs recouverts pendant la séance</caption>
+            <thead>
+                <tr>
+                    <th scope="col">Membre</th>
+                    <th scope="col">Séance rattrapée</th>
+                    <th scope="col">À remettre à</th>
+                    <th scope="col" class="num">Montant</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="r : ${sessionRecoveries}">
+                    <th scope="row" th:text="${recoveryNames.get(r.memberId) ?: '—'}">Nom</th>
+                    <td th:text="${#temporals.format(r.failedSessionDate,'dd/MM/yyyy')}">date</td>
+                    <td th:text="${r.beneficiaryId != null ? (recoveryNames.get(r.beneficiaryId) ?: '—') : '—'}">Nom</td>
+                    <td class="num money money-in"
+                        th:text="${#numbers.formatInteger(r.amount,1,'WHITESPACE')} + ' FCFA'">0</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <div class="card-footer text-muted small">
+        Ces sommes sont remises en main propre aux bénéficiaires des séances ratées :
+        elles ne passent par aucune caisse.
+    </div>
+</div>
+
+<!-- ══ Grande tontine : cotisation par cotisant ══════════════ -->
+<div th:fragment="tontineDetail(contributions)" class="card mb-4">
+    <div class="card-header">
+        <i class="bi bi-cash-stack" aria-hidden="true"></i>Détail de la grande tontine
+    </div>
+    <div class="table-wrap" th:if="${contributions != null and !#lists.isEmpty(contributions)}">
+        <table class="table">
+            <caption class="visually-hidden">Cotisations de grande tontine de la séance</caption>
+            <thead>
+                <tr>
+                    <th scope="col">Cotisant</th>
+                    <th scope="col">Bénéficiaire</th>
+                    <th scope="col" class="num">Montant</th>
+                    <th scope="col">Statut</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="c : ${contributions}">
+                    <th scope="row" th:text="${tontineMemberNames.get(c.contributorId) ?: '—'}">Nom</th>
+                    <td th:text="${tontineMemberNames.get(c.beneficiaryId) ?: '—'}">Nom</td>
+                    <td class="num money" th:text="${#numbers.formatInteger(c.amount,1,'WHITESPACE')}">0</td>
+                    <td>
+                        <span class="pill pill-success" th:if="${c.paid}">Payée</span>
+                        <span class="pill pill-danger" th:unless="${c.paid}">Échec</span>
+                    </td>
+                </tr>
+            </tbody>
+            <tfoot>
+                <tr>
+                    <th scope="row" colspan="2">Total collecté</th>
+                    <td class="num money money-in"
+                        th:text="${#numbers.formatInteger(tontineSessionTotal != null ? tontineSessionTotal : 0,1,'WHITESPACE')}">0</td>
+                    <td></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+    <div class="card-body" th:if="${contributions == null or #lists.isEmpty(contributions)}">
+        <p class="mb-0 text-muted">Aucune cotisation de grande tontine pour cette séance.</p>
+    </div>
+</div>
+
+<!-- ══ Entrées et sorties du jour ════════════════════════════ -->
+<div th:fragment="dayFlows" class="row g-4 mb-4">
+    <div class="col-lg-7">
+        <div class="card h-100">
+            <div class="card-header">
+                <i class="bi bi-box-arrow-in-down" aria-hidden="true"></i>Entrées du jour
+            </div>
+            <div class="table-wrap" th:if="${!#lists.isEmpty(sessionInflows) or !#lists.isEmpty(feePayments)}">
+                <table class="table">
+                    <caption class="visually-hidden">Entrées de la séance</caption>
+                    <tbody>
+                        <tr th:each="m : ${sessionInflows}">
+                            <th scope="row" class="fw-normal">
+                                <span th:text="${m.reason ?: 'Entrée'}">Entrée</span>
+                                <span class="d-block small text-muted" th:text="${m.cashbox.type.label()}">Caisse</span>
+                            </th>
+                            <td class="num money money-in"
+                                th:text="${#numbers.formatInteger(m.amount,1,'WHITESPACE')} + ' FCFA'">0</td>
+                        </tr>
+                        <tr th:each="p : ${feePayments}">
+                            <th scope="row" class="fw-normal">
+                                <span th:text="${p.fee.feeType.label()}">Frais</span>
+                                <span class="d-block small text-muted"
+                                      th:text="${p.fee.member.fullName} + ' — remis au trésorier'">Membre</span>
+                            </th>
+                            <td class="num money money-in"
+                                th:text="${#numbers.formatInteger(p.amount,1,'WHITESPACE')} + ' FCFA'">0</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="card-body" th:if="${#lists.isEmpty(sessionInflows) and #lists.isEmpty(feePayments)}">
+                <p class="mb-0 text-muted">Aucune entrée enregistrée pour l'instant.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-5">
+        <div class="card h-100">
+            <div class="card-header">
+                <i class="bi bi-box-arrow-up" aria-hidden="true"></i>Sorties du jour
+            </div>
+            <div class="table-wrap" th:if="${!#lists.isEmpty(sessionOutflows)}">
+                <table class="table">
+                    <caption class="visually-hidden">Sorties de caisse de la séance</caption>
+                    <tbody>
+                        <tr th:each="m : ${sessionOutflows}">
+                            <th scope="row" class="fw-normal">
+                                <span th:text="${m.reason ?: '—'}">Motif</span>
+                                <span class="d-block small text-muted" th:text="${m.cashbox.type.label()}">Caisse</span>
+                            </th>
+                            <td class="num money money-out"
+                                th:text="'− ' + ${#numbers.formatInteger(m.amount,1,'WHITESPACE')} + ' FCFA'">0</td>
+                        </tr>
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <th scope="row">Total des sorties</th>
+                            <td class="num money money-out"
+                                th:text="${#numbers.formatInteger(sessionOutflowTotal,1,'WHITESPACE')} + ' FCFA'">0</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            <div class="card-body" th:if="${#lists.isEmpty(sessionOutflows)}">
+                <p class="mb-0 text-muted">Aucune sortie de caisse pendant cette séance.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

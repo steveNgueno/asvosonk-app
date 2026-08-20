@@ -1,75 +1,103 @@
 <!DOCTYPE html>
 <html lang="fr" xmlns:th="http://www.thymeleaf.org"
                xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
-      th:replace="~{layout :: layout(pageTitle='Membres', content=~{::main-content}, extraHead=~{}, extraScripts=~{::extraScripts})}">
-<body><th:block th:fragment="main-content">
+      th:replace="~{layout :: layout('Membres', ~{::main-content}, ~{}, ~{})}">
+<body>
+<th:block th:fragment="main-content">
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <div class="page-header">
-        <h2><i class="bi bi-person-lines-fill me-2"></i>Membres</h2>
-        <p th:text="${members.size()} + ' membres enregistrés'"></p>
+<div class="page-head">
+    <div>
+        <h1><i class="bi bi-people" aria-hidden="true"></i>Membres</h1>
+        <p class="page-subtitle">
+            <span th:text="${members.size()}">0</span> membre(s) enregistré(s) ·
+            <span th:text="${activeCount}">0</span> actif(s)
+        </p>
     </div>
-    <a th:href="@{/members/new}" class="btn btn-primary"
-       sec:authorize="hasAuthority('MEMBER_CREATE')">
-        <i class="bi bi-person-plus me-1"></i>Nouveau membre
-    </a>
+    <div class="page-actions" sec:authorize="hasAuthority('MEMBER_CREATE')">
+        <a th:href="@{/members/new}" class="btn btn-primary">
+            <i class="bi bi-person-plus" aria-hidden="true"></i>Nouveau membre
+        </a>
+    </div>
 </div>
 
-<!-- ── Barre de filtres (UI-004) ────────────────────────── -->
-<div class="d-flex flex-wrap gap-2 mb-3 align-items-center">
-    <input type="text" id="searchMember" class="form-control form-control-sm"
-           placeholder="🔍 Rechercher un membre..." style="max-width:250px">
-    <select id="filterStatus" class="form-select form-select-sm" style="width:auto">
-        <option value="">Tous les statuts</option>
-        <option value="active">Actifs</option>
-        <option value="suspended">Suspendus</option>
-        <option value="resigned">Démissionnés</option>
-        <option value="deceased">Décédés</option>
-    </select>
-    <span class="text-muted small ms-auto" id="memberCount">
-        <span th:text="${members.size()}">0</span> membre(s)
-    </span>
-</div>
+<div class="card">
+    <div class="card-header">
+        <div class="row g-2 w-100 align-items-center">
+            <div class="col-md-5">
+                <label class="visually-hidden" for="memberSearch">Rechercher un membre</label>
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text" aria-hidden="true"><i class="bi bi-search"></i></span>
+                    <input type="search" id="memberSearch" class="form-control"
+                           placeholder="Nom ou téléphone…"
+                           data-filter-target="#membersTable" data-filter-count="#memberCount">
+                </div>
+            </div>
+            <div class="col-md-4">
+                <label class="visually-hidden" for="statusFilter">Filtrer par statut</label>
+                <select id="statusFilter" class="form-select form-select-sm"
+                        data-filter-target="#membersTable" data-filter-attr="status">
+                    <option value="">Tous les statuts</option>
+                    <option value="active">Actifs</option>
+                    <option value="suspended">Suspendus</option>
+                    <option value="resigned">Démissionnés</option>
+                    <option value="deceased">Décédés</option>
+                </select>
+            </div>
+            <div class="col-md-3 text-md-end text-muted small">
+                <span id="memberCount" th:text="${members.size()}">0</span> résultat(s)
+            </div>
+        </div>
+    </div>
 
-<div class="card border-0 shadow-sm">
-    <div class="table-responsive">
-        <table class="table table-hover mb-0">
+    <div class="table-wrap">
+        <table class="table table-hover" id="membersTable">
+            <caption class="visually-hidden">Liste des membres de l'association</caption>
             <thead>
                 <tr>
-                    <th>Nom complet</th>
-                    <th>Téléphone</th>
-                    <th>Date d'adhésion</th>
-                    <th>Résident</th>
-                    <th>Frais</th>
-                    <th>Statut</th>
-                    <th></th>
+                    <th scope="col">Nom complet</th>
+                    <th scope="col">Téléphone</th>
+                    <th scope="col">Adhésion</th>
+                    <th scope="col" class="text-center">Résident</th>
+                    <th scope="col">Frais d'adhésion</th>
+                    <th scope="col">Statut</th>
+                    <th scope="col" class="text-end">Action</th>
                 </tr>
             </thead>
             <tbody>
-                <tr th:if="${members.empty}">
-                    <td colspan="7" class="text-center text-muted py-4">Aucun membre enregistré</td>
-                </tr>
-                <tr th:each="m : ${members}" th:attr="data-status=${m.status.name()}">
-                    <td class="fw-semibold member-name" th:text="${m.fullName}"></td>
-                    <td th:text="${m.phone ?: '—'}"></td>
-                    <td th:text="${#temporals.format(m.joinDate, 'dd/MM/yyyy')}"></td>
-                    <td>
-                        <i class="bi" th:classappend="${m.resident ? 'bi-check-circle-fill text-success' : 'bi-dash-circle text-muted'}"></i>
+                <tr th:each="m : ${members}" data-row
+                    th:attr="data-status=${m.status.name()},
+                             data-search=${m.fullName + ' ' + (m.phone ?: '')},
+                             data-href=@{/members/{id}(id=${m.id})}">
+                    <th scope="row" class="fw-semibold" th:text="${m.fullName}">Nom</th>
+                    <td th:text="${m.phone ?: '—'}">—</td>
+                    <td th:text="${#temporals.format(m.joinDate, 'dd/MM/yyyy')}">date</td>
+                    <td class="text-center">
+                        <i class="bi" aria-hidden="true"
+                           th:classappend="${m.resident ? 'bi-check-circle-fill' : 'bi-dash-circle'}"
+                           th:style="${m.resident ? 'color:var(--c-success)' : 'color:var(--c-border-strong)'}"></i>
+                        <span class="visually-hidden" th:text="${m.resident ? 'Résident' : 'Non résident'}"></span>
                     </td>
                     <td>
-                        <span class="badge bg-danger" th:if="${membersWithPendingFees.contains(m.id)}">Frais dus</span>
-                        <span class="badge bg-success" th:unless="${membersWithPendingFees.contains(m.id)}">À jour</span>
+                        <span class="pill pill-warning" th:if="${membersWithPendingFees.contains(m.id)}">
+                            <i class="bi bi-hourglass-split" aria-hidden="true"></i>Reste à payer
+                        </span>
+                        <span class="pill pill-success" th:unless="${membersWithPendingFees.contains(m.id)}">
+                            <i class="bi bi-check2" aria-hidden="true"></i>Soldés
+                        </span>
                     </td>
                     <td>
-                        <span class="badge"
-                              th:classappend="${m.status.name() == 'active' ? 'bg-success' :
-                                              (m.status.name() == 'suspended' ? 'bg-warning text-dark' : 'bg-secondary')}"
-                              th:text="${m.statusLabel}"></span>
+                        <span th:replace="~{fragments/ui :: memberStatus(${m.status}, ${m.statusLabel})}"></span>
                     </td>
                     <td class="text-end">
                         <a th:href="@{/members/{id}(id=${m.id})}" class="btn btn-sm btn-outline-secondary">
-                            <i class="bi bi-eye me-1"></i>Détail
+                            Ouvrir<i class="bi bi-chevron-right" aria-hidden="true"></i>
                         </a>
+                    </td>
+                </tr>
+                <tr th:replace="~{fragments/ui :: emptyRow(7, 'Aucun membre enregistré', ${members.empty})}"></tr>
+                <tr data-filter-empty hidden>
+                    <td colspan="7" class="text-center text-muted py-4">
+                        Aucun membre ne correspond à votre recherche.
                     </td>
                 </tr>
             </tbody>
@@ -78,36 +106,5 @@
 </div>
 
 </th:block>
-
-<th:block th:fragment="extraScripts">
-<script>
-// Filtrage côté client : recherche par nom + filtre par statut (UI-004)
-(function () {
-    var search = document.getElementById('searchMember');
-    var statusFilter = document.getElementById('filterStatus');
-    var counter = document.getElementById('memberCount');
-    var rows = Array.prototype.slice.call(
-        document.querySelectorAll('tbody tr[data-status]'));
-
-    function apply() {
-        var q = (search.value || '').toLowerCase();
-        var status = statusFilter.value;
-        var visible = 0;
-        rows.forEach(function (row) {
-            var nameEl = row.querySelector('.member-name');
-            var name = nameEl ? nameEl.textContent.toLowerCase() : '';
-            var matchName = name.indexOf(q) !== -1;
-            var matchStatus = !status || row.getAttribute('data-status') === status;
-            var show = matchName && matchStatus;
-            row.style.display = show ? '' : 'none';
-            if (show) visible++;
-        });
-        counter.innerHTML = visible + ' membre(s)';
-    }
-
-    search.addEventListener('input', apply);
-    statusFilter.addEventListener('change', apply);
-})();
-</script>
-</th:block>
-</body></html>
+</body>
+</html>

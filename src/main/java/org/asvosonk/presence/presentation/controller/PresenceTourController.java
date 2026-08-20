@@ -6,7 +6,6 @@ import org.asvosonk.member.application.usecase.SearchMemberUseCase;
 import org.asvosonk.presence.application.usecase.ClosePresenceTourUseCase;
 import org.asvosonk.presence.application.usecase.CreatePresenceTourUseCase;
 import org.asvosonk.presence.application.usecase.GetPresenceTourSummaryUseCase;
-import org.asvosonk.presence.application.usecase.MarkPresenceBenefitedUseCase;
 import org.asvosonk.presence.domain.model.PresenceTour;
 import org.asvosonk.presence.domain.model.PresenceTourParticipant;
 import org.asvosonk.presence.presentation.request.CreatePresenceTourForm;
@@ -19,19 +18,16 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 @Controller
 @RequestMapping("/presence-tours")
 @RequiredArgsConstructor
 public class PresenceTourController {
 
-    private final GetPresenceTourSummaryUseCase     getPresenceTourSummaryUseCase;
-    private final CreatePresenceTourUseCase         createPresenceTourUseCase;
-    private final MarkPresenceBenefitedUseCase      markPresenceBenefitedUseCase;
-    private final ClosePresenceTourUseCase          closePresenceTourUseCase;
-    private final SearchMemberUseCase               searchMemberUseCase;
+    private final GetPresenceTourSummaryUseCase getPresenceTourSummaryUseCase;
+    private final CreatePresenceTourUseCase     createPresenceTourUseCase;
+    private final ClosePresenceTourUseCase      closePresenceTourUseCase;
+    private final SearchMemberUseCase           searchMemberUseCase;
 
     // ── List tours ───────────────────────────────────────────
 
@@ -44,28 +40,21 @@ public class PresenceTourController {
         if (currentOpen != null) {
             List<PresenceTourParticipant> participants = getPresenceTourSummaryUseCase
                 .findParticipantsByTourId(currentOpen.getId());
-            long benefitedCount = getPresenceTourSummaryUseCase.countBenefited(currentOpen.getId());
-
-            Map<Long, String> memberNames = participants.stream()
-                .map(PresenceTourParticipant::getMemberId)
-                .distinct()
-                .collect(Collectors.toMap(
-                    Function.identity(),
-                    mid -> searchMemberUseCase.findById(mid).getFullName()
-                ));
 
             model.addAttribute("openTour", currentOpen);
             model.addAttribute("openParticipants", participants);
-            model.addAttribute("openBenefitedCount", benefitedCount);
-            model.addAttribute("memberNames", memberNames);
+            model.addAttribute("openBenefitedCount",
+                getPresenceTourSummaryUseCase.countBenefited(currentOpen.getId()));
+            model.addAttribute("memberNames", resolveNames(participants));
         }
 
         model.addAttribute("tours", tours);
+        model.addAttribute("activeMemberCount", searchMemberUseCase.findAllActive().size());
         model.addAttribute("pageTitle", "Tours de présence");
         return "presence-tours/list";
     }
 
-    // ── Create tour form ─────────────────────────────────────
+    // ── Create tour ──────────────────────────────────────────
 
     @GetMapping("/new")
     @PreAuthorize("hasAuthority('SESSION_CREATE')")
@@ -89,12 +78,11 @@ public class PresenceTourController {
         }
 
         try {
-            PresenceTour tour = createPresenceTourUseCase.execute(
-                form.getStartDate(), form.getParticipantIds(), form.getDrawOrders());
+            PresenceTour tour = createPresenceTourUseCase.execute(form.getStartDate());
             ra.addFlashAttribute("successMessage",
-                "Tour de présence créé avec " + form.getParticipantIds().size() + " participants.");
+                "Tour de présence ouvert avec tous les membres actifs.");
             return "redirect:/presence-tours/" + tour.getId();
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             ra.addFlashAttribute("errorMessage", e.getMessage());
             return "redirect:/presence-tours/new";
         }
@@ -108,21 +96,14 @@ public class PresenceTourController {
         PresenceTour tour = getPresenceTourSummaryUseCase.findTourById(id);
         List<PresenceTourParticipant> participants = getPresenceTourSummaryUseCase
             .findParticipantsByTourId(id);
-        boolean allBenefited = getPresenceTourSummaryUseCase.allParticipantsBenefited(id);
-
-        Map<Long, String> memberNames = participants.stream()
-            .map(PresenceTourParticipant::getMemberId)
-            .distinct()
-            .collect(Collectors.toMap(
-                Function.identity(),
-                mid -> searchMemberUseCase.findById(mid).getFullName()
-            ));
 
         model.addAttribute("tour", tour);
         model.addAttribute("participants", participants);
-        model.addAttribute("allBenefited", allBenefited);
-        model.addAttribute("memberNames", memberNames);
-        model.addAttribute("pageTitle", "Tour #" + tour.getId() + " — Présence");
+        model.addAttribute("allBenefited", getPresenceTourSummaryUseCase.allParticipantsBenefited(id));
+        model.addAttribute("benefitedCount", getPresenceTourSummaryUseCase.countBenefited(id));
+        model.addAttribute("eligible", getPresenceTourSummaryUseCase.findEligibleBeneficiaries(id));
+        model.addAttribute("memberNames", resolveNames(participants));
+        model.addAttribute("pageTitle", "Tour de présence #" + tour.getId());
         return "presence-tours/detail";
     }
 
@@ -134,26 +115,16 @@ public class PresenceTourController {
         try {
             closePresenceTourUseCase.execute(id);
             ra.addFlashAttribute("successMessage", "Tour de présence clôturé.");
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             ra.addFlashAttribute("errorMessage", e.getMessage());
         }
         return "redirect:/presence-tours/" + id;
     }
 
-    // ── Mark benefited (via session) ─────────────────────────
+    // ── Helpers ──────────────────────────────────────────────
 
-    @PostMapping("/{id}/benefited")
-    @PreAuthorize("hasAuthority('ATTENDANCE_RECORD')")
-    public String markBenefited(@PathVariable Long id,
-                                @RequestParam Long memberId,
-                                @RequestParam(required = false) Long sessionId,
-                                RedirectAttributes ra) {
-        try {
-            markPresenceBenefitedUseCase.execute(id, memberId, sessionId);
-            ra.addFlashAttribute("successMessage", "Bénéficiaire enregistré.");
-        } catch (Exception e) {
-            ra.addFlashAttribute("errorMessage", e.getMessage());
-        }
-        return "redirect:/presence-tours/" + id;
+    private Map<Long, String> resolveNames(List<PresenceTourParticipant> participants) {
+        return searchMemberUseCase.findNamesByIds(
+            participants.stream().map(PresenceTourParticipant::getMemberId).distinct().toList());
     }
 }

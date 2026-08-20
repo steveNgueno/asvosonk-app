@@ -1,5 +1,6 @@
 package org.asvosonk.bank.application.usecase;
 
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.asvosonk.bank.domain.model.Loan;
 import org.asvosonk.bank.domain.model.LoanRepayment;
@@ -12,6 +13,7 @@ import org.asvosonk.common.domain.exception.BusinessRuleException;
 import org.asvosonk.common.domain.exception.ResourceNotFoundException;
 import org.asvosonk.member.domain.model.Member;
 import org.asvosonk.member.domain.repository.MemberRepository;
+import org.asvosonk.member.infrastructure.persistence.entity.MemberEntity;
 import org.asvosonk.security.domain.model.AppUser;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +30,7 @@ public class RecordLoanRepaymentUseCase {
     private final LoanRepaymentRepository repaymentRepository;
     private final MemberRepository memberRepository;
     private final DepositMoneyUseCase depositMoneyUseCase;
+    private final EntityManager entityManager;
 
     @Transactional
     public LoanRepayment execute(Long loanId, BigDecimal amount, AppUser user) {
@@ -35,7 +38,11 @@ public class RecordLoanRepaymentUseCase {
             throw new BusinessRuleException("Le montant du remboursement doit être positif.");
         }
 
-        Loan loan = loanRepository.findById(loanId)
+        // F-49 — Lock the loan row for the duration of this transaction so a
+        // double-submit (double-click, retried request) cannot have both
+        // requests read the same pre-repayment "already repaid" total and
+        // both pass the F-19 remaining-balance check below.
+        Loan loan = loanRepository.findByIdForUpdate(loanId)
             .orElseThrow(() -> new ResourceNotFoundException("Emprunt", loanId));
 
         if (loan.isRepaid()) {
@@ -70,9 +77,11 @@ public class RecordLoanRepaymentUseCase {
             .orElse(null);
         String memberName = member != null ? member.getFullName() : "Inconnu";
 
+        // F-52 — trace the cashbox deposit back to the member and the repayment.
         String reason = "Remboursement emprunt #" + loanId + " — " + memberName;
         depositMoneyUseCase.execute(CashboxType.bank, amount, reason,
-            MovementOrigin.annual_bank, null, null, null, user);
+            MovementOrigin.annual_bank, null,
+            entityManager.getReference(MemberEntity.class, loan.getMemberId()), saved.getId(), user);
 
         return saved;
     }

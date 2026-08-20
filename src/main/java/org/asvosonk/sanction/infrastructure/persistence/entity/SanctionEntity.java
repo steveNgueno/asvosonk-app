@@ -33,6 +33,10 @@ public class SanctionEntity {
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal amount;
 
+    /** Montant déjà encaissé : une retenue sur tontine peut n'en couvrir qu'une partie. */
+    @Column(name = "amount_paid", nullable = false, precision = 10, scale = 2)
+    private BigDecimal amountPaid = BigDecimal.ZERO;
+
     @Column(nullable = false)
     private String reason;
 
@@ -52,6 +56,9 @@ public class SanctionEntity {
     @Column(name = "payment_date")
     private LocalDate paymentDate;
 
+    @Column(name = "cancel_reason")
+    private String cancelReason;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
@@ -62,4 +69,22 @@ public class SanctionEntity {
     public void preUpdate() { this.updatedAt = LocalDateTime.now(); }
 
     public boolean isUnpaid() { return status == SanctionStatus.unpaid; }
+
+    /** Reste à payer sur cette sanction. */
+    public BigDecimal remaining() {
+        return amount.subtract(amountPaid).max(BigDecimal.ZERO);
+    }
+
+    /**
+     * Encaisse {@code amount} sur cette sanction et la solde si elle est
+     * entièrement couverte.
+     */
+    public void collect(BigDecimal collected, LocalDate paidOn) {
+        this.amountPaid = this.amountPaid.add(collected);
+        if (this.amountPaid.compareTo(this.amount) >= 0) {
+            this.amountPaid = this.amount;
+            this.status = SanctionStatus.paid;
+            this.paymentDate = paidOn;
+        }
+    }
 }

@@ -12,6 +12,14 @@ public interface LoanRepository {
 
     Optional<Loan> findById(Long id);
 
+    /**
+     * Loads a loan under a PESSIMISTIC_WRITE lock (F-49). Concurrent repayment
+     * submissions on the same loan are then serialized at the DB row level, so
+     * a double-click can never both read the same "already repaid" total and
+     * both pass the F-19 remaining-balance check.
+     */
+    Optional<Loan> findByIdForUpdate(Long id);
+
     List<Loan> findByMemberIdOrderByLoanDateDesc(Long memberId);
 
     long countActiveLoans(Long memberId);

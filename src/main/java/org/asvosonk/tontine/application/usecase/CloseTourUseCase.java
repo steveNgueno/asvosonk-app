@@ -5,8 +5,10 @@ import org.asvosonk.common.domain.exception.BusinessRuleException;
 import org.asvosonk.common.domain.exception.ResourceNotFoundException;
 import org.asvosonk.tontine.domain.model.TontineParticipant;
 import org.asvosonk.tontine.domain.model.TontineTour;
+import org.asvosonk.tontine.domain.repository.TontineDebtRepository;
 import org.asvosonk.tontine.domain.repository.TontineParticipantRepository;
 import org.asvosonk.tontine.domain.repository.TontineTourRepository;
+import org.asvosonk.tontine.domain.valueobject.DebtStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,9 +21,12 @@ public class CloseTourUseCase {
 
     private final TontineTourRepository tourRepository;
     private final TontineParticipantRepository participantRepository;
+    private final TontineDebtRepository debtRepository;
 
     /**
-     * Close a tontine tour. All participants must have benefited.
+     * Close a tontine tour. All participants must have benefited and no
+     * inter-member debt may still be outstanding (F-23) — closing with open
+     * debts would freeze "who owes whom" with no tour left to settle it in.
      */
     @Transactional
     public TontineTour execute(Long tourId) {
@@ -38,6 +43,12 @@ public class CloseTourUseCase {
         if (!allBenefited) {
             throw new BusinessRuleException(
                 "Tous les participants doivent avoir bénéficié avant de clôturer le tour.");
+        }
+
+        boolean hasOpenDebts = !debtRepository.findByTourIdAndStatus(tourId, DebtStatus.owed).isEmpty();
+        if (hasOpenDebts) {
+            throw new BusinessRuleException(
+                "Des dettes entre participants sont encore ouvertes ; elles doivent être soldées avant de clôturer le tour.");
         }
 
         tour.close(LocalDate.now());

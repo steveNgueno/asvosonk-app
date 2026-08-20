@@ -50,6 +50,13 @@ public class JpaTontineContributionRepository implements TontineContributionRepo
     }
 
     @Override
+    public List<TontineContribution> findBySessionId(Long sessionId) {
+        return springData.findBySessionIdOrderByIdAsc(sessionId).stream()
+            .map(MAPPER::toDomain)
+            .collect(Collectors.toList());
+    }
+
+    @Override
     public List<TontineContribution> findByContributorIdAndTourId(Long contributorId, Long tourId) {
         return springData.findByContributorIdAndTourId(contributorId, tourId).stream()
             .map(MAPPER::toDomain)

@@ -134,6 +134,31 @@
                     </excludes>
                 </configuration>
             </plugin>
+
+            <!--
+              The whole Testcontainers suite is named *IT, which Surefire's default
+              includes (*Test / Test* / *Tests) skip: `mvn test` used to report
+              success while running none of the 40+ integration tests. Failsafe now
+              owns them, so `mvn verify` actually executes the suite and fails the
+              build on a regression. Requires a reachable Docker daemon.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <configuration>
+                    <includes>
+                        <include>**/*IT.java</include>
+                    </includes>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
 </project>

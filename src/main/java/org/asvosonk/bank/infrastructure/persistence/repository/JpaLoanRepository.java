@@ -37,6 +37,11 @@ public class JpaLoanRepository implements LoanRepository {
     }
 
     @Override
+    public Optional<Loan> findByIdForUpdate(Long id) {
+        return springData.findByIdForUpdate(id).map(LoanMapper::toDomain);
+    }
+
+    @Override
     public List<Loan> findByMemberIdOrderByLoanDateDesc(Long memberId) {
         return springData.findByMemberIdOrderByLoanDateDesc(memberId).stream()
             .map(LoanMapper::toDomain)

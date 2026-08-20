@@ -51,8 +51,13 @@ public class Loan {
         LocalDate now = LocalDate.now();
         BigDecimal interestRate = DEFAULT_INTEREST_RATE;
         int durationMonths = DEFAULT_DURATION_MONTHS;
-        BigDecimal totalDue = amount.add(
-            amount.multiply(interestRate).divide(new BigDecimal("100"), RoundingMode.HALF_UP));
+        // F-51 — round the interest to 2 decimals (FCFA has no sub-unit, but the
+        // rest of the codebase represents money at scale 2). Without an explicit
+        // scale, divide() keeps the dividend's scale (amount.scale() + interestRate.scale()),
+        // e.g. 4 — so totalDue silently drifted to a 4-decimal amount never settled to zero.
+        BigDecimal interest = amount.multiply(interestRate)
+            .divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
+        BigDecimal totalDue = amount.add(interest);
         LocalDate dueDate = now.plusMonths(durationMonths);
         return new Loan(null, memberId, now, amount, interestRate, durationMonths,
             dueDate, totalDue, LoanStatus.active, LocalDateTime.now(), LocalDateTime.now());

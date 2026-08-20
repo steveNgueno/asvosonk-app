@@ -1,6 +1,7 @@
 package org.asvosonk.sanction.application.usecase;
 
 import lombok.RequiredArgsConstructor;
+import org.asvosonk.common.domain.exception.BusinessRuleException;
 import org.asvosonk.sanction.domain.model.Sanction;
 import org.asvosonk.sanction.domain.repository.SanctionRepository;
 import org.asvosonk.sanction.domain.valueobject.SanctionStatus;
@@ -20,7 +21,13 @@ public class CancelSanctionUseCase {
     private final SanctionRepository sanctionRepository;
 
     @Transactional
-    public Sanction execute(Long sanctionId) {
+    public Sanction execute(Long sanctionId, String cancelReason) {
+        // F-39 — a cancellation reason is mandatory and kept on the record for
+        // audit purposes (a sanction disappearing from the "unpaid" list with no
+        // trace of why was the original complaint).
+        if (cancelReason == null || cancelReason.isBlank()) {
+            throw new BusinessRuleException("Le motif d'annulation est obligatoire.");
+        }
         Sanction sanction = sanctionRepository.findById(sanctionId)
             .orElseThrow(() -> new IllegalArgumentException("Sanction introuvable : " + sanctionId));
         if (sanction.getStatus() == SanctionStatus.paid) {
@@ -31,7 +38,7 @@ public class CancelSanctionUseCase {
             sanction.getSanctionDate(), sanction.getAmount(),
             sanction.getReason(), sanction.getOrigin(),
             sanction.getReferenceId(), SanctionStatus.cancelled,
-            sanction.getPaymentDate(), sanction.getCreatedAt(),
+            sanction.getPaymentDate(), cancelReason.trim(), sanction.getCreatedAt(),
             LocalDateTime.now()
         );
         return sanctionRepository.save(updated);

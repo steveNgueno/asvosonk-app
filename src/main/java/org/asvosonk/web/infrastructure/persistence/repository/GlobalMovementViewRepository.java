@@ -20,15 +20,25 @@ public class GlobalMovementViewRepository {
 
     private final EntityManager entityManager;
 
+    /**
+     * Filtered movement search (module / member / period).
+     *
+     * <p>Every optional clause is CAST to its SQL type. Without the cast,
+     * PostgreSQL cannot infer the type of a parameter appearing only in a bare
+     * {@code ? IS NULL} position and rejects the whole statement with
+     * <em>"could not determine data type of parameter"</em> — the filter mode of
+     * the global search failed with an HTTP 500 on every call (same root cause
+     * already worked around in {@link #searchByKeyword}).
+     */
     @SuppressWarnings("unchecked")
     public List<GlobalMovementView> search(Long memberId, String module,
                                            LocalDate dateFrom, LocalDate dateTo) {
         String sql = """
             SELECT * FROM global_movement_view
-            WHERE (:memberId IS NULL OR member_id = :memberId)
-              AND (:module IS NULL OR module = :module)
-              AND (:dateFrom IS NULL OR event_date >= :dateFrom)
-              AND (:dateTo IS NULL OR event_date <= :dateTo)
+            WHERE (CAST(:memberId AS bigint) IS NULL OR member_id = CAST(:memberId AS bigint))
+              AND (CAST(:module   AS text)   IS NULL OR module    = CAST(:module   AS text))
+              AND (CAST(:dateFrom AS date)   IS NULL OR event_date >= CAST(:dateFrom AS date))
+              AND (CAST(:dateTo   AS date)   IS NULL OR event_date <= CAST(:dateTo   AS date))
             ORDER BY event_date DESC
             LIMIT 200
             """;
@@ -77,9 +87,21 @@ public class GlobalMovementViewRepository {
             (String) row[0],
             row[2] != null ? ((Number) row[2]).longValue() : null,
             row[3] != null ? toLocalDate(row[3]) : null,
-            row[4] != null ? BigDecimal.valueOf(((Number) row[4]).doubleValue()) : null,
+            row[4] != null ? toBigDecimal(row[4]) : null,
             (String) row[5]
         )).toList();
+    }
+
+    /**
+     * F-41 — money must stay exact end to end. Routing the native-query result
+     * through double (BigDecimal.valueOf(Number.doubleValue())) can lose or
+     * distort cents; going through the driver's own decimal string never does.
+     */
+    private BigDecimal toBigDecimal(Object value) {
+        if (value instanceof BigDecimal bd) {
+            return bd;
+        }
+        return new BigDecimal(value.toString());
     }
 
     /**

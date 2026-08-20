@@ -18,6 +18,8 @@ public class PresenceTourParticipantMapper implements EntityMapper<PresenceTourP
             entity.getDrawOrder(),
             entity.isHasBenefited(),
             entity.getSessionId(),
+            entity.getJoinedAt(),
+            entity.isJoinedMidTour(),
             entity.getCreatedAt()
         );
     }
@@ -32,6 +34,8 @@ public class PresenceTourParticipantMapper implements EntityMapper<PresenceTourP
         entity.setDrawOrder(domain.getDrawOrder());
         entity.setHasBenefited(domain.isHasBenefited());
         entity.setSessionId(domain.getSessionId());
+        entity.setJoinedAt(domain.getJoinedAt());
+        entity.setJoinedMidTour(domain.isJoinedMidTour());
         entity.setCreatedAt(domain.getCreatedAt());
         return entity;
     }

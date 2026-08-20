@@ -1,635 +1,625 @@
 <!DOCTYPE html>
 <html lang="fr" xmlns:th="http://www.thymeleaf.org"
-      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
-      th:replace="~{layout :: layout(pageTitle=${pageTitle}, content=~{::main-content}, extraHead=~{}, extraScripts=~{::extraScripts})}">
-<head th:fragment="extraHead">
-<style>
-/* ── Section cards ────────────────────────────────── */
-.step-content { display: none; }
-.step-content.active { display: block; }
-
-.summary-card {
-    border-left: 4px solid var(--bs-primary);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-.summary-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.1) !important;
-}
-.summary-card.presence { border-left-color: #198754; }
-.summary-card.tontine  { border-left-color: #0d6efd; }
-.summary-card.synthesis { border-left-color: #dc3545; }
-
-/* ── Animated stat boxes ──────────────────────────── */
-.stat-box {
-    transition: all 0.3s ease;
-    cursor: default;
-}
-.stat-box:hover {
-    transform: scale(1.05);
-    box-shadow: 0 0.25rem 0.5rem rgba(0,0,0,0.08);
-}
-
-/* ── Cumulative bar ───────────────────────────────── */
-.cumul-bar {
-    display: flex;
-    border-radius: 0.5rem;
-    overflow: hidden;
-    height: 2rem;
-    min-width: 100%;
-}
-.cumul-bar-segment {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.7rem;
-    font-weight: 700;
-    color: white;
-    transition: width 0.5s ease;
-}
-</style>
-</head>
+               xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      th:replace="~{layout :: layout(${pageTitle}, ~{::main-content}, ~{}, ~{::extraScripts})}">
 <body>
 <th:block th:fragment="main-content">
 
-<!-- ── Header ──────────────────────────────────────── -->
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <div class="page-header">
-        <h2><i class="bi bi-calendar-week me-2"></i>Séance du <span th:text="${#temporals.format(meetingSession.sessionDate,'EEEE dd MMMM yyyy')}"></span></h2>
-        <span class="badge fs-6"
-              th:classappend="${meetingSession.status.name() == 'closed' ? 'bg-secondary' : (meetingSession.status.name() == 'open' ? 'bg-success' : 'bg-info')}"
-              th:text="${meetingSession.status.name() == 'closed' ? 'Clôturée' : (meetingSession.status.name() == 'open' ? 'En cours' : 'Planifiée')}"></span>
+<!-- ══ En-tête ═══════════════════════════════════════════════ -->
+<div class="page-head">
+    <div>
+        <h1>
+            <i class="bi bi-calendar-week" aria-hidden="true"></i>
+            Séance du <span th:text="${#temporals.format(meetingSession.sessionDate,'EEEE dd MMMM yyyy')}">date</span>
+        </h1>
+        <p class="page-subtitle">
+            Étape courante :
+            <span class="pill" th:classappend="${isReportGenerated} ? 'pill-success' : 'pill-brand'"
+                  th:text="${currentStep.label}">étape</span>
+        </p>
     </div>
-    <a th:href="@{/sessions}" class="btn btn-outline-secondary btn-sm">
-        <i class="bi bi-arrow-left me-1"></i>Retour
-    </a>
-</div>
-
-<!-- ── Stepper ─────────────────────────────────────── -->
-<div class="stepper-wrapper">
-  <div class="stepper">
-    <th:block th:each="ds, iter : ${displaySteps}">
-
-      <!-- Connector avant chaque step (sauf le premier) -->
-      <div th:unless="${iter.first}" class="stepper-connector"
-           th:classappend="${iter.index <= currentDisplayStepIdx} ? 'done' : ''">
-      </div>
-
-      <!-- Step circle + label -->
-      <div class="stepper-step"
-           th:classappend="${iter.index < currentDisplayStepIdx} ? 'done' :
-                           (${iter.index == currentDisplayStepIdx} ? 'active' : '')">
-        <div class="step-circle">
-          <i class="bi"
-             th:classappend="${iter.index < currentDisplayStepIdx}
-                              ? 'bi-check-lg'
-                              : ${ds.icon}"></i>
-        </div>
-        <span class="step-label" th:text="${ds.label}"></span>
-      </div>
-
-    </th:block>
-  </div>
-</div>
-
-<!-- ══════════════════════════════════════════════════ -->
-<!-- SECTION PAR ÉTAPE                                   -->
-<!-- ══════════════════════════════════════════════════ -->
-
-<th:block th:with="stepName = ${currentStep.name()}">
-
-<!-- ── ÉTAPE 0 : CREATED / Agenda ─────────────────── -->
-<div class="step-content" th:classappend="${stepName == 'CREATED' ? 'active' : ''}">
-    <div class="card border-0 shadow-sm mb-3">
-        <div class="card-header bg-dark text-white fw-semibold">
-            <i class="bi bi-calendar-check me-1"></i>Ordre du jour
-        </div>
-        <div class="card-body">
-            <p th:if="${meetingSession.agenda}" th:text="${meetingSession.agenda}" class="mb-0"></p>
-            <p th:unless="${meetingSession.agenda}" class="text-muted mb-0"><em>Aucun ordre du jour défini.</em></p>
-        </div>
-    </div>
-
-    <div class="d-flex justify-content-end gap-2"
-         sec:authorize="hasAuthority('ATTENDANCE_RECORD')">
-        <form th:action="@{/sessions/{id}/presence/open(id=${meetingSession.id})}" method="post">
-            <button type="submit" class="btn btn-success btn-lg">
-                <i class="bi bi-play-circle me-1"></i>Ouvrir la saisie de présence
-            </button>
-        </form>
+    <div class="page-actions">
+        <a th:href="@{/sessions/{id}/report(id=${meetingSession.id})}" class="btn btn-outline-secondary"
+           th:if="${sessionReport != null}">
+            <i class="bi bi-file-text" aria-hidden="true"></i>Rapport
+        </a>
+        <a th:href="@{/sessions}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left" aria-hidden="true"></i>Séances
+        </a>
     </div>
 </div>
 
-<!-- ── ÉTAPE 1 : PRESENCE_OPEN ────────────────────── -->
-<div class="step-content" th:classappend="${stepName == 'PRESENCE_OPEN' ? 'active' : ''}">
-    <!-- Beneficiary info -->
-    <div class="card border-0 shadow-sm mb-3" th:if="${meetingSession.presenceBeneficiary != null}">
-        <div class="card-body py-2 d-flex align-items-center gap-2"
-             style="background: linear-gradient(135deg, #fff9e6, #fff3cd); border-left: 4px solid #ffc107;">
-            <i class="bi bi-trophy-fill text-warning fs-4"></i>
-            <div>
-                <strong class="text-warning-emphasis">Bénéficiaire du jour :</strong>
-                <span class="fw-bold" th:text="${meetingSession.presenceBeneficiary.fullName}"></span>
-                <span th:if="${presenceOpenTour}" class="text-muted small ms-2">
-                    (Tour N°<span th:text="${presenceOpenTour.id}"></span>)
-                </span>
+<div th:replace="~{fragments/ui :: stepper(${displaySteps}, ${currentDisplayStepIdx})}"></div>
+
+<!-- ══ Contenu de l'étape courante ════════════════════════════ -->
+<th:block th:switch="${currentStep.name()}">
+
+    <!-- ─────────── CREATED : ordre du jour ──────────────── -->
+    <th:block th:case="'CREATED'">
+        <div class="card mb-4">
+            <div class="card-header"><i class="bi bi-list-check" aria-hidden="true"></i>Ordre du jour</div>
+            <div class="card-body">
+                <p class="mb-0" style="white-space:pre-line"
+                   th:if="${meetingSession.agenda != null and !#strings.isEmpty(meetingSession.agenda)}"
+                   th:text="${meetingSession.agenda}">Ordre du jour</p>
+                <p class="text-muted mb-0"
+                   th:unless="${meetingSession.agenda != null and !#strings.isEmpty(meetingSession.agenda)}">
+                    Aucun ordre du jour saisi pour cette séance.
+                </p>
             </div>
         </div>
-    </div>
 
-    <!-- Attendance quick summary -->
-    <div class="card border-0 shadow-sm mb-3">
-        <div class="card-header bg-dark text-white fw-semibold d-flex justify-content-between align-items-center">
-            <span><i class="bi bi-table me-1"></i>Feuille de présence — <span class="badge bg-warning text-dark">Saisie en cours</span></span>
-            <a class="btn btn-sm btn-outline-light"
-               th:href="@{/sessions/{id}/attendance(id=${meetingSession.id})}">
-                <i class="bi bi-pencil-square me-1"></i>Saisir les montants
-            </a>
+        <div class="alert alert-warning" role="alert" th:if="${presenceOpenTour == null}">
+            <i class="bi bi-exclamation-triangle-fill flex-shrink-0" aria-hidden="true"></i>
+            <span>
+                Aucun tour de présence ouvert.
+                <a th:href="@{/presence-tours/new}" sec:authorize="hasAuthority('SESSION_CREATE')">Ouvrez un tour</a>
+                avant de démarrer la présence : c'est lui qui porte la rotation des bénéficiaires.
+            </span>
         </div>
-        <div class="table-responsive">
-            <table class="table table-sm mb-0">
-                <thead>
-                    <tr>
-                        <th>Membre</th>
-                        <th class="text-center">Présent</th>
-                        <th class="text-end">Montant</th>
-                        <th class="text-center">Statut</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr th:each="att : ${attendances}">
-                        <td th:text="${att.member.fullName}"></td>
-                        <td class="text-center">
-                            <span th:if="${att.present}" class="text-success"><i class="bi bi-check-circle-fill"></i></span>
-                            <span th:unless="${att.present}" class="text-danger"><i class="bi bi-x-circle-fill"></i></span>
-                        </td>
-                        <td class="text-end" th:text="${#numbers.formatDecimal(att.amountPaid, 1, 'COMMA', 0, 'POINT')} + ' FCFA'"></td>
-                        <td class="text-center">
-                            <span class="badge"
-                                  th:classappend="${att.attendanceStatus.name() == 'up_to_date' ? 'bg-success' : (att.attendanceStatus.name() == 'covered_by_fund' ? 'bg-warning text-dark' : (att.attendanceStatus.name() == 'default_status' ? 'bg-danger' : 'bg-secondary'))}"
-                                  th:text="${att.attendanceStatus.name() == 'up_to_date' ? 'À jour' : (att.attendanceStatus.name() == 'covered_by_fund' ? 'Fond' : (att.attendanceStatus.name() == 'default_status' ? 'Échec' : 'Recouvré'))}"></span>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+
+        <div class="callout" sec:authorize="hasAuthority('ATTENDANCE_RECORD')" th:if="${presenceOpenTour != null}">
+            <i class="bi bi-play-circle callout-icon" style="color:var(--c-success)" aria-hidden="true"></i>
+            <div class="callout-body">
+                <p class="mb-0 fw-semibold">Passer aux finances : cotisation de présence</p>
+                <p class="mb-0 small text-muted">
+                    Vous désignerez ensuite le bénéficiaire tiré au sort, puis saisirez la feuille.
+                </p>
+            </div>
+            <div class="callout-actions">
+                <form th:action="@{/sessions/{id}/presence/open(id=${meetingSession.id})}" method="post">
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-play-fill" aria-hidden="true"></i>Ouvrir la présence
+                    </button>
+                </form>
+            </div>
         </div>
-    </div>
+    </th:block>
 
-    <div class="d-flex justify-content-end gap-2"
-         sec:authorize="hasAuthority('SESSION_CLOSE')">
-        <form th:action="@{/sessions/{id}/presence/close(id=${meetingSession.id})}" method="post"
-              onsubmit="return confirm('Clôturer la présence ? Les calculs financiers seront effectués automatiquement.')">
-            <button type="submit" class="btn btn-danger btn-lg">
-                <i class="bi bi-lock me-1"></i>Clôturer la présence
-            </button>
-        </form>
-    </div>
-</div>
+    <!-- ─────────── PRESENCE_OPEN ─────────────────────────── -->
+    <th:block th:case="'PRESENCE_OPEN'">
 
-<!-- ── ÉTAPE 2 : PRESENCE_CLOSED (résumé) ─────────── -->
-<div class="step-content" th:classappend="${stepName == 'PRESENCE_CLOSED' ? 'active' : ''}">
-    <div th:if="${closeResult != null}">
-        <!-- Presence summary card -->
-        <div class="card border-0 shadow-sm mb-3 summary-card presence">
-            <div class="card-header bg-success text-white fw-semibold">
-                <i class="bi bi-check-circle me-1"></i>Présence clôturée
+        <!-- Tirage au sort du bénéficiaire -->
+        <div class="card mb-4" th:classappend="${meetingSession.presenceBeneficiary == null} ? 'card-accent card-accent-accent'">
+            <div class="card-header">
+                <i class="bi bi-trophy" aria-hidden="true"></i>Bénéficiaire de la tontine de présence
             </div>
             <div class="card-body">
-                <div class="row g-3">
-                    <div class="col-md-3 text-center">
-                        <div class="fs-2 fw-bold text-primary" th:text="${closeResult.totalCotisants}"></div>
-                        <small class="text-muted">Cotisants</small>
-                    </div>
-                    <div class="col-md-3 text-center">
-                        <div class="fs-2 fw-bold text-success" th:text="${closeResult.presentCount}"></div>
-                        <small class="text-muted">Présents</small>
-                    </div>
-                    <div class="col-md-3 text-center">
-                        <div class="fs-2 fw-bold text-warning" th:text="${closeResult.fundCoveredCount}"></div>
-                        <small class="text-muted">Fond</small>
-                    </div>
-                    <div class="col-md-3 text-center">
-                        <div class="fs-2 fw-bold text-danger" th:text="${closeResult.defaultCount}"></div>
-                        <small class="text-muted">Échecs</small>
-                    </div>
-                </div>
-                <hr>
-                <div class="row g-3">
+                <p class="mb-3" th:if="${meetingSession.presenceBeneficiary != null}">
+                    Bénéficiaire désigné :
+                    <strong th:text="${meetingSession.presenceBeneficiary.fullName}">—</strong>
+                </p>
+                <p class="form-text mb-3">
+                    Le tirage au sort se fait en séance entre les membres présents qui n'ont pas
+                    encore bénéficié du tour en cours. Enregistrez ici son résultat — il détermine
+                    les montants dus par chacun.
+                </p>
+
+                <form th:action="@{/sessions/{id}/presence/beneficiary(id=${meetingSession.id})}"
+                      method="post" class="row g-2 align-items-end"
+                      sec:authorize="hasAuthority('ATTENDANCE_RECORD')">
                     <div class="col-md-6">
-                        <table class="table table-sm mb-0">
-                            <tr>
-                                <td>Bénéficiaire</td>
-                                <td class="fw-bold" th:text="${closeResult.beneficiary != null ? closeResult.beneficiary.fullName : '—'}"></td>
-                            </tr>
-                            <tr>
-                                <td>Tontine brute</td>
-                                <td class="fw-bold" th:text="${#numbers.formatDecimal(closeResult.grossTontine,1,'COMMA',0,'POINT')} + ' FCFA'"></td>
-                            </tr>
-                            <tr th:if="${closeResult.sanctionDeductions.compareTo(T(java.math.BigDecimal).ZERO) > 0}">
-                                <td class="text-danger">— Sanctions déduites</td>
-                                <td class="fw-bold text-danger" th:text="'−' + ${#numbers.formatDecimal(closeResult.sanctionDeductions,1,'COMMA',0,'POINT')} + ' FCFA'"></td>
-                            </tr>
-                            <tr class="table-success">
-                                <td><strong>Tontine nette</strong></td>
-                                <td class="fw-bold" th:text="${#numbers.formatDecimal(closeResult.netTontine,1,'COMMA',0,'POINT')} + ' FCFA'"></td>
-                            </tr>
-                        </table>
+                        <label class="form-label req" for="beneficiaryMemberId">Résultat du tirage</label>
+                        <select id="beneficiaryMemberId" name="memberId" class="form-select" required>
+                            <option value="">— Sélectionner le membre tiré au sort —</option>
+                            <option th:each="p : ${eligibleBeneficiaries}" th:value="${p.memberId}"
+                                    th:selected="${meetingSession.presenceBeneficiary != null
+                                                   and meetingSession.presenceBeneficiary.id == p.memberId}"
+                                    th:text="${eligibleNames.get(p.memberId) ?: '—'}
+                                             + (${p.joinedMidTour} ? ' (arrivé en cours de tour)' : '')"></option>
+                        </select>
                     </div>
-                    <div class="col-md-6">
-                        <table class="table table-sm mb-0">
-                            <tr>
-                                <td>Caisse Développement</td>
-                                <td class="fw-bold" th:text="${#numbers.formatDecimal(closeResult.totalDevelopment,1,'COMMA',0,'POINT')} + ' FCFA'"></td>
-                            </tr>
-                            <tr>
-                                <td>Reliquat Boisson</td>
-                                <td class="fw-bold" th:text="${#numbers.formatDecimal(closeResult.beverageReliquat,1,'COMMA',0,'POINT')} + ' FCFA'"></td>
-                            </tr>
-                            <tr class="table-info">
-                                <td><strong>Net à remettre au trésorier</strong></td>
-                                <td class="fw-bold fs-5" th:text="${#numbers.formatDecimal(closeResult.netAmountToTreasurer,1,'COMMA',0,'POINT')} + ' FCFA'"></td>
-                            </tr>
-                        </table>
+                    <div class="col-md-3">
+                        <button type="submit" class="btn btn-primary w-100 justify-content-center">
+                            <i class="bi bi-check-lg" aria-hidden="true"></i>Désigner
+                        </button>
                     </div>
-                </div>
+                    <p class="form-text col-12 mb-0" th:if="${#lists.isEmpty(eligibleBeneficiaries)}">
+                        Tous les membres du tour ont déjà bénéficié : clôturez le tour et ouvrez-en un nouveau.
+                    </p>
+                </form>
             </div>
         </div>
-    </div>
 
-    <!-- Next step button -->
-    <div class="d-flex justify-content-end gap-2"
-         sec:authorize="hasAuthority('TONTINE_VIEW')">
-        <form th:action="@{/sessions/{id}/tontine/open(id=${meetingSession.id})}" method="post">
-            <button type="submit" class="btn btn-primary btn-lg">
-                <i class="bi bi-cash-stack me-1"></i>Passer à la Grande Tontine →
-            </button>
-        </form>
-    </div>
-</div>
-
-<!-- ── ÉTAPE 3 : TONTINE_OPEN (contribution libre/imposée) ── -->
-<div class="step-content" th:classappend="${stepName == 'TONTINE_OPEN' ? 'active' : ''}">
-
-<th:block th:if="${tontineTour != null && tontineNextBeneficiary != null}">
-
-    <!-- Tour info -->
-    <div class="card border-0 shadow-sm mb-3" style="border-left:4px solid #0d6efd">
-        <div class="card-body py-2 d-flex align-items-center justify-content-between">
-            <div>
-                <small class="text-muted">Tour n°<span th:text="${tontineTour.id}"></span></small>
-                <span class="mx-2 text-muted">·</span>
-                <small class="text-muted">Démarré le <span th:text="${#temporals.format(tontineTour.startDate,'dd/MM/yyyy')}"></span></small>
-                <span class="mx-2 text-muted">·</span>
-                <small class="text-muted"><span th:text="${tontineParticipants.size()}"></span> participants</small>
-            </div>
-            <a th:href="@{/tontine/{id}(id=${tontineTour.id})}" class="btn btn-sm btn-outline-primary">
-                <i class="bi bi-box-arrow-up-right me-1"></i>Voir le tour
-            </a>
-        </div>
-    </div>
-
-    <!-- Beneficiary card -->
-    <div class="card border-0 shadow-sm mb-3" style="background: linear-gradient(135deg, #e8f4fd, #d0ebff); border-left: 4px solid #0d6efd;">
-        <div class="card-body py-3">
-            <div class="d-flex align-items-center gap-3">
-                <i class="bi bi-person-fill text-primary fs-2"></i>
-                <div>
-                    <small class="text-muted">Bénéficiaire de la Grande Tontine</small>
-                    <p class="fw-bold fs-5 mb-0"
-                       th:text="${tontineMemberNames != null ? tontineMemberNames.get(tontineNextBeneficiary.memberId) : '—'}"></p>
-                </div>
-                <span class="badge bg-primary ms-auto fs-6">
-                    Ordre <span th:text="${tontineNextBeneficiary.drawOrder}"></span>
+        <!-- Feuille de présence -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-table" aria-hidden="true"></i>Feuille de présence
+                <span class="pill pill-warning ms-2">Saisie en cours</span>
+                <span class="card-header-actions" sec:authorize="hasAuthority('ATTENDANCE_RECORD')">
+                    <a class="btn btn-sm btn-primary"
+                       th:href="@{/sessions/{id}/attendance(id=${meetingSession.id})}">
+                        <i class="bi bi-pencil-square" aria-hidden="true"></i>Saisir les cotisations
+                    </a>
                 </span>
             </div>
-        </div>
-    </div>
-
-    <!-- Instructions -->
-    <div class="alert alert-info small py-2 mb-3">
-        <i class="bi bi-info-circle me-1"></i>
-        Sélectionnez le cotisant et indiquez le montant. Contribution <strong>imposée</strong> : 5 000 FCFA.
-        Montant <strong>libre</strong> : tout multiple de 5 000 supérieur à 5 000. Cochez <strong>Échec</strong> si le participant ne peut pas cotiser.
-    </div>
-
-    <!-- Contribution form -->
-    <form th:action="@{/sessions/{id}/tontine/contribute(id=${meetingSession.id})}" method="post" class="mb-3">
-        <input type="hidden" name="tourId" th:value="${tontineTour.id}">
-        <input type="hidden" name="beneficiaryId" th:value="${tontineNextBeneficiary.memberId}">
-        <input type="hidden" name="amount" id="hiddenAmount" value="5000">
-
-        <div class="table-responsive">
-            <table class="table table-sm table-hover align-middle">
-                <thead class="table-dark">
-                    <tr>
-                        <th style="width:40px">Ordre</th>
-                        <th>Membre</th>
-                        <th class="text-center">Sélection</th>
-                        <th style="width:200px">Montant (FCFA)</th>
-                        <th style="width:80px" class="text-center">Imposée</th>
-                        <th style="width:80px" class="text-center">Échec</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr th:each="p : ${tontineParticipants}"
-                        th:classappend="${p.memberId == tontineNextBeneficiary.memberId} ? 'table-primary' : ''">
-                        <td th:text="${p.drawOrder}"></td>
-                        <td>
-                            <span th:text="${tontineMemberNames.get(p.memberId)}"></span>
-                            <span th:if="${p.memberId == tontineNextBeneficiary.memberId}" class="badge bg-primary ms-1" style="font-size:0.65rem">BÉNÉF</span>
-                        </td>
-                        <td class="text-center">
-                            <input type="radio" class="form-check-input contributor-select"
-                                   name="contributorId" th:value="${p.memberId}"
-                                   th:disabled="${p.memberId == tontineNextBeneficiary.memberId}">
-                        </td>
-                        <td>
-                            <div class="input-group input-group-sm">
-                                <input type="number" class="form-control contrib-amount"
-                                       th:data-member-id="${p.memberId}"
-                                       th:id="'amount_' + ${p.memberId}"
-                                       min="0" step="5000" placeholder="5000"
-                                       th:disabled="${p.memberId == tontineNextBeneficiary.memberId}">
-                                <span class="input-group-text">FCFA</span>
-                            </div>
-                        </td>
-                        <td class="text-center">
-                            <button type="button" class="btn btn-sm btn-outline-success impose-btn"
-                                    th:data-member-id="${p.memberId}"
-                                    th:disabled="${p.memberId == tontineNextBeneficiary.memberId}"
-                                    title="Appliquer 5 000 FCFA imposé">
-                                <i class="bi bi-check-circle"></i>
-                            </button>
-                        </td>
-                        <td class="text-center">
-                            <input type="checkbox" class="form-check-input default-cb"
-                                   th:id="'default_' + ${p.memberId}"
-                                   th:data-member-id="${p.memberId}"
-                                   th:disabled="${p.memberId == tontineNextBeneficiary.memberId}">
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-
-        <!-- Footer => selected contributor amount only -->
-        <div class="card bg-light mb-0">
-            <div class="card-body py-2">
-                <div class="row align-items-center g-2">
-                    <div class="col-md-4 text-center">
-                        <small class="text-muted">Cotisant</small>
-                        <div class="fw-bold" id="selectedContributorName">—</div>
-                    </div>
-                    <div class="col-md-4 text-center">
-                        <small class="text-muted">Imposée</small>
-                        <div class="fw-bold text-success" id="imposedTotal">5 000 FCFA</div>
-                    </div>
-                    <div class="col-md-4 text-center">
-                        <small class="text-muted">Libre (supplément)</small>
-                        <div class="fw-bold text-primary" id="freeTotal">0 FCFA</div>
-                    </div>
-                </div>
-                <hr class="my-2">
-                <div class="text-center">
-                    <span class="text-muted">Total cotisation :</span>
-                    <span class="fw-bold fs-5 text-success" id="grandTotal">5 000 FCFA</span>
-                </div>
-            </div>
-        </div>
-
-        <div class="d-flex justify-content-end gap-2 mt-3">
-            <button type="submit" class="btn btn-primary btn-lg">
-                <i class="bi bi-save me-1"></i>Enregistrer la cotisation
-            </button>
-        </div>
-    </form>
-
-    <!-- Close tontine -->
-    <div class="d-flex justify-content-end gap-2" sec:authorize="hasAuthority('TONTINE_TOUR_CREATE')">
-        <form th:action="@{/sessions/{id}/tontine/close(id=${meetingSession.id})}" method="post"
-              onsubmit="return confirm('Clôturer la Grande Tontine ? Le bénéficiaire sera marqué comme ayant bénéficié.')">
-            <button type="submit" class="btn btn-danger btn-lg">
-                <i class="bi bi-lock me-1"></i>Clôturer la Grande Tontine
-            </button>
-        </form>
-    </div>
-
-</th:block>
-
-<th:block th:if="${tontineTour == null}">
-    <div class="alert alert-warning">
-        <i class="bi bi-exclamation-triangle me-1"></i>
-        Aucun tour de grande tontine ouvert. <a th:href="@{/tontine/new}" class="alert-link">Créez un tour</a> avant de commencer.
-    </div>
-</th:block>
-
-</div>
-
-<!-- ── ÉTAPE 4 : TONTINE_CLOSED (résumé collecte) ── -->
-<div class="step-content" th:classappend="${stepName == 'TONTINE_CLOSED' ? 'active' : ''}">
-    <div class="card border-0 shadow-sm mb-3 summary-card tontine">
-        <div class="card-header bg-primary text-white fw-semibold">
-            <i class="bi bi-check-circle me-1"></i>Grande Tontine — Récapitulatif
-        </div>
-        <div class="card-body">
-            <th:block th:if="${tontineSessionContribs != null && !tontineSessionContribs.isEmpty()}">
-                <div class="row g-3 mb-3">
-                    <div class="col-md-4 text-center py-2 rounded bg-light">
-                        <div class="fs-3 fw-bold text-primary" th:text="${tontineSessionContribs.size()}"></div>
-                        <small class="text-muted">Cotisants</small>
-                    </div>
-                    <div class="col-md-4 text-center py-2 rounded bg-light">
-                        <div class="fs-3 fw-bold text-success" th:text="${#numbers.formatDecimal(tontineSessionTotal != null ? tontineSessionTotal : 0,1,'COMMA',0,'POINT')} + ' FCFA'"></div>
-                        <small class="text-muted">Total collecté</small>
-                    </div>
-                    <div class="col-md-4 text-center py-2 rounded bg-light">
-                        <div class="fs-3 fw-bold text-info" th:text="${tontineSessionContribs.stream().filter(c -> !c.paid).count()}"></div>
-                        <small class="text-muted">Défauts</small>
-                    </div>
-                </div>
-
-                <table class="table table-sm mb-0">
+            <div class="table-wrap">
+                <table class="table">
+                    <caption class="visually-hidden">État de la feuille de présence</caption>
                     <thead>
                         <tr>
-                            <th>Cotisant</th>
-                            <th>Montant</th>
-                            <th>Statut</th>
+                            <th scope="col">Membre</th>
+                            <th scope="col" class="text-center">Présent</th>
+                            <th scope="col" class="num">Versé</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr th:each="c : ${tontineSessionContribs}">
-                            <td th:text="${tontineMemberNames.get(c.contributorId)}"></td>
-                            <td th:text="${#numbers.formatDecimal(c.amount,1,'COMMA',0,'POINT')} + ' FCFA'"></td>
-                            <td>
-                                <span th:if="${c.paid}" class="badge bg-success">Payé</span>
-                                <span th:unless="${c.paid}" class="badge bg-danger">Défaut</span>
+                        <tr th:each="att : ${attendances}">
+                            <th scope="row" th:text="${att.member.fullName}">Nom</th>
+                            <td class="text-center">
+                                <i class="bi" aria-hidden="true"
+                                   th:classappend="${att.present ? 'bi-check-circle-fill' : 'bi-dash-circle'}"
+                                   th:style="${att.present ? 'color:var(--c-success)' : 'color:var(--c-border-strong)'}"></i>
+                                <span class="visually-hidden" th:text="${att.present ? 'Présent' : 'Absent'}"></span>
                             </td>
+                            <td class="num money"
+                                th:text="${#numbers.formatInteger(att.amountPaid,1,'WHITESPACE')} + ' FCFA'">0</td>
                         </tr>
+                        <tr th:replace="~{fragments/ui :: emptyRow(3, 'Aucun membre sur cette feuille', ${#lists.isEmpty(attendances)})}"></tr>
                     </tbody>
                 </table>
-            </th:block>
-            <th:block th:if="${tontineSessionContribs == null || tontineSessionContribs.isEmpty()}">
-                <p class="text-muted mb-0 text-center py-3">
-                    <i class="bi bi-info-circle me-1"></i>Aucune contribution enregistrée pour cette séance.
-                </p>
-            </th:block>
+            </div>
         </div>
+
+        <div class="callout" style="border-left-color:var(--c-danger)" sec:authorize="hasAuthority('SESSION_CLOSE')">
+            <i class="bi bi-lock callout-icon" style="color:var(--c-danger)" aria-hidden="true"></i>
+            <div class="callout-body">
+                <p class="mb-0 fw-semibold">Clôturer la présence</p>
+                <p class="mb-0 small text-muted">
+                    Fond de roulement, recouvrements, sanctions, retenues et caisses sont calculés
+                    à ce moment. Irréversible.
+                </p>
+            </div>
+            <div class="callout-actions">
+                <form th:action="@{/sessions/{id}/presence/close(id=${meetingSession.id})}" method="post"
+                      data-confirm="Clôturer la présence ? Les calculs financiers seront effectués automatiquement.">
+                    <button type="submit" class="btn btn-danger"
+                            th:disabled="${meetingSession.presenceBeneficiary == null}">
+                        <i class="bi bi-lock" aria-hidden="true"></i>Clôturer la présence
+                    </button>
+                </form>
+            </div>
+        </div>
+    </th:block>
+
+    <!-- ─────────── PRESENCE_CLOSED : récapitulatif ──────── -->
+    <th:block th:case="'PRESENCE_CLOSED'">
+        <div th:replace="~{sessions/_presence-summary :: presenceSummary(${closeResult})}"></div>
+        <div th:replace="~{sessions/_rubric-details :: presenceDetail}"></div>
+        <div th:replace="~{sessions/_rubric-details :: recoveryDetail}"></div>
+        <div th:replace="~{sessions/_rubric-details :: dayFlows}"></div>
+
+        <div class="callout" sec:authorize="hasAuthority('TONTINE_VIEW')">
+            <i class="bi bi-cash-stack callout-icon" style="color:var(--c-brand-500)" aria-hidden="true"></i>
+            <div class="callout-body">
+                <p class="mb-0 fw-semibold">Passer à la Grande Tontine</p>
+                <p class="mb-0 small text-muted">Rubrique suivante de l'ordre du jour.</p>
+            </div>
+            <div class="callout-actions">
+                <form th:action="@{/sessions/{id}/tontine/open(id=${meetingSession.id})}" method="post">
+                    <button type="submit" class="btn btn-primary">
+                        Ouvrir la Grande Tontine<i class="bi bi-arrow-right" aria-hidden="true"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </th:block>
+
+    <!-- ─────────── TONTINE_OPEN : cotisations ───────────── -->
+    <th:block th:case="'TONTINE_OPEN'">
+
+        <div class="alert alert-warning" role="alert" th:if="${tontineTour == null}">
+            <i class="bi bi-exclamation-triangle-fill flex-shrink-0" aria-hidden="true"></i>
+            <span>
+                Aucun tour de grande tontine ouvert.
+                <a th:href="@{/tontine/new}" sec:authorize="hasAuthority('TONTINE_TOUR_CREATE')">Créez un tour</a>
+                pour enregistrer des cotisations, ou passez directement à l'étape suivante.
+            </span>
+        </div>
+
+        <th:block th:if="${tontineTour != null}">
+            <div class="callout callout-info mb-4">
+                <i class="bi bi-person-check callout-icon" style="color:var(--c-info)" aria-hidden="true"></i>
+                <div class="callout-body">
+                    <p class="mb-0 fw-semibold" th:if="${tontineNextBeneficiary != null}">
+                        Bénéficiaire du jour :
+                        <span th:text="${tontineMemberNames.get(tontineNextBeneficiary.memberId) ?: '—'}">—</span>
+                        <span class="pill pill-brand ms-1">
+                            Ordre <span th:text="${tontineNextBeneficiary.drawOrder}">1</span>
+                        </span>
+                    </p>
+                    <p class="mb-0 fw-semibold" th:if="${tontineNextBeneficiary == null}">
+                        Tous les participants de ce tour ont déjà bénéficié.
+                    </p>
+                    <p class="mb-0 small text-muted">
+                        Tour n°<span th:text="${tontineTour.id}">1</span> ·
+                        <span th:text="${#lists.size(tontineParticipants)}">0</span> participants ·
+                        démarré le <span th:text="${#temporals.format(tontineTour.startDate,'dd/MM/yyyy')}">date</span>
+                    </p>
+                </div>
+                <div class="callout-actions">
+                    <a th:href="@{/tontine/{id}(id=${tontineTour.id})}" class="btn btn-outline-secondary btn-sm">
+                        Voir le tour<i class="bi bi-box-arrow-up-right" aria-hidden="true"></i>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Saisie — les lignes déjà enregistrées figurent dans la feuille -->
+            <div class="card mb-4" th:if="${tontineNextBeneficiary != null}"
+                 sec:authorize="hasAuthority('TONTINE_CONTRIBUTION_RECORD')">
+                <div class="card-header">
+                    <i class="bi bi-cash-coin" aria-hidden="true"></i>Feuille de cotisation
+                    <span class="text-muted small ms-2"
+                          th:text="'(' + ${#lists.size(tontineParticipants)} + ' participants)'"></span>
+                    <span class="card-header-actions">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" data-tontine-fill>
+                            Remplir les montants imposés
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" data-tontine-clear>
+                            Tout effacer
+                        </button>
+                    </span>
+                </div>
+                <form th:action="@{/sessions/{id}/tontine/sheet(id=${meetingSession.id})}" method="post"
+                      id="tontineSheetForm">
+                    <input type="hidden" name="tourId" th:value="${tontineTour.id}">
+                    <input type="hidden" name="beneficiaryId" th:value="${tontineNextBeneficiary.memberId}">
+
+                    <p class="form-text mx-4 mt-4 mb-0">
+                        Les membres ayant déjà bénéficié rendent <strong>exactement</strong> ce que le
+                        bénéficiaire du jour leur avait cotisé — montant imposé, pré-rempli. Les autres
+                        donnent le montant de leur choix, au minimum 5 000 FCFA et par multiples de
+                        5 000. Le bénéficiaire cotise lui aussi. <strong>0</strong> enregistre un échec ;
+                        une case laissée vide n'est pas enregistrée et pourra l'être plus tard.
+                    </p>
+
+                    <div class="table-wrap">
+                        <table class="table table-hover" id="tontineSheet">
+                            <caption class="visually-hidden">
+                                Montant versé par chaque participant au bénéficiaire du jour.
+                            </caption>
+                            <thead>
+                                <tr>
+                                    <th scope="col" style="width:4rem">Ordre</th>
+                                    <th scope="col" style="min-width:12rem">Membre</th>
+                                    <th scope="col" class="num" style="width:9rem">Montant imposé</th>
+                                    <th scope="col" style="width:12rem">Versé</th>
+                                    <th scope="col" style="width:10rem">Effet estimé</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr th:each="p, it : ${tontineParticipants}" class="js-tontine-row"
+                                    th:with="owed=${tontineDebts != null ? tontineDebts.get(p.memberId) : null},
+                                             done=${tontineRecordedBy != null ? tontineRecordedBy.get(p.memberId) : null}"
+                                    th:attr="data-imposed=${owed != null ? owed : ''}">
+                                    <td th:text="${p.drawOrder}">1</td>
+                                    <th scope="row" class="fw-semibold">
+                                        <span th:text="${tontineMemberNames.get(p.memberId) ?: '—'}">Nom</span>
+                                        <span class="pill pill-accent ms-1"
+                                              th:if="${p.memberId == tontineNextBeneficiary.memberId}">bénéficiaire</span>
+                                        <span class="pill pill-muted ms-1"
+                                              th:if="${p.hasBenefited and p.memberId != tontineNextBeneficiary.memberId}">déjà bénéficié</span>
+                                        <input type="hidden" th:name="'entries[' + ${it.index} + '].contributorId'"
+                                               th:value="${p.memberId}">
+                                    </th>
+                                    <td class="num">
+                                        <span class="money" th:if="${owed != null}"
+                                              th:text="${#numbers.formatInteger(owed,1,'WHITESPACE')}">0</span>
+                                        <span class="text-muted" th:if="${owed == null}">libre</span>
+                                    </td>
+                                    <td>
+                                        <div class="input-group input-group-sm" th:if="${done == null}">
+                                            <input type="number" class="form-control num js-tontine-amount"
+                                                   th:name="'entries[' + ${it.index} + '].amount'"
+                                                   min="0" step="1" inputmode="numeric"
+                                                   th:attr="aria-label='Montant versé par ' + ${tontineMemberNames.get(p.memberId)}">
+                                            <span class="input-group-text">FCFA</span>
+                                        </div>
+                                        <span class="money money-in" th:if="${done != null}"
+                                              th:text="${#numbers.formatInteger(done,1,'WHITESPACE')} + ' FCFA'">0</span>
+                                    </td>
+                                    <td>
+                                        <span class="pill pill-success" th:if="${done != null}">
+                                            <i class="bi bi-check2" aria-hidden="true"></i>Enregistrée
+                                        </span>
+                                        <span class="pill pill-muted js-tontine-status" th:if="${done == null}">—</span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <th scope="row" colspan="3">Total saisi</th>
+                                    <td class="num money money-in">
+                                        <span id="tontineSheetTotal">0</span> FCFA
+                                    </td>
+                                    <td></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+
+                    <div class="card-footer d-flex justify-content-end">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg" aria-hidden="true"></i>Enregistrer la feuille
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </th:block>
+
+        <!-- Rubriques déjà closes : leur détail reste consultable. -->
+        <div th:replace="~{sessions/_presence-summary :: presenceSummary(${closeResult})}"></div>
+        <div th:replace="~{sessions/_rubric-details :: presenceDetail}"></div>
+        <div th:replace="~{sessions/_rubric-details :: recoveryDetail}"></div>
+        <div th:replace="~{sessions/_rubric-details :: dayFlows}"></div>
+
+        <div class="callout" style="border-left-color:var(--c-danger)"
+             sec:authorize="hasAuthority('TONTINE_TOUR_CREATE')">
+            <i class="bi bi-lock callout-icon" style="color:var(--c-danger)" aria-hidden="true"></i>
+            <div class="callout-body">
+                <p class="mb-0 fw-semibold">Clôturer la Grande Tontine</p>
+                <p class="mb-0 small text-muted">
+                    Les retenues éventuelles sont appliquées et le bénéficiaire est marqué comme servi.
+                </p>
+            </div>
+            <div class="callout-actions">
+                <form th:action="@{/sessions/{id}/tontine/close(id=${meetingSession.id})}" method="post"
+                      data-confirm="Clôturer la Grande Tontine pour cette séance ?">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-lock" aria-hidden="true"></i>Clôturer la tontine
+                    </button>
+                </form>
+            </div>
+        </div>
+    </th:block>
+
+    <!-- ─────────── TONTINE_CLOSED ───────────────────────── -->
+    <th:block th:case="'TONTINE_CLOSED'">
+        <div class="card card-accent card-accent-info mb-4">
+            <div class="card-header">
+                <i class="bi bi-cash-stack" aria-hidden="true"></i>Grande Tontine — récapitulatif
+            </div>
+            <div class="card-body"
+                 th:if="${tontineSessionContribs != null and !#lists.isEmpty(tontineSessionContribs)}">
+                <div class="row g-3 mb-4">
+                    <div class="col-6 col-lg-4">
+                        <div class="metric">
+                            <div class="metric-value" th:text="${#lists.size(tontineSessionContribs)}">0</div>
+                            <div class="metric-label">Cotisations saisies</div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-lg-4">
+                        <div class="metric">
+                            <div class="metric-value money money-in">
+                                <span th:text="${#numbers.formatInteger(tontineSessionTotal != null ? tontineSessionTotal : 0,1,'WHITESPACE')}">0</span>
+                                <span class="money-unit">FCFA</span>
+                            </div>
+                            <div class="metric-label">Collecté</div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-lg-4">
+                        <div class="metric">
+                            <div class="metric-value" style="color:var(--c-danger)"
+                                 th:text="${tontineSessionDefaults != null ? tontineSessionDefaults : 0}">0</div>
+                            <div class="metric-label">Échecs</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="table-wrap">
+                    <table class="table">
+                        <caption class="visually-hidden">Cotisations de la séance</caption>
+                        <thead>
+                            <tr>
+                                <th scope="col">Cotisant</th>
+                                <th scope="col">Bénéficiaire</th>
+                                <th scope="col" class="num">Montant</th>
+                                <th scope="col">Statut</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="c : ${tontineSessionContribs}">
+                                <th scope="row" th:text="${tontineMemberNames.get(c.contributorId) ?: '—'}">Nom</th>
+                                <td th:text="${tontineMemberNames.get(c.beneficiaryId) ?: '—'}">Nom</td>
+                                <td class="num money" th:text="${#numbers.formatInteger(c.amount,1,'WHITESPACE')} + ' FCFA'">0</td>
+                                <td>
+                                    <span class="pill pill-success" th:if="${c.paid}">Payée</span>
+                                    <span class="pill pill-danger" th:unless="${c.paid}">Échec</span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card-body" th:if="${tontineSessionContribs == null or #lists.isEmpty(tontineSessionContribs)}">
+                <div th:replace="~{fragments/ui :: empty('bi-inbox', 'Aucune cotisation', 'Aucune cotisation de grande tontine saisie pendant cette séance.')}"></div>
+            </div>
+        </div>
+
+        <!-- Les rubriques déjà closes gardent leur détail sous les yeux. -->
+        <div th:replace="~{sessions/_presence-summary :: presenceSummary(${closeResult})}"></div>
+        <div th:replace="~{sessions/_rubric-details :: presenceDetail}"></div>
+        <div th:replace="~{sessions/_rubric-details :: recoveryDetail}"></div>
+        <div th:replace="~{sessions/_rubric-details :: dayFlows}"></div>
+
+        <div class="callout">
+            <i class="bi bi-briefcase callout-icon" style="color:var(--c-brand-500)" aria-hidden="true"></i>
+            <div class="callout-body">
+                <p class="mb-0 fw-semibold">Passer à la Banque Projet</p>
+                <p class="mb-0 small text-muted">Rubrique suivante de l'ordre du jour.</p>
+            </div>
+            <div class="callout-actions">
+                <form th:action="@{/sessions/{id}/banque-projet/open(id=${meetingSession.id})}" method="post">
+                    <button type="submit" class="btn btn-primary">
+                        Ouvrir la Banque Projet<i class="bi bi-arrow-right" aria-hidden="true"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </th:block>
+
+    <!-- ─────────── BANQUE PROJET ────────────────────────── -->
+    <th:block th:case="'BANQUE_PROJET_OPEN'"
+              th:with="closeAction=@{/sessions/{id}/banque-projet/close(id=${meetingSession.id})}">
+        <th:block th:replace="~{sessions/_bank-placeholder :: banqueProjet(${closeAction})}"></th:block>
+    </th:block>
+
+    <th:block th:case="'BANQUE_PROJET_CLOSED'">
+        <div class="callout callout-muted mb-4">
+            <i class="bi bi-check-circle callout-icon" style="color:var(--c-success)" aria-hidden="true"></i>
+            <div class="callout-body">
+                <p class="mb-0 fw-semibold">Banque Projet passée</p>
+                <p class="mb-0 small text-muted">La saisie de cette rubrique sera implémentée ultérieurement.</p>
+            </div>
+        </div>
+        <div class="callout">
+            <i class="bi bi-bank callout-icon" style="color:var(--c-brand-500)" aria-hidden="true"></i>
+            <div class="callout-body">
+                <p class="mb-0 fw-semibold">Passer à la Banque Annuelle</p>
+                <p class="mb-0 small text-muted">Dernière rubrique financière avant le rapport.</p>
+            </div>
+            <div class="callout-actions">
+                <form th:action="@{/sessions/{id}/banque-annuelle/open(id=${meetingSession.id})}" method="post">
+                    <button type="submit" class="btn btn-primary">
+                        Ouvrir la Banque Annuelle<i class="bi bi-arrow-right" aria-hidden="true"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </th:block>
+
+    <!-- ─────────── BANQUE ANNUELLE ──────────────────────── -->
+    <th:block th:case="'BANQUE_ANNUELLE_OPEN'"
+              th:with="closeAction=@{/sessions/{id}/banque-annuelle/close(id=${meetingSession.id})}">
+        <th:block th:replace="~{sessions/_bank-placeholder :: banqueAnnuelle(${closeAction})}"></th:block>
+    </th:block>
+
+    <th:block th:case="'BANQUE_ANNUELLE_CLOSED'">
+        <div class="callout callout-muted mb-4">
+            <i class="bi bi-check-circle callout-icon" style="color:var(--c-success)" aria-hidden="true"></i>
+            <div class="callout-body">
+                <p class="mb-0 fw-semibold">Toutes les rubriques financières sont passées</p>
+                <p class="mb-0 small text-muted">Il ne reste qu'à établir le rapport de séance.</p>
+            </div>
+        </div>
+        <div class="callout" sec:authorize="hasAuthority('SESSION_CLOSE')">
+            <i class="bi bi-file-earmark-bar-graph callout-icon" style="color:var(--c-success)" aria-hidden="true"></i>
+            <div class="callout-body">
+                <p class="mb-0 fw-semibold">Générer le rapport de séance</p>
+                <p class="mb-0 small text-muted">
+                    Fige les entrées et sorties du jour et le montant remis au trésorier.
+                    Plus aucun mouvement ne pourra être rattaché à la séance ensuite.
+                </p>
+            </div>
+            <div class="callout-actions">
+                <form th:action="@{/sessions/{id}/report/generate(id=${meetingSession.id})}" method="post"
+                      data-confirm="Générer le rapport final de la séance ?">
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-file-earmark-bar-graph" aria-hidden="true"></i>Générer le rapport
+                    </button>
+                </form>
+            </div>
+        </div>
+    </th:block>
+
+    <!-- ─────────── REPORT_GENERATED ─────────────────────── -->
+    <th:block th:case="'REPORT_GENERATED'">
+        <div class="card card-accent card-accent-success">
+            <div class="card-body text-center py-5">
+                <p class="mb-3" style="font-size:2.5rem;color:var(--c-success)" aria-hidden="true">
+                    <i class="bi bi-check-circle"></i>
+                </p>
+                <h2 class="h4">Séance terminée</h2>
+                <p class="text-muted">Le rapport a été généré et les écritures sont consolidées.</p>
+                <a th:href="@{/sessions/{id}/report(id=${meetingSession.id})}" class="btn btn-primary mt-2"
+                   sec:authorize="hasAuthority('SESSION_VIEW')">
+                    <i class="bi bi-eye" aria-hidden="true"></i>Voir le rapport
+                </a>
+            </div>
+        </div>
+    </th:block>
+
+</th:block>
+
+<!-- ══ Entrées et sorties diverses du jour ═══════════════════ -->
+<div class="card mt-5" th:unless="${isReportGenerated}">
+    <div class="card-header">
+        <i class="bi bi-arrow-left-right" aria-hidden="true"></i>Autres entrées et sorties du jour
     </div>
-    <div class="d-flex justify-content-end gap-2" sec:authorize="hasAuthority('SESSION_CLOSE')">
-        <form th:action="@{/sessions/{id}/report/generate(id=${meetingSession.id})}" method="post"
-              onsubmit="return confirm('Générer le rapport final de la séance ?')">
-            <button type="submit" class="btn btn-success btn-lg">
-                <i class="bi bi-file-earmark-bar-graph me-1"></i>Générer le rapport final
-            </button>
+    <div class="card-body">
+        <p class="form-text mb-4">
+            Les entrées du jour ne se limitent pas aux cotisations : un don d'un membre, une
+            dépense décidée en séance… Tout mouvement saisi ici est rattaché à la séance et
+            apparaît dans son rapport, où il augmente ou diminue le montant remis au trésorier.
+        </p>
+
+        <form th:action="@{/sessions/{id}/movements(id=${meetingSession.id})}" method="post"
+              th:object="${movementForm}" class="row g-2 align-items-end"
+              sec:authorize="hasAuthority('CASHBOX_MANUAL_MOVEMENT')">
+            <div class="col-md-3">
+                <label class="form-label req" for="movementCashbox">Caisse</label>
+                <select id="movementCashbox" class="form-select form-select-sm" th:field="*{cashbox}" required>
+                    <option th:each="t : ${cashboxTypes}" th:value="${t.name()}" th:text="${t.label()}"></option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label req" for="movementDirection">Sens</label>
+                <select id="movementDirection" class="form-select form-select-sm" th:field="*{direction}" required>
+                    <option value="in">Entrée</option>
+                    <option value="out">Sortie</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label req" for="movementAmount">Montant</label>
+                <input type="number" id="movementAmount" class="form-control form-control-sm num"
+                       th:field="*{amount}" min="1" step="1" inputmode="numeric" required>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label req" for="movementReason">Motif</label>
+                <input type="text" id="movementReason" class="form-control form-control-sm"
+                       th:field="*{reason}" placeholder="ex. don de M. NKOU" required>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary btn-sm w-100 justify-content-center">
+                    <i class="bi bi-plus-lg" aria-hidden="true"></i>Ajouter
+                </button>
+            </div>
         </form>
     </div>
-</div>
 
-<!-- ── ÉTAPE 9 : REPORT_GENERATED ───────────────────── -->
-<div class="step-content" th:classappend="${stepName == 'REPORT_GENERATED' ? 'active' : ''}">
-    <div class="card border-0 shadow-sm mb-3">
-        <div class="card-header bg-success text-white fw-semibold">
-            <i class="bi bi-file-earmark-bar-graph me-1"></i>Rapport généré
-        </div>
-        <div class="card-body text-center py-5">
-            <i class="bi bi-check-circle text-success" style="font-size:4rem"></i>
-            <p class="mt-3 fs-5">La séance est terminée.</p>
-            <a th:href="@{/sessions/{id}/report(id=${meetingSession.id})}" class="btn btn-primary btn-lg mt-2"
-               sec:authorize="hasAuthority('SESSION_VIEW')">
-                <i class="bi bi-eye me-1"></i>Voir le rapport complet
-            </a>
-        </div>
+    <div class="table-wrap" th:if="${!#lists.isEmpty(sessionInflows) or !#lists.isEmpty(sessionOutflows)}">
+        <table class="table">
+            <caption class="visually-hidden">Mouvements de caisse rattachés à la séance</caption>
+            <thead>
+                <tr>
+                    <th scope="col">Caisse</th>
+                    <th scope="col">Sens</th>
+                    <th scope="col" class="num">Montant</th>
+                    <th scope="col">Motif</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="m : ${sessionInflows}">
+                    <th scope="row" th:text="${m.cashbox.type.label()}">Caisse</th>
+                    <td><span class="pill pill-success">Entrée</span></td>
+                    <td class="num money money-in" th:text="'+ ' + ${#numbers.formatInteger(m.amount,1,'WHITESPACE')}">0</td>
+                    <td th:text="${m.reason ?: '—'}">—</td>
+                </tr>
+                <tr th:each="m : ${sessionOutflows}">
+                    <th scope="row" th:text="${m.cashbox.type.label()}">Caisse</th>
+                    <td><span class="pill pill-danger">Sortie</span></td>
+                    <td class="num money money-out" th:text="'− ' + ${#numbers.formatInteger(m.amount,1,'WHITESPACE')}">0</td>
+                    <td th:text="${m.reason ?: '—'}">—</td>
+                </tr>
+            </tbody>
+        </table>
     </div>
 </div>
 
-</th:block><!-- /stepName -->
+</th:block>
 
 <th:block th:fragment="extraScripts">
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const IMPOSED = 5000;
-    var memberNames = new Map();
-
-    // ── Build member name lookup from data attributes ─────
-    document.querySelectorAll('.contributor-select').forEach(function(radio) {
-        var row = radio.closest('tr');
-        if (row) {
-            var nameEl = row.querySelector('td:nth-child(2)');
-            if (nameEl) {
-                var name = nameEl.textContent.replace('BÉNÉF', '').trim();
-                memberNames.set(radio.value, name);
-            }
-        }
-    });
-
-    function getSelectedContributorId() {
-        var selected = document.querySelector('.contributor-select:checked');
-        return selected ? selected.value : null;
-    }
-
-    function getSelectedContributorName() {
-        var id = getSelectedContributorId();
-        return id ? memberNames.get(id) || '—' : '—';
-    }
-
-    function getAmountFor(memberId) {
-        var input = document.getElementById('amount_' + memberId);
-        if (!input) return 0;
-        var cb = document.getElementById('default_' + memberId);
-        if (cb && cb.checked) return 0;
-        return parseInt(input.value) || 0;
-    }
-
-    function updateFooter() {
-        var selectedId = getSelectedContributorId();
-        var name = getSelectedContributorName();
-        var amount = selectedId ? getAmountFor(selectedId) : 0;
-        var imposed = Math.min(amount, IMPOSED);
-        var free = amount - imposed;
-
-        document.getElementById('selectedContributorName').textContent = name;
-        document.getElementById('imposedTotal').textContent = imposed.toLocaleString() + ' FCFA';
-        document.getElementById('freeTotal').textContent = free.toLocaleString() + ' FCFA';
-        document.getElementById('grandTotal').textContent = amount.toLocaleString() + ' FCFA';
-        document.getElementById('hiddenAmount').value = amount;
-    }
-
-    // ── Auto-select first eligible radio on load ───────────
-    (function autoSelectFirst() {
-        var radios = document.querySelectorAll('.contributor-select:not([disabled])');
-        if (radios.length > 0) {
-            radios[0].checked = true;
-        }
-        updateFooter();
-    })();
-
-    // ── Radio change ───────────────────────────────────────
-    document.querySelectorAll('.contributor-select').forEach(function(radio) {
-        radio.addEventListener('change', function() {
-            if (this.checked) updateFooter();
-        });
-    });
-
-    // ── Impose button: set 5000 ────────────────────────────
-    document.querySelectorAll('.impose-btn').forEach(function(btn) {
-        btn.addEventListener('click', function() {
-            var memberId = this.getAttribute('data-member-id');
-            var amountInput = document.getElementById('amount_' + memberId);
-            var defaultCb = document.getElementById('default_' + memberId);
-            var radio = document.querySelector('.contributor-select[value="' + memberId + '"]');
-            if (amountInput) {
-                amountInput.value = IMPOSED;
-                amountInput.disabled = false;
-                if (defaultCb) defaultCb.checked = false;
-                if (radio) radio.checked = true;
-                updateFooter();
-            }
-        });
-    });
-
-    // ── Default checkbox: set amount to 0 ──────────────────
-    document.querySelectorAll('.default-cb').forEach(function(cb) {
-        cb.addEventListener('change', function() {
-            var memberId = this.getAttribute('data-member-id');
-            var amountInput = document.getElementById('amount_' + memberId);
-            var radio = document.querySelector('.contributor-select[value="' + memberId + '"]');
-            if (amountInput) {
-                if (this.checked) {
-                    amountInput.value = 0;
-                    amountInput.disabled = true;
-                    if (radio) radio.checked = true;
-                } else {
-                    amountInput.value = IMPOSED;
-                    amountInput.disabled = false;
-                }
-                updateFooter();
-            }
-        });
-    });
-
-    // ── Amount input change ────────────────────────────────
-    document.querySelectorAll('.contrib-amount').forEach(function(input) {
-        input.addEventListener('input', function() {
-            var memberId = this.getAttribute('data-member-id');
-            var radio = document.querySelector('.contributor-select[value="' + memberId + '"]');
-            if (radio && !radio.checked && parseInt(this.value) > 0) {
-                radio.checked = true;
-            }
-            updateFooter();
-        });
-    });
-
-    // ── Form submit: ensure hidden amount is set ───────────
-    document.querySelector('form[action*="tontine/contribute"]')?.addEventListener('submit', function(e) {
-        var selectedId = getSelectedContributorId();
-        if (!selectedId) {
-            e.preventDefault();
-            alert('Veuillez sélectionner un cotisant.');
-            return;
-        }
-        document.getElementById('hiddenAmount').value = getAmountFor(selectedId);
-    });
-});
-</script>
+<script th:src="@{/js/tontine-sheet.js}"></script>
 </th:block>
-</th:block></body></html>
+</body>
+</html>

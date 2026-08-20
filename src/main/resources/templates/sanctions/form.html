@@ -1,71 +1,83 @@
 <!DOCTYPE html>
 <html lang="fr" xmlns:th="http://www.thymeleaf.org"
-      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
-      th:replace="~{layout :: layout(pageTitle=${pageTitle}, content=~{::main-content}, extraHead=~{}, extraScripts=~{})}">
-<body><th:block th:fragment="main-content">
+      th:replace="~{layout :: layout(${pageTitle}, ~{::main-content}, ~{}, ~{})}">
+<body>
+<th:block th:fragment="main-content">
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <div class="page-header">
-        <h2><i class="bi bi-plus-circle me-2"></i>Nouvelle sanction disciplinaire</h2>
-        <p>Sanction disciplinaire — Censeur</p>
+<div class="page-head">
+    <div>
+        <h1><i class="bi bi-exclamation-triangle" aria-hidden="true"></i>Nouvelle sanction disciplinaire</h1>
+        <p class="page-subtitle">
+            Sanction décidée par le bureau (censeur). Les sanctions liées à la présence
+            ou à la tontine sont créées automatiquement.
+        </p>
     </div>
-    <a th:href="@{/sanctions}" class="btn btn-outline-secondary btn-sm">
-        <i class="bi bi-arrow-left me-1"></i>Retour aux sanctions
-    </a>
+    <div class="page-actions">
+        <a th:href="@{/sanctions}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left" aria-hidden="true"></i>Retour
+        </a>
+    </div>
 </div>
 
-<div class="row justify-content-center">
-    <div class="col-md-6">
-        <div class="card border-0 shadow-sm">
-            <div class="card-body">
-                <form th:action="@{/sanctions/new}" th:object="${form}" method="post">
-                    <div class="mb-3">
-                        <label class="form-label">Membre</label>
-                        <select th:field="*{memberId}" class="form-select"
-                                th:classappend="${#fields.hasErrors('memberId') ? 'is-invalid' : ''}">
-                            <option value="">— Sélectionner un membre —</option>
-                            <option th:each="m : ${members}" th:value="${m.id}"
-                                    th:text="${m.fullName}"></option>
-                        </select>
-                        <div class="invalid-feedback" th:if="${#fields.hasErrors('memberId')}"
-                             th:errors="*{memberId}">Erreur</div>
-                    </div>
+<div class="card form-panel">
+    <div class="card-body">
+        <form th:action="@{/sanctions/new}" th:object="${form}" method="post" novalidate>
 
-                    <div class="mb-3">
-                        <label class="form-label">Montant (FCFA)</label>
-                        <div class="input-group">
-                            <input type="number" th:field="*{amount}" class="form-control"
-                                   th:classappend="${#fields.hasErrors('amount') ? 'is-invalid' : ''}"
-                                   min="1" step="1" placeholder="Montant en FCFA">
-                            <span class="input-group-text">FCFA</span>
-                            <div class="invalid-feedback" th:if="${#fields.hasErrors('amount')}"
-                                 th:errors="*{amount}">Erreur</div>
-                        </div>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label">Motif</label>
-                        <textarea th:field="*{reason}" class="form-control" rows="3"
-                                  th:classappend="${#fields.hasErrors('reason') ? 'is-invalid' : ''}"></textarea>
-                        <div class="invalid-feedback" th:if="${#fields.hasErrors('reason')}"
-                             th:errors="*{reason}">Erreur</div>
-                    </div>
-
-                    <div class="alert alert-warning mb-3 py-2 small">
-                        <i class="bi bi-exclamation-triangle me-1"></i>
-                        Sanction disciplinaire — Censeur. Montant libre défini par le bureau.
-                    </div>
-
-                    <div class="d-flex gap-2">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-check-circle me-1"></i>Enregistrer
-                        </button>
-                        <a th:href="@{/sanctions}" class="btn btn-outline-secondary">Annuler</a>
-                    </div>
-                </form>
+            <div th:if="${#fields.hasAnyErrors()}" class="alert alert-danger" role="alert">
+                <i class="bi bi-exclamation-triangle-fill flex-shrink-0" aria-hidden="true"></i>
+                <span>Certaines informations sont invalides. Corrigez les champs signalés.</span>
             </div>
-        </div>
+
+            <div class="mb-4">
+                <label class="form-label req" for="memberId">Membre sanctionné</label>
+                <select id="memberId" class="form-select" th:field="*{memberId}"
+                        th:classappend="${#fields.hasErrors('memberId')} ? 'is-invalid'" required>
+                    <option value="">— Sélectionner un membre —</option>
+                    <option th:each="m : ${members}" th:value="${m.id}" th:text="${m.fullName}"></option>
+                </select>
+                <div class="invalid-feedback" th:errors="*{memberId}"></div>
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label req" for="amount">Montant</label>
+                <div class="input-group">
+                    <input type="number" id="amount" class="form-control num" th:field="*{amount}"
+                           th:classappend="${#fields.hasErrors('amount')} ? 'is-invalid'"
+                           min="1" step="1" inputmode="numeric" required>
+                    <span class="input-group-text">FCFA</span>
+                </div>
+                <div class="invalid-feedback d-block" th:if="${#fields.hasErrors('amount')}" th:errors="*{amount}"></div>
+                <p class="form-text">Montant libre, fixé par le bureau.</p>
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label req" for="reason">Motif</label>
+                <textarea id="reason" class="form-control" rows="3" th:field="*{reason}"
+                          th:classappend="${#fields.hasErrors('reason')} ? 'is-invalid'" required></textarea>
+                <div class="invalid-feedback" th:errors="*{reason}"></div>
+                <p class="form-text">
+                    Le motif figure dans la liste des sanctions et dans les rapports : soyez explicite.
+                </p>
+            </div>
+
+            <div class="alert alert-info" role="note">
+                <i class="bi bi-info-circle-fill flex-shrink-0" aria-hidden="true"></i>
+                <span>
+                    La sanction est créée à la date du jour, au statut « impayée ». Son encaissement
+                    se fait depuis la liste des sanctions et crédite la caisse Sanction.
+                </span>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check-lg" aria-hidden="true"></i>Enregistrer la sanction
+                </button>
+                <a th:href="@{/sanctions}" class="btn btn-outline-secondary">Annuler</a>
+            </div>
+        </form>
     </div>
 </div>
 
-</th:block></body></html>
+</th:block>
+</body>
+</html>

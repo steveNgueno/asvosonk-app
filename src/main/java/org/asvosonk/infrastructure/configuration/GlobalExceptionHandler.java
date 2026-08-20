@@ -25,6 +25,8 @@ import java.util.Optional;
 @ControllerAdvice
 public class GlobalExceptionHandler {
 
+    private static final String FALLBACK_REDIRECT = "/dashboard";
+
     // ── 404: Resource not found ──────────────────────────────
 
     @ExceptionHandler(ResourceNotFoundException.class)
@@ -36,12 +38,33 @@ public class GlobalExceptionHandler {
         return "error/404";
     }
 
-    // ── Silently ignore missing static resources ─────────────
+    // ── Unknown URL ──────────────────────────────────────────
 
+    /**
+     * Spring Boot raises {@code NoResourceFoundException} for <em>any</em> path
+     * that matches no controller, not only for missing files. Returning an empty
+     * 404 for all of them left a user who mistyped a URL on a blank page; only
+     * asset-looking requests (a file extension, or a client that does not ask for
+     * HTML) get the silent empty response now.
+     */
     @ExceptionHandler(NoResourceFoundException.class)
-    public ResponseEntity<Void> handleNoResourceFound(NoResourceFoundException ex) {
-        log.debug("Static resource not found (ignored): {}", ex.getResourcePath());
-        return ResponseEntity.notFound().build();
+    public Object handleNoResourceFound(NoResourceFoundException ex,
+                                        HttpServletRequest request,
+                                        Model model) {
+        String path = ex.getResourcePath() != null ? ex.getResourcePath() : "";
+        String accept = Optional.ofNullable(request.getHeader("Accept")).orElse("");
+        boolean looksLikeAsset = path.contains(".");
+        boolean wantsHtml = accept.contains("text/html") || accept.contains("*/*");
+
+        if (looksLikeAsset || !wantsHtml) {
+            log.debug("Resource not found (empty 404): {}", path);
+            return ResponseEntity.notFound().build();
+        }
+
+        log.warn("Unknown page requested: {}", request.getRequestURI());
+        model.addAttribute("pageTitle", "404 — Introuvable");
+        return new org.springframework.web.servlet.ModelAndView(
+            "error/404", model.asMap(), HttpStatus.NOT_FOUND);
     }
 
     // ── 403: Access denied ───────────────────────────────────
@@ -64,11 +87,7 @@ public class GlobalExceptionHandler {
                                      RedirectAttributes ra) {
         log.warn("Business rule violation: {}", ex.getMessage());
         ra.addFlashAttribute("errorMessage", ex.getMessage());
-
-        // Redirect back to the referrer if available, otherwise to the dashboard
-        String referer = Optional.ofNullable(request.getHeader("Referer"))
-            .orElse("/dashboard");
-        return "redirect:" + referer;
+        return backToCaller(request);
     }
 
     // ── Duplicate resource (redirect with flash) ─────────────
@@ -79,10 +98,7 @@ public class GlobalExceptionHandler {
                                           RedirectAttributes ra) {
         log.warn("Duplicate resource: {}", ex.getMessage());
         ra.addFlashAttribute("errorMessage", ex.getMessage());
-
-        String referer = Optional.ofNullable(request.getHeader("Referer"))
-            .orElse("/dashboard");
-        return "redirect:" + referer;
+        return backToCaller(request);
     }
 
     // ── Illegal argument / illegal state (redirect with flash) ──
@@ -93,10 +109,7 @@ public class GlobalExceptionHandler {
                                         RedirectAttributes ra) {
         log.warn("Illegal argument/state: {}", ex.getMessage());
         ra.addFlashAttribute("errorMessage", ex.getMessage());
-
-        String referer = Optional.ofNullable(request.getHeader("Referer"))
-            .orElse("/dashboard");
-        return "redirect:" + referer;
+        return backToCaller(request);
     }
 
     // ── 500: Unexpected errors ───────────────────────────────
@@ -109,5 +122,60 @@ public class GlobalExceptionHandler {
         model.addAttribute("errorDetail",
             "Une erreur inattendue s'est produite. Veuillez réessayer ou contacter l'administrateur.");
         return "error/500";
+    }
+
+    // ── Helpers ──────────────────────────────────────────────
+
+    /**
+     * Sends the user back where they came from, after the flash message is set.
+     *
+     * <p>The {@code Referer} header is attacker-controllable, so it is never
+     * concatenated into a redirect as-is: an absolute URL (or a scheme-relative
+     * {@code //evil.example}) would turn any business-rule violation into an
+     * open redirect (CWE-601). Only a same-origin path from this application is
+     * accepted; anything else falls back to the dashboard.
+     */
+    private String backToCaller(HttpServletRequest request) {
+        return "redirect:" + safeReferer(request);
+    }
+
+    private String safeReferer(HttpServletRequest request) {
+        String referer = request.getHeader("Referer");
+        if (referer == null || referer.isBlank()) {
+            return FALLBACK_REDIRECT;
+        }
+
+        String candidate = referer.trim();
+
+        // Absolute URL: keep only its path+query, and only when the host matches ours.
+        if (candidate.contains("://")) {
+            try {
+                java.net.URI uri = java.net.URI.create(candidate);
+                if (!isSameHost(uri, request)) {
+                    return FALLBACK_REDIRECT;
+                }
+                candidate = uri.getRawPath() == null || uri.getRawPath().isEmpty()
+                    ? FALLBACK_REDIRECT
+                    : uri.getRawPath() + (uri.getRawQuery() != null ? "?" + uri.getRawQuery() : "");
+            } catch (IllegalArgumentException malformed) {
+                return FALLBACK_REDIRECT;
+            }
+        }
+
+        // Reject protocol-relative ("//host"), backslash tricks and anything not rooted.
+        if (!candidate.startsWith("/") || candidate.startsWith("//") || candidate.contains("\\")
+            || candidate.contains("\n") || candidate.contains("\r")) {
+            return FALLBACK_REDIRECT;
+        }
+        // Never bounce a failed POST back to the login page.
+        if (candidate.startsWith("/login")) {
+            return FALLBACK_REDIRECT;
+        }
+        return candidate;
+    }
+
+    private boolean isSameHost(java.net.URI uri, HttpServletRequest request) {
+        String host = uri.getHost();
+        return host != null && host.equalsIgnoreCase(request.getServerName());
     }
 }

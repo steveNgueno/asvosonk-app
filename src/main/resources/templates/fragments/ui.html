@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org">
+<!--
+  Fragments d'interface réutilisables.
+  Aucun de ces fragments ne contient de règle métier : ils ne font que
+  présenter des données déjà calculées côté serveur.
+-->
+<body>
+
+<!-- ══════════════════════════════════════════════════════════
+     stepper(steps, currentIdx) — progression d'une séance
+     steps      : SessionStep.DisplayStep[]
+     currentIdx : index de l'étape courante (0..n-1)
+     ══════════════════════════════════════════════════════════ -->
+<th:block th:fragment="stepper(steps, currentIdx)">
+    <ol class="stepper list-unstyled" aria-label="Progression de la séance">
+        <th:block th:each="s, it : ${steps}">
+            <li th:unless="${it.first}" class="step-line"
+                th:classappend="${it.index <= currentIdx} ? 'is-done'" aria-hidden="true"></li>
+            <li class="step"
+                th:classappend="${it.index < currentIdx} ? 'is-done' : (${it.index == currentIdx} ? 'is-current' : '')"
+                th:attrappend="aria-current=${it.index == currentIdx ? 'step' : null}">
+                <span class="step-mark">
+                    <i class="bi" th:classappend="${it.index < currentIdx} ? 'bi-check-lg' : ${s.icon}"
+                       aria-hidden="true"></i>
+                </span>
+                <span class="step-label" th:text="${s.label}">Étape</span>
+                <span class="visually-hidden"
+                      th:text="${it.index < currentIdx ? 'terminée' : (it.index == currentIdx ? 'en cours' : 'à venir')}"></span>
+            </li>
+        </th:block>
+    </ol>
+</th:block>
+
+<!-- ══════════════════════════════════════════════════════════
+     miniSteps(steps, currentIdx) — progression compacte (listes)
+     ══════════════════════════════════════════════════════════ -->
+<th:block th:fragment="miniSteps(steps, currentIdx)">
+    <span class="mini-steps">
+        <th:block th:each="s, it : ${steps}">
+            <span th:unless="${it.first}" class="mini-line"
+                  th:classappend="${it.index <= currentIdx} ? 'is-done'"></span>
+            <span class="mini-step"
+                  th:classappend="${it.index < currentIdx} ? 'is-done' : (${it.index == currentIdx} ? 'is-current' : '')"
+                  th:title="${s.label}"></span>
+        </th:block>
+    </span>
+</th:block>
+
+<!-- ══════════════════════════════════════════════════════════
+     emptyRow(colspan, message, show) — ligne « aucune donnée »
+
+     La condition est un PARAMÈTRE, elle n'est pas à écrire sur la ligne
+     appelante : th:replace est traité avant th:if, si bien qu'un
+     <tr th:if="…" th:replace="…"> insère la ligne dans tous les cas — y
+     compris sous un tableau rempli, où elle casse les scripts qui
+     parcourent les lignes.
+     ══════════════════════════════════════════════════════════ -->
+<tr th:fragment="emptyRow(colspan, message, show)" th:if="${show}">
+    <td th:attr="colspan=${colspan}" class="text-center text-muted py-4" th:text="${message}">
+        Aucune donnée
+    </td>
+</tr>
+
+<!-- ══════════════════════════════════════════════════════════
+     empty(icon, title, text) — état vide d'une section
+     ══════════════════════════════════════════════════════════ -->
+<div th:fragment="empty(icon, title, text)" class="empty">
+    <i class="empty-icon bi" th:classappend="${icon}" aria-hidden="true"></i>
+    <p class="empty-title mb-0" th:text="${title}">Aucune donnée</p>
+    <p class="empty-text" th:text="${text}"></p>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     cashboxSummary(types, balances) — aperçu des 4 caisses
+     types    : CashboxType[]
+     balances : Map<CashboxType, BigDecimal>
+     ══════════════════════════════════════════════════════════ -->
+<div th:fragment="cashboxSummary(types, balances)" class="row g-3">
+    <div class="col-6 col-lg-3" th:each="type : ${types}">
+        <div class="stat cashbox" th:classappend="${type.name()}">
+            <span class="stat-label" th:text="${type.label()}">Caisse</span>
+            <span class="stat-value sm money">
+                <span th:text="${#numbers.formatInteger(balances.get(type) ?: 0, 1, 'WHITESPACE')}">0</span>
+                <span class="money-unit">FCFA</span>
+            </span>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     memberStatus(status, label) — pastille de statut membre
+     ══════════════════════════════════════════════════════════ -->
+<span th:fragment="memberStatus(status, label)" class="pill"
+      th:classappend="${status.name() == 'active' ? 'pill-success' :
+                       (status.name() == 'suspended' ? 'pill-warning' : 'pill-muted')}"
+      th:text="${label}">Statut</span>
+
+</body>
+</html>

@@ -3,104 +3,77 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
     <title>Connexion — ASVOSONK</title>
-    <link rel="stylesheet"
-          href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
-    <link rel="stylesheet"
-          href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}">
+    <link rel="stylesheet" th:href="@{/vendor/bootstrap/bootstrap.min.css}">
+    <link rel="stylesheet" th:href="@{/vendor/bootstrap-icons/bootstrap-icons.min.css}">
     <link rel="stylesheet" th:href="@{/css/asvosonk.css}">
-    <style>
-        body { background-color: #f0f2f5; }
-        .login-card {
-            max-width: 420px;
-            margin: 8vh auto 0;
-            border: none;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0,0,0,.12);
-        }
-        .login-header {
-            background-color: #2c3e50;
-            color: white;
-            border-radius: 12px 12px 0 0;
-            padding: 2rem;
-            text-align: center;
-        }
-        .login-header h1 { font-size: 1.8rem; font-weight: 700; margin-bottom: .2rem; }
-        .login-header p  { font-size: .85rem; opacity: .75; margin: 0; }
-    </style>
+    <link rel="stylesheet" th:href="@{/css/login.css}">
 </head>
-<body>
+<body class="login-page">
 
-<div class="login-card">
-    <!-- Header -->
-    <div class="login-header">
-        <i class="bi bi-people-fill" style="font-size:2.5rem"></i>
-        <h1>ASVOSONK</h1>
-        <p>Nkou-Assi — Gestion financière</p>
-    </div>
+<main class="login-shell">
+    <section class="login-card" aria-labelledby="loginTitle">
+        <header class="login-head">
+            <span class="login-mark" aria-hidden="true"><i class="bi bi-people-fill"></i></span>
+            <h1 id="loginTitle">ASVOSONK</h1>
+            <p>Nkou-Assi — Gestion financière de l'association</p>
+        </header>
 
-    <!-- Form body -->
-    <div class="card-body p-4">
+        <div class="login-body">
 
-        <!-- Error messages -->
-        <div th:if="${param.error}" class="alert alert-danger py-2 small">
-            <i class="bi bi-exclamation-triangle me-1"></i>
-            Identifiant ou mot de passe incorrect, ou compte verrouillé.
-        </div>
-        <div th:if="${param.logout}" class="alert alert-info py-2 small">
-            <i class="bi bi-check-circle me-1"></i>
-            Vous avez été déconnecté avec succès.
-        </div>
-        <div th:if="${param.expired}" class="alert alert-warning py-2 small">
-            <i class="bi bi-clock me-1"></i>
-            Votre session a expiré. Veuillez vous reconnecter.
-        </div>
-
-        <form th:action="@{/login}" method="post">
-            <!-- CSRF token injected automatically by Thymeleaf + Spring Security -->
-
-            <div class="mb-3">
-                <label for="login" class="form-label fw-semibold">Identifiant</label>
-                <div class="input-group">
-                    <span class="input-group-text"><i class="bi bi-person"></i></span>
-                    <input type="text" id="login" name="login"
-                           class="form-control" placeholder="Votre identifiant"
-                           autofocus required>
-                </div>
+            <div th:if="${param.error}" class="alert alert-danger" role="alert">
+                <i class="bi bi-exclamation-triangle-fill flex-shrink-0" aria-hidden="true"></i>
+                <span>Identifiant ou mot de passe incorrect, ou compte verrouillé.</span>
+            </div>
+            <div th:if="${param.logout}" class="alert alert-success" role="status">
+                <i class="bi bi-check-circle-fill flex-shrink-0" aria-hidden="true"></i>
+                <span>Vous avez été déconnecté.</span>
+            </div>
+            <div th:if="${param.expired}" class="alert alert-warning" role="status">
+                <i class="bi bi-clock-history flex-shrink-0" aria-hidden="true"></i>
+                <span>Votre session a expiré. Veuillez vous reconnecter.</span>
             </div>
 
-            <div class="mb-4">
-                <label for="password" class="form-label fw-semibold">Mot de passe</label>
-                <div class="input-group">
-                    <span class="input-group-text"><i class="bi bi-lock"></i></span>
-                    <input type="password" id="password" name="password"
-                           class="form-control" placeholder="Mot de passe" required>
-                    <button class="btn btn-outline-secondary" type="button"
-                            onclick="togglePassword()">
-                        <i class="bi bi-eye" id="eyeIcon"></i>
-                    </button>
+            <form th:action="@{/login}" method="post" novalidate>
+                <!-- Le jeton CSRF est injecté automatiquement par Thymeleaf. -->
+
+                <div class="mb-3">
+                    <label for="login" class="form-label">Identifiant</label>
+                    <div class="input-group">
+                        <span class="input-group-text" aria-hidden="true"><i class="bi bi-person"></i></span>
+                        <input type="text" id="login" name="login" class="form-control"
+                               autocomplete="username" autocapitalize="none"
+                               autofocus required>
+                    </div>
                 </div>
-            </div>
 
-            <button type="submit" class="btn btn-primary w-100 py-2">
-                <i class="bi bi-box-arrow-in-right me-1"></i>Se connecter
-            </button>
-        </form>
-    </div>
-</div>
+                <div class="mb-4">
+                    <label for="password" class="form-label">Mot de passe</label>
+                    <div class="input-group">
+                        <span class="input-group-text" aria-hidden="true"><i class="bi bi-lock"></i></span>
+                        <input type="password" id="password" name="password" class="form-control"
+                               autocomplete="current-password" required>
+                        <button class="btn btn-outline-secondary" type="button" id="togglePassword"
+                                aria-label="Afficher le mot de passe" aria-pressed="false">
+                            <i class="bi bi-eye" id="eyeIcon" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                </div>
 
-<script>
-function togglePassword() {
-    const input = document.getElementById('password');
-    const icon  = document.getElementById('eyeIcon');
-    if (input.type === 'password') {
-        input.type = 'text';
-        icon.className = 'bi bi-eye-slash';
-    } else {
-        input.type = 'password';
-        icon.className = 'bi bi-eye';
-    }
-}
-</script>
+                <button type="submit" class="btn btn-primary btn-lg w-100 justify-content-center">
+                    <i class="bi bi-box-arrow-in-right" aria-hidden="true"></i>Se connecter
+                </button>
+            </form>
+        </div>
+
+        <p class="login-foot">
+            Après 3 échecs consécutifs, le compte est temporairement verrouillé.
+        </p>
+    </section>
+</main>
+
+<script th:src="@{/js/login.js}"></script>
 </body>
 </html>

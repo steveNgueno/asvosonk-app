@@ -10,6 +10,7 @@ import org.asvosonk.member.infrastructure.persistence.entity.MemberEntity;
 import org.asvosonk.member.infrastructure.persistence.entity.MembershipFee;
 import org.asvosonk.member.infrastructure.persistence.repository.MembershipFeeRepository;
 import org.asvosonk.member.presentation.request.MemberRequest;
+import org.asvosonk.presence.application.usecase.CreatePresenceTourUseCase;
 import org.asvosonk.session.domain.model.RevolvingFund;
 import org.asvosonk.session.domain.repository.RevolvingFundRepository;
 import org.springframework.stereotype.Service;
@@ -29,6 +30,7 @@ public class CreateMemberUseCase {
     private final MemberRepository        memberRepository;
     private final MembershipFeeRepository feeRepository;
     private final RevolvingFundRepository revolvingFundRepository;
+    private final CreatePresenceTourUseCase createPresenceTourUseCase;
     private final EntityManager           entityManager;
 
     @Transactional
@@ -62,6 +64,11 @@ public class CreateMemberUseCase {
         // ── Initialize revolving fund via domain repository ─────────────
         RevolvingFund fund = new RevolvingFund(null, created.getId(), REVOLVING_FUND_INITIAL, LocalDateTime.now());
         revolvingFundRepository.save(fund);
+
+        // ── Rattachement au tour de présence en cours ───────────────────
+        // La présence est obligatoire pour tous : un nouvel adhérent entre dans
+        // le tour en cours, en dernière position et hors tirage.
+        createPresenceTourUseCase.addLateMember(created.getId(), created.getJoinDate());
 
         return created;
     }

@@ -24,7 +24,6 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @Controller
 @RequestMapping("/sanctions")
@@ -60,14 +59,9 @@ public class SanctionController {
             }
         }
 
-        // Build member name lookup
-        Map<Long, String> memberNames = sanctions.stream()
-            .map(Sanction::getMemberId)
-            .distinct()
-            .collect(Collectors.toMap(
-                java.util.function.Function.identity(),
-                id -> searchMemberUseCase.findById(id).getFullName()
-            ));
+        // Build member name lookup — one batched query (see findNamesByIds).
+        Map<Long, String> memberNames = searchMemberUseCase.findNamesByIds(
+            sanctions.stream().map(Sanction::getMemberId).toList());
 
         model.addAttribute("sanctions", sanctions);
         model.addAttribute("memberNames", memberNames);
@@ -130,9 +124,10 @@ public class SanctionController {
     @PostMapping("/{id}/cancel")
     @PreAuthorize("hasAuthority('SANCTION_CANCEL')")
     public String cancel(@PathVariable Long id,
+                         @RequestParam String cancelReason,
                          RedirectAttributes ra) {
         try {
-            cancelSanctionUseCase.execute(id);
+            cancelSanctionUseCase.execute(id, cancelReason);
             ra.addFlashAttribute("successMessage", "Sanction #" + id + " annulée.");
         } catch (Exception e) {
             ra.addFlashAttribute("errorMessage", e.getMessage());

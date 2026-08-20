@@ -1,246 +1,124 @@
 <!DOCTYPE html>
-<html th:replace="~{layout :: layout(
-    pageTitle,
-    ~{::content},
-    ~{::extraHead},
-    ~{::extraScripts}
-)}">
-<head>
-    <th:block th:ref="extraHead">
-    <style>
-        .report-card { transition: transform 0.2s, box-shadow 0.2s; cursor: pointer; }
-        .report-card:hover { transform: translateY(-3px); box-shadow: 0 8px 25px rgba(0,0,0,0.15); }
-        .report-card .card-icon { font-size: 2.5rem; }
-    </style>
-    </th:block>
-</head>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org"
+               xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      th:replace="~{layout :: layout(${pageTitle}, ~{::main-content}, ~{}, ~{})}">
 <body>
-<th:block th:ref="content">
+<th:block th:fragment="main-content">
 
-<h1 class="h3 mb-4">
-    <i class="bi bi-file-earmark-pdf me-2"></i>Rapports
-</h1>
+<div class="page-head">
+    <div>
+        <h1><i class="bi bi-file-earmark-pdf" aria-hidden="true"></i>Rapports</h1>
+        <p class="page-subtitle">
+            Génération des documents PDF. Le fichier est téléchargé automatiquement à la fin du traitement.
+        </p>
+    </div>
+</div>
 
 <div class="row g-4">
-    <!-- ── Session report ──────────────────────────────── -->
-    <div class="col-md-4">
-        <div class="card report-card border-primary h-100" data-bs-toggle="modal" data-bs-target="#sessionModal">
-            <div class="card-body text-center">
-                <div class="card-icon text-primary mb-3">
-                    <i class="bi bi-calendar-check"></i>
-                </div>
-                <h5 class="card-title">Rapport de séance</h5>
-                <p class="card-text text-muted small">
-                    Présences, cotisations, tontine, reliquat boisson et remise au trésorier.
+
+    <!-- ── Rapport de séance ─────────────────────────────── -->
+    <div class="col-lg-4">
+        <div class="card h-100 card-accent">
+            <div class="card-header"><i class="bi bi-calendar-check" aria-hidden="true"></i>Rapport de séance</div>
+            <div class="card-body d-flex flex-column">
+                <p class="text-muted">
+                    Présences, cotisations, tontine de présence, reliquat boisson et montant remis au trésorier
+                    pour une séance donnée.
                 </p>
-                <button type="button" class="btn btn-primary mt-2" data-bs-toggle="modal" data-bs-target="#sessionModal">
-                    <i class="bi bi-download me-1"></i>Générer
-                </button>
+                <form th:action="@{/reports/generate}" method="post" class="mt-auto">
+                    <input type="hidden" name="type" value="session">
+                    <div class="mb-3">
+                        <label class="form-label req" for="sessionDate">Date de la séance</label>
+                        <input type="date" id="sessionDate" name="dateFrom" class="form-control"
+                               th:value="${today}" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100 justify-content-center">
+                        <i class="bi bi-download" aria-hidden="true"></i>Générer le PDF
+                    </button>
+                </form>
             </div>
         </div>
     </div>
 
-    <!-- ── Monthly report ──────────────────────────────── -->
-    <div class="col-md-4">
-        <div class="card report-card border-success h-100" data-bs-toggle="modal" data-bs-target="#monthlyModal">
-            <div class="card-body text-center">
-                <div class="card-icon text-success mb-3">
-                    <i class="bi bi-calendar-month"></i>
-                </div>
-                <h5 class="card-title">État mensuel</h5>
-                <p class="card-text text-muted small">
-                    Mouvements de caisses, sanctions, fond de roulement — bilan complet du mois.
+    <!-- ── État mensuel ──────────────────────────────────── -->
+    <div class="col-lg-4">
+        <div class="card h-100 card-accent card-accent-success">
+            <div class="card-header"><i class="bi bi-calendar-month" aria-hidden="true"></i>État mensuel</div>
+            <div class="card-body d-flex flex-column">
+                <p class="text-muted">
+                    Mouvements de caisses, sanctions et fond de roulement sur une période — bilan du mois.
                 </p>
-                <button type="button" class="btn btn-success mt-2" data-bs-toggle="modal" data-bs-target="#monthlyModal">
-                    <i class="bi bi-download me-1"></i>Générer
-                </button>
+                <form th:action="@{/reports/generate}" method="post" class="mt-auto"
+                      sec:authorize="hasAuthority('REPORT_MONTHLY')">
+                    <input type="hidden" name="type" value="monthly">
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="form-label req" for="monthFrom">Du</label>
+                            <input type="date" id="monthFrom" name="dateFrom" class="form-control"
+                                   th:value="${monthStart}" required>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label req" for="monthTo">Au</label>
+                            <input type="date" id="monthTo" name="dateTo" class="form-control"
+                                   th:value="${monthEnd}" required>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100 justify-content-center">
+                        <i class="bi bi-download" aria-hidden="true"></i>Générer le PDF
+                    </button>
+                </form>
+                <div class="alert alert-secondary mb-0 mt-auto" sec:authorize="!hasAuthority('REPORT_MONTHLY')">
+                    <i class="bi bi-lock flex-shrink-0" aria-hidden="true"></i>
+                    <span>Votre rôle ne permet pas de générer l'état mensuel.</span>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- ── Quarterly report ────────────────────────────── -->
-    <div class="col-md-4">
-        <div class="card report-card border-warning h-100" data-bs-toggle="modal" data-bs-target="#quarterlyModal">
-            <div class="card-body text-center">
-                <div class="card-icon text-warning mb-3">
-                    <i class="bi bi-calendar-range"></i>
-                </div>
-                <h5 class="card-title">Rapport trimestriel</h5>
-                <p class="card-text text-muted small">
-                    Agrégation des états mensuels sur 3 mois, vue d'ensemble et graphiques.
+    <!-- ── Rapport trimestriel ───────────────────────────── -->
+    <div class="col-lg-4">
+        <div class="card h-100 card-accent card-accent-warning">
+            <div class="card-header"><i class="bi bi-calendar-range" aria-hidden="true"></i>Rapport trimestriel</div>
+            <div class="card-body d-flex flex-column">
+                <p class="text-muted">
+                    Agrégation sur trois mois, destinée au contrôle du commissaire aux comptes.
                 </p>
-                <button type="button" class="btn btn-warning mt-2" data-bs-toggle="modal" data-bs-target="#quarterlyModal">
-                    <i class="bi bi-download me-1"></i>Générer
-                </button>
+                <form th:action="@{/reports/generate}" method="post" class="mt-auto"
+                      sec:authorize="hasAuthority('REPORT_QUARTERLY')">
+                    <input type="hidden" name="type" value="quarterly">
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="form-label req" for="quarterFrom">Du</label>
+                            <input type="date" id="quarterFrom" name="dateFrom" class="form-control"
+                                   th:value="${quarterStart}" required>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label req" for="quarterTo">Au</label>
+                            <input type="date" id="quarterTo" name="dateTo" class="form-control"
+                                   th:value="${quarterEnd}" required>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100 justify-content-center">
+                        <i class="bi bi-download" aria-hidden="true"></i>Générer le PDF
+                    </button>
+                </form>
+                <div class="alert alert-secondary mb-0 mt-auto" sec:authorize="!hasAuthority('REPORT_QUARTERLY')">
+                    <i class="bi bi-lock flex-shrink-0" aria-hidden="true"></i>
+                    <span>Votre rôle ne permet pas de générer le rapport trimestriel.</span>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- ── Session Modal ──────────────────────────────────── -->
-<div class="modal fade" id="sessionModal" tabindex="-1">
-    <div class="modal-dialog modal-sm">
-        <div class="modal-content">
-            <form th:action="@{/reports/generate}" method="post">
-                <input type="hidden" name="type" value="session">
-                <div class="modal-header bg-primary text-white">
-                    <h5 class="modal-title">Rapport de séance</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">Date de la séance</label>
-                        <input type="date" class="form-control" name="dateFrom" id="sessionDate" required>
-                        <input type="hidden" name="dateTo" th:value="${#dates.format(#dates.createToday(), 'yyyy-MM-dd')}">
-                    </div>
-                    <div class="alert alert-info small mb-0">
-                        <i class="bi bi-info-circle me-1"></i>
-                        Le rapport sera téléchargé automatiquement en PDF.
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="submit" class="btn btn-primary">Générer</button>
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
-                </div>
-            </form>
-        </div>
-    </div>
+<div class="alert alert-info mt-4" role="note">
+    <i class="bi bi-info-circle-fill flex-shrink-0" aria-hidden="true"></i>
+    <span>
+        La génération est déléguée au module de rapports installé sur le poste serveur.
+        Si le téléchargement échoue, vérifiez que ce module est bien installé et configuré.
+    </span>
 </div>
 
-<!-- ── Monthly Modal ──────────────────────────────────── -->
-<div class="modal fade" id="monthlyModal" tabindex="-1">
-    <div class="modal-dialog modal-sm">
-        <div class="modal-content">
-            <form th:action="@{/reports/generate}" method="post">
-                <input type="hidden" name="type" value="monthly">
-                <div class="modal-header bg-success text-white">
-                    <h5 class="modal-title">État mensuel</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">Mois</label>
-                        <input type="month" class="form-control" name="month" id="monthInput">
-                    </div>
-                    <div class="alert alert-info small mb-0">
-                        <i class="bi bi-info-circle me-1"></i>
-                        Le rapport sera téléchargé automatiquement en PDF.
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="submit" class="btn btn-success">Générer</button>
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<!-- ── Quarterly Modal ────────────────────────────────── -->
-<div class="modal fade" id="quarterlyModal" tabindex="-1">
-    <div class="modal-dialog modal-sm">
-        <div class="modal-content">
-            <form th:action="@{/reports/generate}" method="post">
-                <input type="hidden" name="type" value="quarterly">
-                <div class="modal-header bg-warning">
-                    <h5 class="modal-title">Rapport trimestriel</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">Début du trimestre</label>
-                        <input type="month" class="form-control" name="quarterStart" id="quarterStart">
-                    </div>
-                    <div class="alert alert-info small mb-0">
-                        <i class="bi bi-info-circle me-1"></i>
-                        Le rapport sera téléchargé automatiquement en PDF.
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="submit" class="btn btn-warning">Générer</button>
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-</th:block>
-
-<th:block th:ref="extraScripts">
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Auto-fill inputs with current values
-    var now = new Date();
-    var dateStr = now.toISOString().split('T')[0];
-    var monthStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
-    var sessionDate = document.getElementById('sessionDate');
-    if (sessionDate) sessionDate.value = dateStr;
-    var monthInput = document.getElementById('monthInput');
-    if (monthInput) monthInput.value = monthStr;
-    var quarterInput = document.getElementById('quarterStart');
-    if (quarterInput) quarterInput.value = monthStr;
-
-    // Convert month input to date range on form submit
-    document.querySelectorAll('form').forEach(function(form) {
-        form.addEventListener('submit', function(e) {
-            var type = this.querySelector('input[name=\"type\"]');
-            if (type && type.value === 'monthly') {
-                var monthVal = this.querySelector('input[name=\"month\"]').value;
-                if (monthVal) {
-                    var parts = monthVal.split('-');
-                    var year = parseInt(parts[0]);
-                    var month = parseInt(parts[1]) - 1; // 0-based
-                    var firstDay = new Date(year, month, 1);
-                    var lastDay = new Date(year, month + 1, 0);
-
-                    var fd = firstDay.toISOString().split('T')[0];
-                    var ld = lastDay.toISOString().split('T')[0];
-
-                    // Add hidden date fields
-                    var fromInput = document.createElement('input');
-                    fromInput.type = 'hidden';
-                    fromInput.name = 'dateFrom';
-                    fromInput.value = fd;
-                    this.appendChild(fromInput);
-
-                    var toInput = document.createElement('input');
-                    toInput.type = 'hidden';
-                    toInput.name = 'dateTo';
-                    toInput.value = ld;
-                    this.appendChild(toInput);
-                }
-            }
-
-            if (type && type.value === 'quarterly') {
-                var qVal = this.querySelector('input[name=\"quarterStart\"]').value;
-                if (qVal) {
-                    var parts = qVal.split('-');
-                    var year = parseInt(parts[0]);
-                    var month = parseInt(parts[1]) - 1;
-                    var firstDay = new Date(year, month, 1);
-                    var lastDay = new Date(year, month + 3, 0);
-
-                    var fd = firstDay.toISOString().split('T')[0];
-                    var ld = lastDay.toISOString().split('T')[0];
-
-                    var fromInput = document.createElement('input');
-                    fromInput.type = 'hidden';
-                    fromInput.name = 'dateFrom';
-                    fromInput.value = fd;
-                    this.appendChild(fromInput);
-
-                    var toInput = document.createElement('input');
-                    toInput.type = 'hidden';
-                    toInput.name = 'dateTo';
-                    toInput.value = ld;
-                    this.appendChild(toInput);
-                }
-            }
-        });
-    });
-});
-</script>
 </th:block>
 </body>
 </html>

@@ -5,11 +5,13 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -66,8 +68,13 @@ public class ReportService {
 
         Process process = pb.start();
 
-        // Read stdout to get the generated file path (printed by Python)
-        String stdout = new String(process.getInputStream().readAllBytes());
+        // F-40 — stdout and stderr are two separate OS pipes with a bounded
+        // buffer (~64KB). Reading one of them to completion (readAllBytes)
+        // before the process exits blocks if the child fills the OTHER,
+        // undrained pipe in the meantime — a classic ProcessBuilder deadlock.
+        // Draining both streams concurrently, on their own threads, avoids it.
+        CompletableFuture<String> stdoutFuture = readStreamAsync(process.getInputStream());
+        CompletableFuture<String> stderrFuture = readStreamAsync(process.getErrorStream());
 
         // Wait for completion with timeout
         boolean finished = process.waitFor(TIMEOUT_SECONDS, TimeUnit.SECONDS);
@@ -79,11 +86,11 @@ public class ReportService {
                     + TIMEOUT_SECONDS + " secondes.");
         }
 
+        String stdout = stdoutFuture.join();
         int exitCode = process.exitValue();
 
         if (exitCode != 0) {
-            // Read stderr on failure
-            String stderr = new String(process.getErrorStream().readAllBytes());
+            String stderr = stderrFuture.join();
             log.error("Report generation failed (exit={}): {}", exitCode, stderr);
             throw new IllegalStateException(
                 "La génération du rapport a échoué (code " + exitCode + ").\n" + stderr);
@@ -108,5 +115,15 @@ public class ReportService {
 
         log.info("Report generated successfully: {}", pdfPath);
         return pdfPath;
+    }
+
+    private CompletableFuture<String> readStreamAsync(InputStream stream) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                return new String(stream.readAllBytes());
+            } catch (IOException e) {
+                return "";
+            }
+        });
     }
 }

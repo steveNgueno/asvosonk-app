@@ -2,10 +2,17 @@ package org.asvosonk.member.application.usecase;
 
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
+import org.asvosonk.common.domain.exception.BusinessRuleException;
 import org.asvosonk.member.domain.valueobject.FeeType;
 import org.asvosonk.member.infrastructure.persistence.entity.MemberEntity;
 import org.asvosonk.member.infrastructure.persistence.entity.MembershipFee;
+import org.asvosonk.member.infrastructure.persistence.entity.MembershipFeePayment;
+import org.asvosonk.member.infrastructure.persistence.repository.MembershipFeePaymentRepository;
 import org.asvosonk.member.infrastructure.persistence.repository.MembershipFeeRepository;
+import org.asvosonk.security.domain.model.AppUser;
+import org.asvosonk.security.infrastructure.persistence.entity.AppUserEntity;
+import org.asvosonk.session.application.usecase.RequireOpenSessionUseCase;
+import org.asvosonk.session.infrastructure.persistence.entity.MeetingSessionEntity;
 import org.asvosonk.session.infrastructure.persistence.entity.RevolvingFundEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,7 +24,7 @@ import java.util.List;
 
 /**
  * Use case: record a fee payment for a member.
- * Caps the payment at amountDue to prevent overpayment.
+ * Rejects a payment exceeding the remaining balance due (F-20).
  *
  * <p>F-03: when the paid fee is the {@code revolving_fund} membership fee, the
  * real amount collected is credited to the member's revolving fund balance, so
@@ -28,11 +35,38 @@ import java.util.List;
 @RequiredArgsConstructor
 public class RecordFeePaymentUseCase {
 
-    private final MembershipFeeRepository feeRepository;
-    private final EntityManager           entityManager;
+    private final MembershipFeeRepository        feeRepository;
+    private final MembershipFeePaymentRepository paymentRepository;
+    private final RequireOpenSessionUseCase      requireOpenSession;
+    private final EntityManager                  entityManager;
 
+    /**
+     * Encaisse un versement de frais.
+     *
+     * <p>Les frais d'adhésion ne se règlent qu'en séance : le versement est
+     * rattaché à la séance en cours et compte dans les entrées du jour. Sans
+     * séance ouverte, l'encaissement est refusé.</p>
+     *
+     * @param recordedBy utilisateur qui encaisse (piste d'audit), facultatif
+     */
     @Transactional
-    public MembershipFee execute(Long memberId, FeeType feeType, BigDecimal amount) {
+    public MembershipFee execute(Long memberId, FeeType feeType, BigDecimal amount, AppUser recordedBy) {
+        MeetingSessionEntity session = requireOpenSession.require("un frais d'adhésion");
+        MembershipFee saved = apply(memberId, feeType, amount);
+
+        MembershipFeePayment payment = new MembershipFeePayment();
+        payment.setFee(saved);
+        payment.setSession(session);
+        payment.setAmount(amount);
+        if (recordedBy != null) {
+            payment.setRecordedBy(entityManager.getReference(AppUserEntity.class, recordedBy.getId()));
+        }
+        paymentRepository.save(payment);
+
+        return saved;
+    }
+
+    private MembershipFee apply(Long memberId, FeeType feeType, BigDecimal amount) {
         // La ligne de frais est normalement créée à l'inscription du membre.
         // Si elle n'existe pas (membre importé/ancien, initialisation partielle),
         // on la crée à la volée avec le montant dû par défaut plutôt que d'échouer.
@@ -47,9 +81,18 @@ public class RecordFeePaymentUseCase {
             });
 
         BigDecimal previousPaid = fee.getAmountPaid();
-        BigDecimal newAmountPaid = previousPaid.add(amount);
 
-        // Cap at amountDue — no overpayment allowed
+        // F-20 — reject overpayment instead of silently capping it (same
+        // principle already applied to loan repayments, F-19): an amount that
+        // exceeds what's actually owed is refused with a clear message rather
+        // than the excess quietly vanishing from the recorded total.
+        BigDecimal remaining = fee.getAmountDue().subtract(previousPaid);
+        if (amount.compareTo(remaining) > 0) {
+            throw new BusinessRuleException(
+                "Le paiement dépasse le solde restant dû (" + remaining + " FCFA).");
+        }
+
+        BigDecimal newAmountPaid = previousPaid.add(amount);
         if (newAmountPaid.compareTo(fee.getAmountDue()) >= 0) {
             newAmountPaid = fee.getAmountDue();
             fee.setPaymentDate(LocalDate.now());

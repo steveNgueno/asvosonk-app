@@ -12,6 +12,9 @@ public class TontineParticipant {
     private final Long id;
     private final Long tourId;
     private final Long memberId;
+    // F-34 — mutable by design: a member who defaults before benefiting is
+    // pushed to last place (see RecordTontineContributionUseCase.handleDefault).
+    // The V1 schema comment calling this column "immutable" predates that rule.
     private int drawOrder;
     private boolean hasBenefited;
     private final LocalDateTime createdAt;

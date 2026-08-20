@@ -1,25 +1,32 @@
 <!DOCTYPE html>
 <html lang="fr" xmlns:th="http://www.thymeleaf.org"
-      th:replace="~{layout :: layout(pageTitle='Erreur serveur', content=~{::main-content}, extraHead=~{}, extraScripts=~{})}">
-<body><th:block th:fragment="main-content">
+      th:replace="~{layout :: layout('Erreur serveur', ~{::main-content}, ~{}, ~{})}">
+<body>
+<th:block th:fragment="main-content">
 
-<div class="text-center py-5">
-    <i class="bi bi-exclamation-octagon" style="font-size:5rem;color:var(--color-danger)"></i>
-    <h1 class="mt-3 fw-bold" style="font-size:4rem;color:var(--color-danger)">500</h1>
-    <h4>Erreur interne du serveur</h4>
-    <p class="text-muted">Une erreur inattendue s'est produite.</p>
-    <p th:if="${errorDetail != null}" class="text-danger small" th:text="${errorDetail}"></p>
-    <p th:unless="${errorDetail != null}" class="text-muted small">
-        Veuillez réessayer ou contacter l'administrateur si le problème persiste.
-    </p>
-    <div class="d-flex gap-2 justify-content-center mt-2">
-        <a th:href="@{/dashboard}" class="btn btn-primary">
-            <i class="bi bi-house me-1"></i>Tableau de bord
-        </a>
-        <a href="javascript:history.back()" class="btn btn-outline-secondary">
-            <i class="bi bi-arrow-left me-1"></i>Page précédente
-        </a>
+<div class="card form-panel mx-auto card-accent card-accent-danger">
+    <div class="card-body text-center py-5">
+        <p class="mb-2" style="font-size:2.5rem;color:var(--c-danger)" aria-hidden="true">
+            <i class="bi bi-exclamation-octagon"></i>
+        </p>
+        <p class="text-muted mb-1" style="font-size:var(--fs-xs);letter-spacing:.1em">ERREUR 500</p>
+        <h1 class="h4">Une erreur inattendue s'est produite</h1>
+        <p class="text-muted mb-1"
+           th:text="${errorDetail != null ? errorDetail : 'Veuillez réessayer, ou contacter votre administrateur si le problème persiste.'}">
+            Veuillez réessayer ou contacter l'administrateur si le problème persiste.
+        </p>
+        <p class="text-muted small">
+            Aucune donnée n'a été enregistrée si l'opération a échoué : les écritures financières
+            sont transactionnelles.
+        </p>
+        <div class="d-flex gap-2 justify-content-center mt-4">
+            <a th:href="@{/dashboard}" class="btn btn-primary">
+                <i class="bi bi-house" aria-hidden="true"></i>Tableau de bord
+            </a>
+        </div>
     </div>
 </div>
 
-</th:block></body></html>
+</th:block>
+</body>
+</html>
