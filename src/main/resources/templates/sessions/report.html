@@ -70,6 +70,13 @@
                                     th:text="${closeResult.sanctionDeductions.signum() > 0 ? '− ' : ''}
                                              + ${#numbers.formatInteger(closeResult.sanctionDeductions,1,'WHITESPACE')} + ' FCFA'">0</td>
                             </tr>
+                            <tr>
+                                <th scope="row" class="fw-normal">Retenues (aides)</th>
+                                <td class="num money"
+                                    th:classappend="${sessionReport != null and sessionReport.presenceAidDeductions.signum() > 0} ? 'money-out'"
+                                    th:text="${sessionReport != null and sessionReport.presenceAidDeductions.signum() > 0 ? '− ' : ''}
+                                             + ${#numbers.formatInteger(sessionReport != null ? sessionReport.presenceAidDeductions : 0,1,'WHITESPACE')} + ' FCFA'">0</td>
+                            </tr>
                         </tbody>
                         <tfoot>
                             <tr>
@@ -106,6 +113,13 @@
                                     th:classappend="${sessionReport.tontineSanctionDeductions.signum() > 0} ? 'money-out'"
                                     th:text="${sessionReport.tontineSanctionDeductions.signum() > 0 ? '− ' : ''}
                                              + ${#numbers.formatInteger(sessionReport.tontineSanctionDeductions,1,'WHITESPACE')} + ' FCFA'">0</td>
+                            </tr>
+                            <tr>
+                                <th scope="row" class="fw-normal">Retenues (aides)</th>
+                                <td class="num money"
+                                    th:classappend="${sessionReport.tontineAidDeductions.signum() > 0} ? 'money-out'"
+                                    th:text="${sessionReport.tontineAidDeductions.signum() > 0 ? '− ' : ''}
+                                             + ${#numbers.formatInteger(sessionReport.tontineAidDeductions,1,'WHITESPACE')} + ' FCFA'">0</td>
                             </tr>
                         </tbody>
                         <tfoot>
@@ -150,6 +164,16 @@
                                 <th scope="row" class="fw-normal">Sanctions encaissées</th>
                                 <td class="num money money-in"
                                     th:text="${#numbers.formatInteger(sessionReport != null ? sessionReport.sanctionsCollected : 0,1,'WHITESPACE')} + ' FCFA'">0</td>
+                            </tr>
+                            <tr>
+                                <th scope="row" class="fw-normal">
+                                    Recouvrements d'aides
+                                    <span class="d-block small text-muted">
+                                        remis directement au trésorier — hors caisse
+                                    </span>
+                                </th>
+                                <td class="num money money-in"
+                                    th:text="${#numbers.formatInteger(sessionReport != null ? sessionReport.aidsCollected : 0,1,'WHITESPACE')} + ' FCFA'">0</td>
                             </tr>
                             <tr th:each="p : ${feePayments}">
                                 <th scope="row" class="fw-normal">

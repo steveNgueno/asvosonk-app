@@ -3,6 +3,9 @@ package org.asvosonk.session.application.service;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.asvosonk.aid.application.usecase.DeductAidsUseCase;
+import org.asvosonk.aid.domain.repository.AidContributionRepository;
+import org.asvosonk.aid.domain.valueobject.AidPaymentMode;
 import org.asvosonk.cashbox.application.service.CashboxService;
 import org.asvosonk.cashbox.domain.valueobject.CashboxType;
 import org.asvosonk.cashbox.domain.valueobject.MovementDirection;
@@ -25,12 +28,17 @@ import org.asvosonk.session.infrastructure.persistence.entity.SessionAttendanceE
 import org.asvosonk.session.infrastructure.persistence.entity.SessionReportEntity;
 import org.asvosonk.session.infrastructure.persistence.repository.SessionReportRepository;
 import org.asvosonk.tontine.domain.model.TontineContribution;
+import org.asvosonk.tontine.domain.model.TontineTour;
 import org.asvosonk.tontine.domain.repository.TontineContributionRepository;
+import org.asvosonk.tontine.domain.repository.TontineDebtRepository;
 import org.asvosonk.tontine.domain.repository.TontineParticipantRepository;
+import org.asvosonk.tontine.domain.repository.TontineTourRepository;
+import org.asvosonk.tontine.domain.valueobject.DebtStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -60,9 +68,13 @@ public class SessionStepService {
     private final MarkPresenceBenefitedUseCase    markPresenceBenefitedUseCase;
     private final ComputePresenceFeeUseCase       computePresenceFeeUseCase;
     private final DeductSanctionsUseCase          deductSanctionsUseCase;
+    private final DeductAidsUseCase               deductAidsUseCase;
+    private final AidContributionRepository       aidContributionRepository;
     private final GenerateSessionReportUseCase    generateSessionReportUseCase;
     private final TontineContributionRepository   tontineContributionRepository;
     private final TontineParticipantRepository    tontineParticipantRepository;
+    private final TontineTourRepository            tontineTourRepository;
+    private final TontineDebtRepository            tontineDebtRepository;
     private final MembershipFeePaymentRepository  membershipFeePaymentRepository;
 
     @Transactional
@@ -230,13 +242,17 @@ public class SessionStepService {
 
         // ── Retenues sur la tontine du bénéficiaire ─────────────────────
         // La mise à jour du fond de roulement passe avant tout : elle est
-        // obligatoire. Les sanctions impayées sont ensuite retenues sur ce qui
-        // reste, avec imputation partielle.
+        // obligatoire. Les sanctions impayées puis les parts d'aides dues sont
+        // ensuite retenues sur ce qui reste, avec imputation partielle.
         BigDecimal afterCatchUp = totalTontine.subtract(fundCatchUp).max(BigDecimal.ZERO);
         BigDecimal deductions = deductSanctionsUseCase.deduct(
             beneficiaryEntity.getId(), afterCatchUp, session,
             "Retenue sur tontine de présence — séance " + session.getSessionDate(), user);
-        BigDecimal netTontine = afterCatchUp.subtract(deductions).max(BigDecimal.ZERO);
+        BigDecimal afterSanctions = afterCatchUp.subtract(deductions).max(BigDecimal.ZERO);
+        BigDecimal aidDeductions = deductAidsUseCase.deduct(
+            beneficiaryEntity.getId(), afterSanctions, session, AidPaymentMode.retained_presence,
+            "Retenue d'aides sur tontine de présence — séance " + session.getSessionDate(), user);
+        BigDecimal netTontine = afterSanctions.subtract(aidDeductions).max(BigDecimal.ZERO);
 
         // ── Le bénéficiaire est marqué comme servi dans le tour ──
         presenceTourRepository.findCurrentOpenTour().ifPresent(tour -> {
@@ -259,6 +275,7 @@ public class SessionStepService {
         report.setPresenceGrossTontine(totalTontine);
         report.setPresenceFundCatchUp(fundCatchUp);
         report.setPresenceSanctionDeductions(deductions);
+        report.setPresenceAidDeductions(aidDeductions);
         report.setPresenceNetTontine(netTontine);
         report.setPresenceDevelopmentTotal(totalDevelopment);
         report.setPresenceBeverageReliquat(beverageReliquat);
@@ -295,13 +312,19 @@ public class SessionStepService {
             }
         }
 
-        // Retenues éventuelles sur la somme remise au bénéficiaire.
+        // Retenues éventuelles sur la somme remise au bénéficiaire : sanctions
+        // d'abord, puis parts d'aides dues, avec imputation partielle.
         BigDecimal deductions = BigDecimal.ZERO;
+        BigDecimal aidDeductions = BigDecimal.ZERO;
         if (beneficiaryId != null && gross.signum() > 0) {
             deductions = deductSanctionsUseCase.deduct(beneficiaryId, gross, session,
                 "Retenue sur grande tontine — séance " + session.getSessionDate(), user);
+            aidDeductions = deductAidsUseCase.deduct(
+                beneficiaryId, gross.subtract(deductions).max(BigDecimal.ZERO),
+                session, AidPaymentMode.retained_tontine,
+                "Retenue d'aides sur grande tontine — séance " + session.getSessionDate(), user);
         }
-        BigDecimal net = gross.subtract(deductions).max(BigDecimal.ZERO);
+        BigDecimal net = gross.subtract(deductions).subtract(aidDeductions).max(BigDecimal.ZERO);
 
         // Le bénéficiaire n'est marqué comme servi qu'à la clôture de l'étape,
         // une fois toutes les cotisations de la séance saisies.
@@ -317,6 +340,30 @@ public class SessionStepService {
                             tontineParticipantRepository.save(participant);
                         }
                     }));
+
+            // ── Auto-close tour si tous les participants ont bénéficié et
+            //    aucune dette inter-membres n'est encore ouverte.
+            tontineContributionRepository.findBySessionId(sessionId).stream()
+                .findFirst()
+                .ifPresent(c -> {
+                    Long tourId = c.getTourId();
+                    List<org.asvosonk.tontine.domain.model.TontineParticipant> participants =
+                        tontineParticipantRepository.findByTourId(tourId);
+                    boolean allBenefited = participants.stream()
+                        .allMatch(org.asvosonk.tontine.domain.model.TontineParticipant::isHasBenefited);
+                    if (allBenefited) {
+                        boolean hasOpenDebts = !tontineDebtRepository
+                            .findByTourIdAndStatus(tourId, DebtStatus.owed).isEmpty();
+                        if (!hasOpenDebts) {
+                            tontineTourRepository.findById(tourId).ifPresent(tour -> {
+                                tour.close(LocalDate.now());
+                                tontineTourRepository.save(tour);
+                                log.info("Tour de grande tontine {} clôturé automatiquement "
+                                    + "(tous les participants ont bénéficié, dettes soldées).", tourId);
+                            });
+                        }
+                    }
+                });
         }
 
         SessionReportEntity report = sessionReportRepository.findBySessionId(sessionId)
@@ -328,6 +375,7 @@ public class SessionStepService {
         report.setTontineBeneficiaryId(beneficiaryId);
         report.setTontineGrossCollected(gross);
         report.setTontineSanctionDeductions(deductions);
+        report.setTontineAidDeductions(aidDeductions);
         report.setTontineNetPaid(net);
         refreshCashFlows(report, sessionId);
         sessionReportRepository.save(report);
@@ -411,6 +459,15 @@ public class SessionStepService {
             fees = BigDecimal.ZERO;
         }
         totalIn = totalIn.add(fees);
+
+        // Les recouvrements d'aides sont des entrées du jour, remises
+        // directement au trésorier (versements directs + retenues sur tontine).
+        BigDecimal aids = aidContributionRepository.totalPaidBySessionId(sessionId);
+        if (aids == null) {
+            aids = BigDecimal.ZERO;
+        }
+        report.setAidsCollected(aids);
+        totalIn = totalIn.add(aids);
 
         BigDecimal balance = totalIn.subtract(totalOut);
         report.setSanctionsCollected(sanctions);

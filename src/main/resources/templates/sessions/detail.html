@@ -187,7 +187,6 @@
         <div th:replace="~{sessions/_presence-summary :: presenceSummary(${closeResult})}"></div>
         <div th:replace="~{sessions/_rubric-details :: presenceDetail}"></div>
         <div th:replace="~{sessions/_rubric-details :: recoveryDetail}"></div>
-        <div th:replace="~{sessions/_rubric-details :: dayFlows}"></div>
 
         <div class="callout" sec:authorize="hasAuthority('TONTINE_VIEW')">
             <i class="bi bi-cash-stack callout-icon" style="color:var(--c-brand-500)" aria-hidden="true"></i>
@@ -308,15 +307,14 @@
                                         <span class="text-muted" th:if="${owed == null}">libre</span>
                                     </td>
                                     <td>
-                                        <div class="input-group input-group-sm" th:if="${done == null}">
+                                        <div class="input-group input-group-sm">
                                             <input type="number" class="form-control num js-tontine-amount"
                                                    th:name="'entries[' + ${it.index} + '].amount'"
                                                    min="0" step="1" inputmode="numeric"
+                                                   th:value="${done != null} ? ${done} : ''"
                                                    th:attr="aria-label='Montant versé par ' + ${tontineMemberNames.get(p.memberId)}">
                                             <span class="input-group-text">FCFA</span>
                                         </div>
-                                        <span class="money money-in" th:if="${done != null}"
-                                              th:text="${#numbers.formatInteger(done,1,'WHITESPACE')} + ' FCFA'">0</span>
                                     </td>
                                     <td>
                                         <span class="pill pill-success" th:if="${done != null}">
@@ -346,12 +344,6 @@
                 </form>
             </div>
         </th:block>
-
-        <!-- Rubriques déjà closes : leur détail reste consultable. -->
-        <div th:replace="~{sessions/_presence-summary :: presenceSummary(${closeResult})}"></div>
-        <div th:replace="~{sessions/_rubric-details :: presenceDetail}"></div>
-        <div th:replace="~{sessions/_rubric-details :: recoveryDetail}"></div>
-        <div th:replace="~{sessions/_rubric-details :: dayFlows}"></div>
 
         <div class="callout" style="border-left-color:var(--c-danger)"
              sec:authorize="hasAuthority('TONTINE_TOUR_CREATE')">
@@ -435,12 +427,6 @@
                 <div th:replace="~{fragments/ui :: empty('bi-inbox', 'Aucune cotisation', 'Aucune cotisation de grande tontine saisie pendant cette séance.')}"></div>
             </div>
         </div>
-
-        <!-- Les rubriques déjà closes gardent leur détail sous les yeux. -->
-        <div th:replace="~{sessions/_presence-summary :: presenceSummary(${closeResult})}"></div>
-        <div th:replace="~{sessions/_rubric-details :: presenceDetail}"></div>
-        <div th:replace="~{sessions/_rubric-details :: recoveryDetail}"></div>
-        <div th:replace="~{sessions/_rubric-details :: dayFlows}"></div>
 
         <div class="callout">
             <i class="bi bi-briefcase callout-icon" style="color:var(--c-brand-500)" aria-hidden="true"></i>
@@ -541,80 +527,7 @@
 
 </th:block>
 
-<!-- ══ Entrées et sorties diverses du jour ═══════════════════ -->
-<div class="card mt-5" th:unless="${isReportGenerated}">
-    <div class="card-header">
-        <i class="bi bi-arrow-left-right" aria-hidden="true"></i>Autres entrées et sorties du jour
-    </div>
-    <div class="card-body">
-        <p class="form-text mb-4">
-            Les entrées du jour ne se limitent pas aux cotisations : un don d'un membre, une
-            dépense décidée en séance… Tout mouvement saisi ici est rattaché à la séance et
-            apparaît dans son rapport, où il augmente ou diminue le montant remis au trésorier.
-        </p>
 
-        <form th:action="@{/sessions/{id}/movements(id=${meetingSession.id})}" method="post"
-              th:object="${movementForm}" class="row g-2 align-items-end"
-              sec:authorize="hasAuthority('CASHBOX_MANUAL_MOVEMENT')">
-            <div class="col-md-3">
-                <label class="form-label req" for="movementCashbox">Caisse</label>
-                <select id="movementCashbox" class="form-select form-select-sm" th:field="*{cashbox}" required>
-                    <option th:each="t : ${cashboxTypes}" th:value="${t.name()}" th:text="${t.label()}"></option>
-                </select>
-            </div>
-            <div class="col-md-2">
-                <label class="form-label req" for="movementDirection">Sens</label>
-                <select id="movementDirection" class="form-select form-select-sm" th:field="*{direction}" required>
-                    <option value="in">Entrée</option>
-                    <option value="out">Sortie</option>
-                </select>
-            </div>
-            <div class="col-md-2">
-                <label class="form-label req" for="movementAmount">Montant</label>
-                <input type="number" id="movementAmount" class="form-control form-control-sm num"
-                       th:field="*{amount}" min="1" step="1" inputmode="numeric" required>
-            </div>
-            <div class="col-md-3">
-                <label class="form-label req" for="movementReason">Motif</label>
-                <input type="text" id="movementReason" class="form-control form-control-sm"
-                       th:field="*{reason}" placeholder="ex. don de M. NKOU" required>
-            </div>
-            <div class="col-md-2">
-                <button type="submit" class="btn btn-primary btn-sm w-100 justify-content-center">
-                    <i class="bi bi-plus-lg" aria-hidden="true"></i>Ajouter
-                </button>
-            </div>
-        </form>
-    </div>
-
-    <div class="table-wrap" th:if="${!#lists.isEmpty(sessionInflows) or !#lists.isEmpty(sessionOutflows)}">
-        <table class="table">
-            <caption class="visually-hidden">Mouvements de caisse rattachés à la séance</caption>
-            <thead>
-                <tr>
-                    <th scope="col">Caisse</th>
-                    <th scope="col">Sens</th>
-                    <th scope="col" class="num">Montant</th>
-                    <th scope="col">Motif</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr th:each="m : ${sessionInflows}">
-                    <th scope="row" th:text="${m.cashbox.type.label()}">Caisse</th>
-                    <td><span class="pill pill-success">Entrée</span></td>
-                    <td class="num money money-in" th:text="'+ ' + ${#numbers.formatInteger(m.amount,1,'WHITESPACE')}">0</td>
-                    <td th:text="${m.reason ?: '—'}">—</td>
-                </tr>
-                <tr th:each="m : ${sessionOutflows}">
-                    <th scope="row" th:text="${m.cashbox.type.label()}">Caisse</th>
-                    <td><span class="pill pill-danger">Sortie</span></td>
-                    <td class="num money money-out" th:text="'− ' + ${#numbers.formatInteger(m.amount,1,'WHITESPACE')}">0</td>
-                    <td th:text="${m.reason ?: '—'}">—</td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
-</div>
 
 </th:block>
 

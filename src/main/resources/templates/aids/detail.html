@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org"
+               xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      th:replace="~{layout :: layout(${pageTitle}, ~{::main-content}, ~{}, ~{})}">
+<body>
+<th:block th:fragment="main-content">
+
+<div class="page-head">
+    <div>
+        <h1>
+            <i class="bi bi-heart" aria-hidden="true"></i>
+            Aide <span th:text="${aid.type.label}">Motif</span>
+        </h1>
+        <p class="page-subtitle">
+            Membre concerné : <strong th:text="${beneficiaryName}">Nom</strong>
+            — <span th:text="${#temporals.format(aid.aidDate,'dd/MM/yyyy')}">date</span>
+        </p>
+    </div>
+    <div class="page-actions">
+        <a th:href="@{/aids}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left" aria-hidden="true"></i>Toutes les aides
+        </a>
+    </div>
+</div>
+
+<div th:if="${aid.status.name() == 'completed'}" class="alert alert-success">
+    <i class="bi bi-check-circle-fill flex-shrink-0" aria-hidden="true"></i>
+    Cette aide est entièrement recouverte : elle n'est plus d'actualité.
+</div>
+
+<!-- ── Synthèse ─────────────────────────────────────────── -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="stat">
+            <span class="stat-label">Somme remise</span>
+            <span class="stat-value money money-out">
+                <span th:text="${#numbers.formatInteger(aid.totalAmount,1,'WHITESPACE')}">0</span>
+                <span class="money-unit">FCFA</span>
+            </span>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat">
+            <span class="stat-label">Part / membre</span>
+            <span class="stat-value money">
+                <span th:text="${#numbers.formatInteger(aid.sharePerMember,1,'WHITESPACE')}">0</span>
+                <span class="money-unit">FCFA</span>
+            </span>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat">
+            <span class="stat-label">Recouvré</span>
+            <span class="stat-value money money-in">
+                <span th:text="${#numbers.formatInteger(recoveredTotal,1,'WHITESPACE')}">0</span>
+                <span class="money-unit">FCFA</span>
+            </span>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat" th:classappend="${remainingTotal.signum() > 0} ? 'cashbox sanction'">
+            <span class="stat-label">Reste à recouvrir</span>
+            <span class="stat-value money money-out">
+                <span th:text="${#numbers.formatInteger(remainingTotal,1,'WHITESPACE')}">0</span>
+                <span class="money-unit">FCFA</span>
+            </span>
+        </div>
+    </div>
+</div>
+
+<p class="text-muted" th:if="${aid.description}" th:text="${aid.description}"></p>
+
+<!-- ── Filtre des parts ─────────────────────────────────── -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label" for="contributionStatusFilter">Parts affichées</label>
+                <select id="contributionStatusFilter" name="contributionStatus" class="form-select">
+                    <option value="">Toutes les parts</option>
+                    <option th:each="s : ${contributionStatuses}" th:value="${s.name()}"
+                            th:text="${s.label}"
+                            th:selected="${param.contributionStatus != null and param.contributionStatus[0] == s.name()}"></option>
+                </select>
+            </div>
+            <div class="col-md-3 d-flex gap-2">
+                <button type="submit" class="btn btn-primary flex-grow-1 justify-content-center">
+                    <i class="bi bi-funnel" aria-hidden="true"></i>Filtrer
+                </button>
+                <a th:href="@{/aids/{id}(id=${aid.id})}" class="btn btn-outline-secondary">Réinit.</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ── Tableau des parts ────────────────────────────────── -->
+<div class="card">
+    <div class="table-wrap">
+        <table class="table table-hover">
+            <caption class="visually-hidden">Parts de recouvrement par membre</caption>
+            <thead>
+                <tr>
+                    <th scope="col">Membre</th>
+                    <th scope="col" class="num">Part due</th>
+                    <th scope="col" class="num">Recouvré</th>
+                    <th scope="col" class="num">Reste</th>
+                    <th scope="col">Statut</th>
+                    <th scope="col">Mode</th>
+                    <th scope="col">Recouvrée le</th>
+                    <th scope="col" class="text-end">Recouvrement direct</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="c : ${contributions}">
+                    <th scope="row" th:text="${memberNames.get(c.memberId) ?: 'Membre #' + c.memberId}">Nom</th>
+                    <td class="num money" th:text="${#numbers.formatInteger(c.amountDue,1,'WHITESPACE')}">0</td>
+                    <td class="num money" th:text="${#numbers.formatInteger(c.amountPaid,1,'WHITESPACE')}">0</td>
+                    <td class="num money" th:classappend="${c.remaining.signum() > 0} ? 'money-out'"
+                        th:text="${#numbers.formatInteger(c.remaining,1,'WHITESPACE')}">0</td>
+                    <td>
+                        <span class="pill"
+                              th:classappend="${c.status.name() == 'owed' ? 'pill-danger' : 'pill-success'}"
+                              th:text="${c.status.label}">Statut</span>
+                    </td>
+                    <td th:text="${c.paymentMode != null ? c.paymentMode.label : '—'}">—</td>
+                    <td th:text="${c.paymentDate != null ? #temporals.format(c.paymentDate,'dd/MM/yyyy') : '—'}">—</td>
+                    <td class="text-end">
+                        <form th:if="${c.remaining.signum() > 0 and aid.status.name() == 'in_progress'}"
+                              th:action="@{/aids/contributions/{cid}/recover(cid=${c.id})}" method="post"
+                              class="d-flex gap-1 justify-content-end align-items-center recovery-form"
+                              sec:authorize="hasAuthority('AID_RECORD_RECOVERY')">
+                            <input type="text" inputmode="numeric" name="amount"
+                                   th:placeholder="${#numbers.formatInteger(c.remaining,1,'WHITESPACE')}"
+                                   class="form-control form-control-sm money-input" style="max-width: 130px;"
+                                   aria-label="Montant versé">
+                            <button type="submit" class="btn btn-sm btn-outline-success"
+                                    title="Enregistrer un versement direct (vide = solde total)">
+                                <i class="bi bi-cash" aria-hidden="true"></i>Recevoir
+                            </button>
+                        </form>
+                        <span th:unless="${c.remaining.signum() > 0 and aid.status.name() == 'in_progress'}">—</span>
+                    </td>
+                </tr>
+                <tr th:if="${#lists.isEmpty(contributions)}">
+                    <td colspan="8">
+                        <div th:replace="~{fragments/ui :: empty('bi-people', 'Aucune part', 'Aucune part ne correspond au filtre sélectionné.')}"></div>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<p class="form-text">
+    Un versement vide enregistre le solde total de la part. Le versement partiel est accepté :
+    la part reste due pour le reste. Tout encaissement se fait en séance.
+</p>
+
+<script>
+/*
+ * Tolérance de saisie : « 20 000 », « 20.000 » ou « 20,000 » sont acceptés —
+ * les séparateurs sont retirés avant l'envoi (montants en FCFA entiers).
+ * Le plafond (reste à recouvrir) reste contrôlé côté serveur avec un message clair.
+ */
+(function () {
+    document.querySelectorAll('form.recovery-form').forEach(function (form) {
+        form.addEventListener('submit', function () {
+            var field = form.querySelector('input[name="amount"]');
+            if (field && field.value) {
+                field.value = field.value.replace(/\D/g, '');
+            }
+        });
+    });
+})();
+</script>
+
+</th:block>
+</body>
+</html>

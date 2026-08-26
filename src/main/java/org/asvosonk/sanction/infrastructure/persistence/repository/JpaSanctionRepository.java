@@ -5,6 +5,7 @@ import org.asvosonk.member.infrastructure.persistence.entity.MemberEntity;
 import org.asvosonk.member.infrastructure.persistence.repository.SpringDataMemberRepository;
 import org.asvosonk.sanction.domain.model.Sanction;
 import org.asvosonk.sanction.domain.repository.SanctionRepository;
+import org.asvosonk.sanction.domain.valueobject.SanctionOrigin;
 import org.asvosonk.sanction.domain.valueobject.SanctionStatus;
 import org.asvosonk.sanction.infrastructure.persistence.entity.SanctionEntity;
 import org.asvosonk.sanction.infrastructure.persistence.mapper.SanctionMapper;
@@ -54,6 +55,17 @@ public class JpaSanctionRepository implements SanctionRepository {
         return springData.findByMemberIdAndStatusOrderBySanctionDateDesc(memberId, status).stream()
             .map(SanctionMapper::toDomain)
             .collect(Collectors.toList());
+    }
+
+    @Override
+    public Optional<Sanction> findByOriginAndReferenceId(SanctionOrigin origin, Long referenceId) {
+        return springData.findByOriginAndReferenceId(origin, referenceId)
+            .map(SanctionMapper::toDomain);
+    }
+
+    @Override
+    public void deleteById(Long id) {
+        springData.deleteById(id);
     }
 
     @Override

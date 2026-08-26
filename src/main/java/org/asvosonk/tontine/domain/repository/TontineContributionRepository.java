@@ -19,4 +19,6 @@ public interface TontineContributionRepository {
     List<TontineContribution> findBySessionId(Long sessionId);
 
     List<TontineContribution> findByContributorIdAndTourId(Long contributorId, Long tourId);
+
+    void deleteById(Long id);
 }

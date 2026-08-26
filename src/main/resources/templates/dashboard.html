@@ -56,7 +56,7 @@
     <th:block sec:authorize="hasAuthority('CASHBOX_VIEW')">
         <h2 class="section-title"><i class="bi bi-safe" aria-hidden="true"></i>Soldes des caisses</h2>
         <div class="mb-5"
-             th:replace="~{fragments/ui :: cashboxSummary(${cashboxTypes}, ${balances})}"></div>
+             th:insert="~{fragments/ui :: cashboxSummary(${cashboxTypes}, ${balances})}"></div>
     </th:block>
 
     <!-- ══ Dernière séance + sanctions ═══════════════════════ -->

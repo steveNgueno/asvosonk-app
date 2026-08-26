@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org"
+               xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      th:replace="~{layout :: layout(${pageTitle}, ~{::main-content}, ~{}, ~{})}">
+<body>
+<th:block th:fragment="main-content">
+
+<div class="page-head">
+    <div>
+        <h1><i class="bi bi-heart" aria-hidden="true"></i>Nouvelle aide</h1>
+        <p class="page-subtitle">Enregistrer une aide en séance : la part par membre est fixée par la réunion</p>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <form th:action="@{/aids/new}" th:object="${form}" method="post" class="row g-3">
+
+            <div class="col-md-6">
+                <label class="form-label" for="beneficiaryId">Membre concerné *</label>
+                <select id="beneficiaryId" th:field="*{beneficiaryId}" class="form-select"
+                        th:classappend="${#fields.hasErrors('beneficiaryId')} ? 'is-invalid'">
+                    <option value="">— Choisir un membre actif —</option>
+                    <option th:each="m : ${members}" th:value="${m.id}" th:text="${m.fullName}"></option>
+                </select>
+                <div class="invalid-feedback" th:errors="*{beneficiaryId}"></div>
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label" for="type">Motif de l'aide</label>
+                <select id="type" th:field="*{type}" class="form-select" data-aid-type-select>
+                    <option value="">— Choisissez un motif —</option>
+                    <option th:each="t : ${types}" th:value="${t.name()}"
+                            th:text="${t.label}"></option>
+                </select>
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label" for="aidDate">Date de l'événement *</label>
+                <input type="date" id="aidDate" th:field="*{aidDate}" class="form-control"
+                       th:classappend="${#fields.hasErrors('aidDate')} ? 'is-invalid'">
+                <div class="invalid-feedback" th:errors="*{aidDate}"></div>
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label" for="totalAmount">Somme remise au membre (FCFA) *</label>
+                <input type="text" inputmode="numeric" id="totalAmount" th:field="*{totalAmount}"
+                       class="form-control" data-aid-total placeholder="Ex. : 200 000"
+                       th:classappend="${#fields.hasErrors('totalAmount')} ? 'is-invalid'">
+                <div class="invalid-feedback" th:errors="*{totalAmount}"></div>
+                <p class="form-text mb-0">Préremplie selon les statuts, modifiable.</p>
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label" for="sharePerMember">Part à recouvrir par membre (FCFA) *</label>
+                <input type="text" inputmode="numeric" id="sharePerMember" th:field="*{sharePerMember}"
+                       class="form-control" placeholder="Ex. : 20 000"
+                       th:classappend="${#fields.hasErrors('sharePerMember')} ? 'is-invalid'">
+                <div class="invalid-feedback" th:errors="*{sharePerMember}"></div>
+                <p class="form-text mb-0">Fixée par la réunion : la division et l'arrondi se font en assemblée.</p>
+            </div>
+
+            <div class="col-12">
+                <label class="form-label" for="description">Précisions</label>
+                <textarea id="description" th:field="*{description}" rows="2" class="form-control"
+                          placeholder="Ex. : décès du père de… , veillée du…"></textarea>
+            </div>
+
+            <div class="col-12 d-flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check-lg" aria-hidden="true"></i>Enregistrer l'aide
+                </button>
+                <a th:href="@{/aids}" class="btn btn-outline-secondary">Annuler</a>
+            </div>
+
+            <p class="form-text col-12 mb-0">
+                À l'enregistrement, chaque membre actif reçoit une part à recouvrir.
+                Un membre qui adhère plus tard ne sera pas concerné par cette aide.
+            </p>
+        </form>
+    </div>
+</div>
+
+<script th:inline="javascript">
+/* Préremplit la somme remise selon le motif choisi (montants des statuts). */
+(function () {
+    var amounts = /*[[${defaultAmounts}]]*/ {};
+    var select  = document.querySelector('[data-aid-type-select]');
+    var total   = document.querySelector('[data-aid-total]');
+    if (!select || !total) return;
+    select.addEventListener('change', function () {
+        var value = amounts[this.value];
+        if (value !== undefined && Number(value) > 0) {
+            total.value = Number(value);
+        }
+    });
+})();
+
+/*
+ * Tolérance de saisie des montants : l'utilisateur peut taper « 200 000 »,
+ * « 200.000 » ou « 200,000 » — les séparateurs sont retirés avant l'envoi.
+ * Les montants étant en FCFA entiers, seuls les chiffres sont conservés.
+ */
+(function () {
+    var form = document.querySelector('form[action*="/aids/new"]');
+    if (!form) return;
+    form.addEventListener('submit', function () {
+        ['totalAmount', 'sharePerMember'].forEach(function (id) {
+            var field = document.getElementById(id);
+            if (field && field.value) {
+                field.value = field.value.replace(/\D/g, '');
+            }
+        });
+    });
+})();
+</script>
+
+</th:block>
+</body>
+</html>

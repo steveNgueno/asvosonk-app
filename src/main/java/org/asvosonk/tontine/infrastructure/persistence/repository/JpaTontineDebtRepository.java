@@ -63,4 +63,9 @@ public class JpaTontineDebtRepository implements TontineDebtRepository {
             .map(MAPPER::toDomain)
             .collect(Collectors.toList());
     }
+
+    @Override
+    public void deleteById(Long id) {
+        springData.deleteById(id);
+    }
 }

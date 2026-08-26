@@ -51,6 +51,10 @@ public class SessionReportEntity {
     @Column(name = "presence_sanction_deductions", nullable = false, precision = 12, scale = 2)
     private BigDecimal presenceSanctionDeductions = BigDecimal.ZERO;
 
+    /** Parts d'aides retenues sur la tontine de présence du bénéficiaire. */
+    @Column(name = "presence_aid_deductions", nullable = false, precision = 12, scale = 2)
+    private BigDecimal presenceAidDeductions = BigDecimal.ZERO;
+
     @Column(name = "presence_net_tontine", nullable = false, precision = 12, scale = 2)
     private BigDecimal presenceNetTontine = BigDecimal.ZERO;
 
@@ -79,6 +83,10 @@ public class SessionReportEntity {
     @Column(name = "tontine_sanction_deductions", nullable = false, precision = 12, scale = 2)
     private BigDecimal tontineSanctionDeductions = BigDecimal.ZERO;
 
+    /** Parts d'aides retenues sur la grande tontine du bénéficiaire. */
+    @Column(name = "tontine_aid_deductions", nullable = false, precision = 12, scale = 2)
+    private BigDecimal tontineAidDeductions = BigDecimal.ZERO;
+
     @Column(name = "tontine_net_paid", nullable = false, precision = 12, scale = 2)
     private BigDecimal tontineNetPaid = BigDecimal.ZERO;
 
@@ -101,6 +109,10 @@ public class SessionReportEntity {
     /** Frais d'adhésion encaissés en séance : remis au trésorier, hors caisse. */
     @Column(name = "membership_fees_collected", nullable = false, precision = 12, scale = 2)
     private BigDecimal membershipFeesCollected = BigDecimal.ZERO;
+
+    /** Recouvrements d'aides de la séance : entrées du jour remises au trésorier, hors caisse. */
+    @Column(name = "aids_collected", nullable = false, precision = 12, scale = 2)
+    private BigDecimal aidsCollected = BigDecimal.ZERO;
 
     /** Entrées diverses saisies pendant la séance (dons, remboursements ponctuels…). */
     @Column(name = "other_income", nullable = false, precision = 12, scale = 2)

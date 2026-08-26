@@ -52,4 +52,10 @@ public class TontineDebt {
         this.repaymentSessionId = repaymentSessionId;
         this.updatedAt = LocalDateTime.now();
     }
+
+    public void markAsUnrepaid() {
+        this.status = DebtStatus.owed;
+        this.repaymentSessionId = null;
+        this.updatedAt = LocalDateTime.now();
+    }
 }
