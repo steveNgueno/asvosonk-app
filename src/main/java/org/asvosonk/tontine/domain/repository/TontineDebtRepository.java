@@ -20,4 +20,6 @@ public interface TontineDebtRepository {
         Long tourId, Long debtorId, Long creditorId, DebtStatus status);
 
     List<TontineDebt> findByTourIdAndDebtorId(Long tourId, Long debtorId);
+
+    void deleteById(Long id);
 }

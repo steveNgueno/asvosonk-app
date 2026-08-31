@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org"
+               xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      th:replace="~{layout :: layout(${pageTitle}, ~{::main-content}, ~{}, ~{})}">
+<body>
+<th:block th:fragment="main-content">
+
+<div class="page-head">
+    <div>
+        <h1><i class="bi bi-heart" aria-hidden="true"></i>Aides</h1>
+        <p class="page-subtitle">Assistance sociale : décès, naissance, mariage — suivi des recouvrements</p>
+    </div>
+    <div class="page-actions" sec:authorize="hasAuthority('AID_CREATE')">
+        <a th:href="@{/aids/new}" class="btn btn-primary">
+            <i class="bi bi-plus-lg" aria-hidden="true"></i>Nouvelle aide
+        </a>
+    </div>
+</div>
+
+<!-- ── Totaux ───────────────────────────────────────────── -->
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="stat" th:classappend="${totalRemaining.signum() > 0} ? 'cashbox sanction'">
+            <span class="stat-label">Reste à recouvrir</span>
+            <span class="stat-value money money-out">
+                <span th:text="${#numbers.formatInteger(totalRemaining,1,'WHITESPACE')}">0</span>
+                <span class="money-unit">FCFA</span>
+            </span>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat">
+            <span class="stat-label">Aides en cours (d'actualité)</span>
+            <span class="stat-value" th:text="${currentCount}">0</span>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat">
+            <span class="stat-label">Aides affichées</span>
+            <span class="stat-value" th:text="${#lists.size(aids)}">0</span>
+        </div>
+    </div>
+</div>
+
+<!-- ── Recherche / filtres ──────────────────────────────── -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label" for="statusFilter">Statut</label>
+                <select id="statusFilter" name="status" class="form-select">
+                    <option value="">Tous les statuts</option>
+                    <option th:each="s : ${statuses}" th:value="${s.name()}"
+                            th:text="${s.label}"
+                            th:selected="${param.status != null and param.status[0] == s.name()}"></option>
+                </select>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label" for="memberFilter">Membre concerné</label>
+                <select id="memberFilter" name="memberId" class="form-select">
+                    <option value="">Tous les membres</option>
+                    <option th:each="m : ${members}" th:value="${m.id}" th:text="${m.fullName}"
+                            th:selected="${param.memberId != null and param.memberId[0] == m.id.toString()}"></option>
+                </select>
+            </div>
+            <div class="col-md-3 d-flex gap-2">
+                <button type="submit" class="btn btn-primary flex-grow-1 justify-content-center">
+                    <i class="bi bi-funnel" aria-hidden="true"></i>Filtrer
+                </button>
+                <a th:href="@{/aids}" class="btn btn-outline-secondary">Réinit.</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ── Tableau des aides ────────────────────────────────── -->
+<div class="card">
+    <div class="table-wrap">
+        <table class="table table-hover">
+            <caption class="visually-hidden">Liste des aides</caption>
+            <thead>
+                <tr>
+                    <th scope="col">Membre concerné</th>
+                    <th scope="col">Date</th>
+                    <th scope="col">Motif</th>
+                    <th scope="col" class="num">Somme remise</th>
+                    <th scope="col" class="num">Part / membre</th>
+                    <th scope="col" class="num">Reste à recouvrir</th>
+                    <th scope="col">Statut</th>
+                    <th scope="col" class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="aid : ${aids}">
+                    <th scope="row" th:text="${memberNames.get(aid.beneficiaryId) ?: 'Membre #' + aid.beneficiaryId}">Nom</th>
+                    <td th:text="${#temporals.format(aid.aidDate,'dd/MM/yyyy')}">date</td>
+                    <td>
+                        <span class="pill pill-info" th:text="${aid.type.label}">Motif</span>
+                        <span class="d-block text-muted small" th:if="${aid.description}"
+                              th:text="${aid.description}"></span>
+                    </td>
+                    <td class="num money" th:text="${#numbers.formatInteger(aid.totalAmount,1,'WHITESPACE')}">0</td>
+                    <td class="num money" th:text="${#numbers.formatInteger(aid.sharePerMember,1,'WHITESPACE')}">0</td>
+                    <td class="num money"
+                        th:classappend="${remainingByAid[aid.id] != null and remainingByAid[aid.id].signum() > 0} ? 'money-out'"
+                        th:text="${#numbers.formatInteger(remainingByAid[aid.id],1,'WHITESPACE')}">0</td>
+                    <td>
+                        <span class="pill"
+                              th:classappend="${aid.status.name() == 'in_progress' ? 'pill-warning' : 'pill-success'}"
+                              th:text="${aid.status.label}">Statut</span>
+                    </td>
+                    <td class="text-end">
+                        <a th:href="@{/aids/{id}(id=${aid.id})}" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-eye" aria-hidden="true"></i>Détail
+                        </a>
+                    </td>
+                </tr>
+                <tr th:if="${#lists.isEmpty(aids)}">
+                    <td colspan="8">
+                        <div th:replace="~{fragments/ui :: empty('bi-heart', 'Aucune aide', 'Aucune aide ne correspond aux filtres sélectionnés.')}"></div>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+</th:block>
+</body>
+</html>

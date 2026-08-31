@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.asvosonk.common.domain.exception.BusinessRuleException;
 import org.asvosonk.common.domain.exception.ResourceNotFoundException;
 import org.asvosonk.sanction.application.usecase.CreateSanctionUseCase;
+import org.asvosonk.sanction.domain.repository.SanctionRepository;
 import org.asvosonk.sanction.domain.valueobject.SanctionOrigin;
 import org.asvosonk.tontine.domain.model.TontineContribution;
 import org.asvosonk.tontine.domain.model.TontineDebt;
@@ -36,6 +37,7 @@ public class RecordTontineContributionUseCase {
     private final TontineParticipantRepository participantRepository;
     private final TontineContributionRepository contributionRepository;
     private final TontineDebtRepository debtRepository;
+    private final SanctionRepository sanctionRepository;
     private final CreateSanctionUseCase createSanctionUseCase;
 
     /**
@@ -166,6 +168,78 @@ public class RecordTontineContributionUseCase {
         }
 
         return saved;
+    }
+
+    /**
+     * Replace an existing contribution for the same (tour, session, contributor).
+     * Deletes the old contribution and reverses its side effects before recording
+     * the new one. This allows the sheet to be edited multiple times before closing.
+     */
+    @Transactional
+    public TontineContribution replaceContribution(Long tourId, Long sessionId, Long contributorId,
+                                                    Long beneficiaryId, BigDecimal amount) {
+        // Find the existing contribution for this (tour, session, contributor)
+        Optional<TontineContribution> existing = contributionRepository
+            .findByTourIdAndSessionId(tourId, sessionId).stream()
+            .filter(c -> contributorId.equals(c.getContributorId()))
+            .findFirst();
+
+        if (existing.isPresent()) {
+            TontineContribution old = existing.get();
+
+            // Reverse side effects based on the old contribution type
+            reverseContributionSideEffects(old, tourId, sessionId);
+
+            // Delete the old contribution
+            contributionRepository.deleteById(old.getId());
+        }
+
+        // Record the new contribution
+        return execute(tourId, sessionId, contributorId, beneficiaryId, amount);
+    }
+
+    /**
+     * Reverse the side effects of an existing contribution so it can be replaced.
+     */
+    private void reverseContributionSideEffects(TontineContribution old, Long tourId, Long sessionId) {
+        if (old.isDefault()) {
+            // Case 1: Default → delete the associated sanction
+            sanctionRepository.findByOriginAndReferenceId(SanctionOrigin.tontine_default, old.getId())
+                .ifPresent(sanction -> sanctionRepository.deleteById(sanction.getId()));
+        }
+
+        if (old.isPaid()) {
+            if (!old.getContributorId().equals(old.getBeneficiaryId())) {
+                // Case 2 or 3: A debt exists — either was repaid (Case 2) or was created (Case 3).
+                // We need to find the specific debt linked to this session and reverse it.
+                // Look for debts where this contributor is the debtor (Case 2 — repayment)
+                // or the creditor (Case 3 — normal contribution).
+
+                // Try Case 2 first: debt was repaid by this contributor (debtor=contributor)
+                Optional<TontineDebt> repaidDebt = debtRepository
+                    .findByTourIdAndDebtorIdAndCreditorIdAndStatus(
+                        tourId, old.getContributorId(), old.getBeneficiaryId(), DebtStatus.repaid);
+                if (repaidDebt.isPresent()) {
+                    TontineDebt debt = repaidDebt.get();
+                    // Only reverse if it was repaid in this session
+                    if (sessionId.equals(debt.getRepaymentSessionId())) {
+                        debt.markAsUnrepaid();
+                        debtRepository.save(debt);
+                    }
+                }
+
+                // Case 3: debt was created by this contribution (debtor=beneficiary)
+                // Find the debt created for this session
+                List<TontineDebt> debtorDebts = debtRepository
+                    .findByTourIdAndDebtorId(tourId, old.getBeneficiaryId());
+                debtorDebts.stream()
+                    .filter(d -> old.getContributorId().equals(d.getCreditorId())
+                              && sessionId.equals(d.getOriginSessionId())
+                              && d.isOwed())
+                    .findFirst()
+                    .ifPresent(d -> debtRepository.deleteById(d.getId()));
+            }
+        }
     }
 
     /**

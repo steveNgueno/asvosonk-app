@@ -62,4 +62,9 @@ public class JpaTontineContributionRepository implements TontineContributionRepo
             .map(MAPPER::toDomain)
             .collect(Collectors.toList());
     }
+
+    @Override
+    public void deleteById(Long id) {
+        springData.deleteById(id);
+    }
 }

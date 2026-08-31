@@ -486,9 +486,9 @@ public class SessionController {
      * Enregistre la feuille de cotisation de la grande tontine en une fois.
      *
      * <p>Les lignes laissées vides sont ignorées : la feuille peut se remplir en
-     * plusieurs passages. Une ligne déjà enregistrée est également ignorée plutôt
-     * que refusée, pour qu'un second envoi ne bloque pas tout le reste. Chaque
-     * ligne refusée est signalée nommément.</p>
+     * plusieurs passages. Une ligne déjà enregistrée est remplacée : l'ancienne
+     * cotisation et ses effets (dettes, sanctions) sont annulés avant
+     * ré-enregistrement. Chaque ligne refusée est signalée nommément.</p>
      */
     @PostMapping("/{id}/tontine/sheet")
     @PreAuthorize("hasAuthority('TONTINE_CONTRIBUTION_RECORD')")
@@ -501,20 +501,14 @@ public class SessionController {
             return "redirect:/sessions/" + id;
         }
 
-        List<Long> alreadyRecorded = getTourSummaryUseCase.findContributionsBySessionId(id)
-            .stream().map(TontineContribution::getContributorId).toList();
-
         int saved = 0;
         List<String> refused = new ArrayList<>();
         for (TontineSheetForm.Entry entry : sheetForm.getEntries()) {
             if (entry == null || entry.getContributorId() == null || entry.getAmount() == null) {
                 continue;
             }
-            if (alreadyRecorded.contains(entry.getContributorId())) {
-                continue;
-            }
             try {
-                recordTontineContributionUseCase.execute(sheetForm.getTourId(), id,
+                recordTontineContributionUseCase.replaceContribution(sheetForm.getTourId(), id,
                     entry.getContributorId(), sheetForm.getBeneficiaryId(), entry.getAmount());
                 saved++;
             } catch (BusinessRuleException | ResourceNotFoundException | IllegalArgumentException e) {
@@ -607,6 +601,10 @@ public class SessionController {
         List<TontineContribution> contributions = getTourSummaryUseCase.findContributionsBySessionId(id);
         if (!contributions.isEmpty()) {
             model.addAttribute("tontineContribs", contributions);
+            model.addAttribute("tontineSessionTotal", contributions.stream()
+                .filter(TontineContribution::isPaid)
+                .map(TontineContribution::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add));
             model.addAttribute("tontineMemberNames", namesOfContributions(contributions));
         }
 
