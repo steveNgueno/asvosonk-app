@@ -40,4 +40,17 @@ public class JpaLoanRepaymentRepository implements LoanRepaymentRepository {
         BigDecimal total = springData.sumAmountByLoanId(loanId);
         return total != null ? total : BigDecimal.ZERO;
     }
+
+    @Override
+    public List<LoanRepayment> findBySessionId(Long sessionId) {
+        return springData.findBySessionIdOrderByIdAsc(sessionId).stream()
+            .map(LoanRepaymentMapper::toDomain)
+            .collect(Collectors.toList());
+    }
+
+    @Override
+    public BigDecimal getTotalRepaidBySessionId(Long sessionId) {
+        BigDecimal total = springData.sumAmountBySessionId(sessionId);
+        return total != null ? total : BigDecimal.ZERO;
+    }
 }

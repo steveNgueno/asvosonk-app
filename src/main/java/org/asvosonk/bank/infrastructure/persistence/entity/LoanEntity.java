@@ -42,6 +42,10 @@ public class LoanEntity {
     @Column(name = "total_due", nullable = false, precision = 10, scale = 2)
     private BigDecimal totalDue;
 
+    /** Séance au cours de laquelle l'emprunt a été accordé, null si hors séance. */
+    @Column(name = "session_id")
+    private Long sessionId;
+
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(nullable = false, columnDefinition = "loan_status")

@@ -6,6 +6,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.asvosonk.aid.application.usecase.DeductAidsUseCase;
 import org.asvosonk.aid.domain.repository.AidContributionRepository;
 import org.asvosonk.aid.domain.valueobject.AidPaymentMode;
+import org.asvosonk.bank.domain.repository.LoanRepaymentRepository;
+import org.asvosonk.bank.domain.repository.LoanRepository;
+import org.asvosonk.bank.domain.repository.SavingRepository;
 import org.asvosonk.cashbox.application.service.CashboxService;
 import org.asvosonk.cashbox.domain.valueobject.CashboxType;
 import org.asvosonk.cashbox.domain.valueobject.MovementDirection;
@@ -76,6 +79,9 @@ public class SessionStepService {
     private final TontineTourRepository            tontineTourRepository;
     private final TontineDebtRepository            tontineDebtRepository;
     private final MembershipFeePaymentRepository  membershipFeePaymentRepository;
+    private final SavingRepository                savingRepository;
+    private final LoanRepository                  loanRepository;
+    private final LoanRepaymentRepository         loanRepaymentRepository;
 
     @Transactional
     public MeetingSessionEntity transitionToNext(Long sessionId, AppUser user) {
@@ -118,7 +124,7 @@ public class SessionStepService {
             case PRESENCE_CLOSED        -> closePresence(session, user);
             case TONTINE_CLOSED         -> closeTontine(session, user);
             case BANQUE_PROJET_CLOSED   -> session.setBanqueProjetClosedAt(LocalDateTime.now());
-            case BANQUE_ANNUELLE_CLOSED -> session.setBanqueAnnuelleClosedAt(LocalDateTime.now());
+            case BANQUE_ANNUELLE_CLOSED -> closeBanqueAnnuelle(session, user);
             case REPORT_GENERATED       -> generateReport(session, user);
             default                     -> { }
         }
@@ -383,6 +389,43 @@ public class SessionStepService {
         session.setTontineClosedAt(LocalDateTime.now());
         log.info("Grande tontine clôturée — séance {} : collecté={}, retenues={}, remis={}, échecs={}",
             session.getSessionDate(), gross, deductions, net, defaults);
+    }
+
+    // ── BANQUE_ANNUELLE_CLOSED ────────────────────────────────
+
+    /**
+     * Fige les chiffres de la rubrique Banque Annuelle dans le rapport :
+     * épargnes collectées, remboursements encaissés, emprunts décaissés.
+     *
+     * <p>Ces totaux se lisent directement sur les lignes métier rattachées à la
+     * séance ({@code saving}, {@code loan_repayment}, {@code loan}). Ils ne sont
+     * pas reconstitués à partir des mouvements de caisse : deux dépôts sur la
+     * caisse Banque ne se distinguent que par leur libellé, et un libellé changé
+     * aurait silencieusement faussé la répartition entre épargnes et
+     * remboursements.</p>
+     */
+    private void closeBanqueAnnuelle(MeetingSessionEntity session, AppUser user) {
+        Long sessionId = session.getId();
+
+        BigDecimal savings    = savingRepository.getTotalSavingsBySessionId(sessionId);
+        BigDecimal repayments = loanRepaymentRepository.getTotalRepaidBySessionId(sessionId);
+        BigDecimal loans      = loanRepository.getTotalLoanedBySessionId(sessionId);
+
+        SessionReportEntity report = sessionReportRepository.findBySessionId(sessionId)
+            .orElseGet(() -> {
+                SessionReportEntity r = new SessionReportEntity();
+                r.setSessionId(sessionId);
+                return r;
+            });
+        report.setBanqueAnnuelleSavings(savings);
+        report.setBanqueAnnuelleRepayments(repayments);
+        report.setBanqueAnnuelleLoans(loans);
+        refreshCashFlows(report, sessionId);
+        sessionReportRepository.save(report);
+
+        session.setBanqueAnnuelleClosedAt(LocalDateTime.now());
+        log.info("Banque Annuelle clôturée — séance {} : épargnes={}, remboursements={}, emprunts={}",
+            session.getSessionDate(), savings, repayments, loans);
     }
 
     // ── REPORT_GENERATED ──────────────────────────────────────

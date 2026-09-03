@@ -25,12 +25,14 @@ public class Loan {
     private final LocalDate dueDate;
     private final BigDecimal totalDue;
     private LoanStatus status;
+    /** Séance d'octroi, ou null pour un emprunt accordé hors séance. */
+    private final Long sessionId;
     private final LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
     public Loan(Long id, Long memberId, LocalDate loanDate, BigDecimal amount,
                 BigDecimal interestRate, int durationMonths, LocalDate dueDate,
-                BigDecimal totalDue, LoanStatus status,
+                BigDecimal totalDue, LoanStatus status, Long sessionId,
                 LocalDateTime createdAt, LocalDateTime updatedAt) {
         this.id = id;
         this.memberId = memberId;
@@ -41,13 +43,14 @@ public class Loan {
         this.dueDate = dueDate;
         this.totalDue = totalDue;
         this.status = status;
+        this.sessionId = sessionId;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
     }
 
     // ── Factory ─────────────────────────────────────────────
 
-    public static Loan createNew(Long memberId, BigDecimal amount) {
+    public static Loan createNew(Long memberId, BigDecimal amount, Long sessionId) {
         LocalDate now = LocalDate.now();
         BigDecimal interestRate = DEFAULT_INTEREST_RATE;
         int durationMonths = DEFAULT_DURATION_MONTHS;
@@ -60,7 +63,8 @@ public class Loan {
         BigDecimal totalDue = amount.add(interest);
         LocalDate dueDate = now.plusMonths(durationMonths);
         return new Loan(null, memberId, now, amount, interestRate, durationMonths,
-            dueDate, totalDue, LoanStatus.active, LocalDateTime.now(), LocalDateTime.now());
+            dueDate, totalDue, LoanStatus.active, sessionId,
+            LocalDateTime.now(), LocalDateTime.now());
     }
 
     // ── Business methods ────────────────────────────────────

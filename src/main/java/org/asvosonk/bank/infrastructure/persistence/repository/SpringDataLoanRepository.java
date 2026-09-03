@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import jakarta.persistence.LockModeType;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -23,4 +24,9 @@ public interface SpringDataLoanRepository extends JpaRepository<LoanEntity, Long
     long countByMemberIdAndStatusNot(Long memberId, LoanStatus status);
     List<LoanEntity> findByStatusAndDueDateBefore(LoanStatus status, LocalDate date);
     List<LoanEntity> findByMemberIdAndStatus(Long memberId, LoanStatus status);
+
+    List<LoanEntity> findBySessionIdOrderByIdAsc(Long sessionId);
+
+    @Query("SELECT SUM(l.amount) FROM LoanEntity l WHERE l.sessionId = :sessionId")
+    BigDecimal sumAmountBySessionId(Long sessionId);
 }

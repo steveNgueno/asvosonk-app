@@ -2,7 +2,7 @@
 <html lang="fr" xmlns:th="http://www.thymeleaf.org"
       xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <!--
-  Étapes bancaires du déroulé de séance dont la saisie n'est pas encore
+  Étape Banque Projet du déroulé de séance, dont la saisie n'est pas encore
   implémentée. Les rubriques existent dans l'ordre du jour : on les traverse
   explicitement, sans rien enregistrer, pour que le déroulé reste fidèle à la
   réunion.
@@ -27,26 +27,8 @@
     <div th:replace="~{sessions/_bank-placeholder :: skip('Banque Projet', ${closeAction})}"></div>
 </th:block>
 
-<!-- ══ Banque Annuelle ════════════════════════════════════════ -->
-<th:block th:fragment="banqueAnnuelle(closeAction)">
-    <div class="card mb-4">
-        <div class="card-header">
-            <i class="bi bi-bank" aria-hidden="true"></i>Banque Annuelle
-            <span class="pill pill-muted ms-2">saisie à venir</span>
-        </div>
-        <div class="card-body">
-            <p class="text-muted mb-3">
-                Épargnes et emprunts des membres. Le module existe déjà hors séance : les
-                opérations saisies depuis la page Banque Annuelle alimentent la caisse Banque.
-            </p>
-            <a th:href="@{/bank}" class="btn btn-outline-secondary btn-sm"
-               sec:authorize="hasAuthority('BANK_VIEW')">
-                <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i>Ouvrir la Banque Annuelle
-            </a>
-        </div>
-    </div>
-    <div th:replace="~{sessions/_bank-placeholder :: skip('Banque Annuelle', ${closeAction})}"></div>
-</th:block>
+<!-- La Banque Annuelle a quitté ce fichier : sa saisie en séance est
+     implémentée dans sessions/_annual-bank.html. -->
 
 <!-- ══ Bandeau « passer l'étape » ═════════════════════════════ -->
 <div th:fragment="skip(title, closeAction)" class="callout"

@@ -10,6 +10,7 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -76,4 +77,26 @@ public class JpaLoanRepository implements LoanRepository {
             .collect(Collectors.toList());
     }
 
+    @Override
+    public List<Loan> findOutstanding() {
+        // Un emprunt en retard reste dû : il doit rester remboursable partout,
+        // y compris depuis la feuille de séance.
+        return springData.findAll().stream()
+            .map(LoanMapper::toDomain)
+            .filter(Loan::isOutstanding)
+            .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Loan> findBySessionId(Long sessionId) {
+        return springData.findBySessionIdOrderByIdAsc(sessionId).stream()
+            .map(LoanMapper::toDomain)
+            .collect(Collectors.toList());
+    }
+
+    @Override
+    public BigDecimal getTotalLoanedBySessionId(Long sessionId) {
+        BigDecimal total = springData.sumAmountBySessionId(sessionId);
+        return total != null ? total : BigDecimal.ZERO;
+    }
 }

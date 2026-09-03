@@ -475,12 +475,38 @@
     </th:block>
 
     <!-- ─────────── BANQUE ANNUELLE ──────────────────────── -->
-    <th:block th:case="'BANQUE_ANNUELLE_OPEN'"
-              th:with="closeAction=@{/sessions/{id}/banque-annuelle/close(id=${meetingSession.id})}">
-        <th:block th:replace="~{sessions/_bank-placeholder :: banqueAnnuelle(${closeAction})}"></th:block>
+    <th:block th:case="'BANQUE_ANNUELLE_OPEN'">
+        <th:block th:replace="~{sessions/_annual-bank :: annualBankSheet(
+            ${meetingSession.id}, ${bankMembers}, ${bankSummaries}, ${bankMemberNames},
+            ${activeBankLoans}, ${remainingByLoan},
+            ${savingForm}, ${loanForm}, ${repaymentForm},
+            ${bankSessionSavings}, ${bankSessionRepayments}, ${bankSessionLoans})}"></th:block>
+        <div class="callout" style="border-left-color:var(--c-danger)" sec:authorize="hasAuthority('SESSION_CLOSE')">
+            <i class="bi bi-lock callout-icon" style="color:var(--c-danger)" aria-hidden="true"></i>
+            <div class="callout-body">
+                <p class="mb-0 fw-semibold">Clôturer la Banque Annuelle</p>
+                <p class="mb-0 small text-muted">
+                    Les totaux épargnes et remboursements de la séance seront figés dans le rapport.
+                </p>
+            </div>
+            <div class="callout-actions">
+                <form th:action="@{/sessions/{id}/banque-annuelle/close(id=${meetingSession.id})}" method="post"
+                      data-confirm="Clôturer la Banque Annuelle pour cette séance ?">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-lock" aria-hidden="true"></i>Clôturer la Banque Annuelle
+                    </button>
+                </form>
+            </div>
+        </div>
     </th:block>
 
     <th:block th:case="'BANQUE_ANNUELLE_CLOSED'">
+        <!-- th:replace prime sur th:if : le test doit porter sur un bloc englobant. -->
+        <th:block th:if="${sessionReport != null}">
+            <div th:replace="~{sessions/_annual-bank :: annualBankRecap(
+                     ${sessionReport.banqueAnnuelleSavings}, ${sessionReport.banqueAnnuelleRepayments},
+                     ${sessionReport.banqueAnnuelleLoans}, true)}"></div>
+        </th:block>
         <div class="callout callout-muted mb-4">
             <i class="bi bi-check-circle callout-icon" style="color:var(--c-success)" aria-hidden="true"></i>
             <div class="callout-body">

@@ -14,7 +14,7 @@
 
 <!-- ── Chiffres clés ────────────────────────────────────── -->
 <div class="row g-3 mb-5">
-    <div class="col-md-4">
+    <div class="col-md-3">
         <div class="stat cashbox bank">
             <span class="stat-label">Solde de la caisse Banque</span>
             <span class="stat-value money">
@@ -24,14 +24,24 @@
             <p class="stat-hint mb-0">Dépôts d'épargne moins les décaissements de prêts</p>
         </div>
     </div>
-    <div class="col-md-4">
+    <div class="col-md-3">
         <div class="stat">
             <span class="stat-label">Emprunts en cours</span>
             <span class="stat-value" th:text="${#lists.size(activeLoans)}">0</span>
             <p class="stat-hint mb-0">Actifs ou en retard</p>
         </div>
     </div>
-    <div class="col-md-4">
+    <div class="col-md-3">
+        <div class="stat">
+            <span class="stat-label">Reste à recouvrer</span>
+            <span class="stat-value money money-out">
+                <span th:text="${#numbers.formatInteger(totalOutstanding,1,'WHITESPACE')}">0</span>
+                <span class="money-unit">FCFA</span>
+            </span>
+            <p class="stat-hint mb-0">Solde restant dû sur les emprunts non soldés</p>
+        </div>
+    </div>
+    <div class="col-md-3">
         <div class="stat">
             <span class="stat-label">Membres</span>
             <span class="stat-value" th:text="${#lists.size(members)}">0</span>

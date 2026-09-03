@@ -14,8 +14,10 @@ package org.asvosonk.session.domain.valueobject;
  *   <li>rapport de séance.</li>
  * </ol>
  *
- * <p>Les deux étapes bancaires sont en place dans le déroulé mais leur saisie
- * n'est pas encore implémentée : on les traverse sans rien enregistrer.
+ * <p>La Banque Annuelle se saisit en séance : épargnes, emprunts et
+ * remboursements enregistrés à l'étape {@link #BANQUE_ANNUELLE_OPEN} sont
+ * rattachés à la séance, et sa clôture fige leurs totaux dans le rapport. La
+ * Banque Projet, elle, est encore traversée sans rien enregistrer.
  */
 public enum SessionStep {
     CREATED,

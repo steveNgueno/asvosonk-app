@@ -12,6 +12,7 @@ public class SavingMapper {
             entity.getMemberId(),
             entity.getOperationDate(),
             entity.getAmount(),
+            entity.getSessionId(),
             entity.getCreatedAt()
         );
     }
@@ -23,6 +24,7 @@ public class SavingMapper {
         entity.setMemberId(domain.getMemberId());
         entity.setOperationDate(domain.getOperationDate());
         entity.setAmount(domain.getAmount());
+        entity.setSessionId(domain.getSessionId());
         return entity;
     }
 }

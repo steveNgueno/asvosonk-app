@@ -12,4 +12,10 @@ public interface SavingRepository {
     List<Saving> findByMemberIdOrderByOperationDateDesc(Long memberId);
 
     BigDecimal getTotalSavingsByMemberId(Long memberId);
+
+    /** Épargnes saisies pendant une séance, dans leur ordre de saisie. */
+    List<Saving> findBySessionId(Long sessionId);
+
+    /** Total des épargnes collectées pendant une séance ; zéro si aucune. */
+    BigDecimal getTotalSavingsBySessionId(Long sessionId);
 }
