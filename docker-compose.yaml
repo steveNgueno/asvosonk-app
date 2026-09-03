@@ -44,7 +44,7 @@ services:
     container_name: asvosonk_pgadmin
     restart: unless-stopped
     environment:
-      PGADMIN_DEFAULT_EMAIL:    admin@asvosonk.local
+      PGADMIN_DEFAULT_EMAIL:    admin@asvosonk.com
       PGADMIN_DEFAULT_PASSWORD: PgAdmin@2024        # ← changer en production
       PGADMIN_CONFIG_SERVER_MODE: 'False'           # mode desktop (pas de multi-user)
       PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: 'False'

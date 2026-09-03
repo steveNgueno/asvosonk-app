@@ -40,4 +40,17 @@ public class JpaSavingRepository implements SavingRepository {
         BigDecimal total = springData.sumAmountByMemberId(memberId);
         return total != null ? total : BigDecimal.ZERO;
     }
+
+    @Override
+    public List<Saving> findBySessionId(Long sessionId) {
+        return springData.findBySessionIdOrderByIdAsc(sessionId).stream()
+            .map(SavingMapper::toDomain)
+            .collect(Collectors.toList());
+    }
+
+    @Override
+    public BigDecimal getTotalSavingsBySessionId(Long sessionId) {
+        BigDecimal total = springData.sumAmountBySessionId(sessionId);
+        return total != null ? total : BigDecimal.ZERO;
+    }
 }

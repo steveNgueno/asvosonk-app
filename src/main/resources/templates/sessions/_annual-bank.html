@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<body>
+
+<!--
+  Récapitulatif chiffré de la rubrique, partagé par les trois écrans qui la
+  montrent : la feuille de saisie (totaux courants), l'étape clôturée et le
+  rapport de séance (totaux figés). Un seul endroit à corriger si la
+  présentation change.
+
+  savings / repayments : entrées de la caisse Banque ;
+  loans                : sortie de la caisse Banque.
+
+  Les trois montants sont toujours fournis non nuls — les colonnes du rapport
+  ont un défaut à zéro et les totaux par séance retombent sur ZERO.
+-->
+<div th:fragment="annualBankRecap(savings, repayments, loans, frozen)"
+     class="card mb-4 card-accent card-accent-info">
+    <div class="card-header">
+        <i class="bi bi-bank" aria-hidden="true"></i>Banque Annuelle
+        <span class="pill pill-success ms-2" th:if="${frozen}">
+            <i class="bi bi-lock" aria-hidden="true"></i>figée
+        </span>
+    </div>
+    <table class="table mb-0">
+        <caption class="visually-hidden">Chiffres de la Banque Annuelle pour la séance</caption>
+        <tbody>
+            <tr>
+                <th scope="row" class="fw-normal">Épargnes collectées</th>
+                <td class="num money money-in"
+                    th:text="${#numbers.formatInteger(savings,1,'WHITESPACE')} + ' FCFA'">0</td>
+            </tr>
+            <tr>
+                <th scope="row" class="fw-normal">Remboursements encaissés</th>
+                <td class="num money money-in"
+                    th:text="${#numbers.formatInteger(repayments,1,'WHITESPACE')} + ' FCFA'">0</td>
+            </tr>
+            <tr>
+                <th scope="row" class="fw-normal">
+                    Emprunts décaissés
+                    <span class="d-block small text-muted">sortie de la caisse Banque</span>
+                </th>
+                <td class="num money" th:classappend="${loans.signum() > 0} ? 'money-out'"
+                    th:text="${loans.signum() > 0 ? '− ' : ''}
+                             + ${#numbers.formatInteger(loans,1,'WHITESPACE')} + ' FCFA'">0</td>
+            </tr>
+        </tbody>
+        <tfoot>
+            <tr th:with="net=${savings.add(repayments).subtract(loans)}">
+                <th scope="row">Effet net sur la caisse Banque</th>
+                <td class="num money"
+                    th:classappend="${net.signum() &lt; 0 ? 'money-out' : (net.signum() > 0 ? 'money-in' : '')}"
+                    th:text="${net.signum() &lt; 0 ? '− ' : ''}
+                             + ${#numbers.formatInteger(net.abs(),1,'WHITESPACE')} + ' FCFA'">0</td>
+            </tr>
+        </tfoot>
+    </table>
+</div>
+
+<!-- ══ Feuille de saisie Banque Annuelle en séance ═══════════ -->
+<th:block th:fragment="annualBankSheet(sessionId, bankMembers, bankSummaries, bankMemberNames,
+                                        activeBankLoans, remainingByLoan,
+                                        savingForm, loanForm, repaymentForm,
+                                        sessionSavings, sessionRepayments, sessionLoans)">
+
+    <!-- ── Résumé ──────────────────────────────────────────── -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <i class="bi bi-bank" aria-hidden="true"></i>Banque Annuelle — saisie en séance
+        </div>
+        <div class="card-body">
+            <p class="text-muted mb-0">
+                Épargnes et emprunts des membres. Les opérations enregistrées ici sont
+                rattachées à cette séance et apparaîtront dans le rapport. La clôture de
+                la rubrique fige ces chiffres : plus rien ne pourra y être ajouté ensuite.
+            </p>
+        </div>
+    </div>
+
+    <!-- ── Chiffres de la séance, mis à jour à chaque saisie ─ -->
+    <div th:replace="~{sessions/_annual-bank :: annualBankRecap(
+        ${sessionSavings}, ${sessionRepayments}, ${sessionLoans}, false)}"></div>
+
+    <!-- ── Comptes membres ─────────────────────────────────── -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <i class="bi bi-person-lines-fill" aria-hidden="true"></i>Comptes des membres
+        </div>
+        <div class="table-wrap">
+            <table class="table table-hover">
+                <caption class="visually-hidden">Comptes bancaires des membres</caption>
+                <thead>
+                    <tr>
+                        <th scope="col">Membre</th>
+                        <th scope="col" class="num">Épargné</th>
+                        <th scope="col" class="num">Emprunts en cours</th>
+                        <th scope="col">Éligible emprunt</th>
+                        <th scope="col" class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="m : ${bankMembers}"
+                        th:with="summary=${bankSummaries.get(m.id)}">
+                        <th scope="row" th:text="${m.fullName}">Nom</th>
+                        <td class="num money money-in"
+                            th:text="${#numbers.formatInteger(summary.totalSavings,1,'WHITESPACE')} + ' FCFA'">0</td>
+                        <td class="num" th:text="${#lists.size(summary.activeLoans)}">0</td>
+                        <td>
+                            <span class="pill pill-success" th:if="${summary.eligibleForLoan}">
+                                <i class="bi bi-check-circle" aria-hidden="true"></i>Éligible
+                            </span>
+                            <span class="pill pill-muted" th:unless="${summary.eligibleForLoan}">
+                                <i class="bi bi-x-circle" aria-hidden="true"></i>Non éligible
+                            </span>
+                        </td>
+                        <td class="text-end">
+                            <div class="d-flex gap-1 justify-content-end flex-wrap">
+                                <!-- Épargne -->
+                                <button type="button" class="btn btn-sm btn-outline-success"
+                                        sec:authorize="hasAuthority('BANK_SAVING_RECORD')"
+                                        data-bs-toggle="modal"
+                                        th:attr="data-bs-target='#sessionSavingModal-' + ${m.id}">
+                                    <i class="bi bi-piggy-bank" aria-hidden="true"></i>Épargner
+                                </button>
+                                <!-- Emprunt -->
+                                <button type="button" class="btn btn-sm btn-outline-primary"
+                                        sec:authorize="hasAuthority('BANK_LOAN_CREATE')"
+                                        th:if="${summary.eligibleForLoan}"
+                                        data-bs-toggle="modal"
+                                        th:attr="data-bs-target='#sessionLoanModal-' + ${m.id}">
+                                    <i class="bi bi-currency-exchange" aria-hidden="true"></i>Emprunter
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr th:replace="~{fragments/ui :: emptyRow(5, 'Aucun membre', ${#lists.isEmpty(bankMembers)})}"></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ── Emprunts en cours (pour remboursement) ──────────── -->
+    <div class="card mb-4" th:if="${!#lists.isEmpty(activeBankLoans)}">
+        <div class="card-header">
+            <i class="bi bi-currency-exchange" aria-hidden="true"></i>Emprunts en cours
+        </div>
+        <div class="table-wrap">
+            <table class="table table-hover">
+                <caption class="visually-hidden">Emprunts actifs</caption>
+                <thead>
+                    <tr>
+                        <th scope="col">Membre</th>
+                        <th scope="col" class="num">Montant</th>
+                        <th scope="col" class="num">Total dû</th>
+                        <th scope="col" class="num">Reste à payer</th>
+                        <th scope="col">Échéance</th>
+                        <th scope="col" class="text-end">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="loan : ${activeBankLoans}">
+                        <th scope="row" th:text="${bankMemberNames.get(loan.memberId) ?: '—'}">Nom</th>
+                        <td class="num money"
+                            th:text="${#numbers.formatInteger(loan.amount,1,'WHITESPACE')} + ' FCFA'">0</td>
+                        <td class="num money"
+                            th:text="${#numbers.formatInteger(loan.totalDue,1,'WHITESPACE')} + ' FCFA'">0</td>
+                        <td class="num money money-out"
+                            th:text="${#numbers.formatInteger(remainingByLoan.get(loan.id),1,'WHITESPACE')} + ' FCFA'">0</td>
+                        <td>
+                            <span th:text="${#temporals.format(loan.dueDate,'dd/MM/yyyy')}">date</span>
+                            <!-- Un emprunt en retard reste remboursable : il doit apparaître
+                                 ici, mais signalé comme tel. -->
+                            <span class="pill pill-danger ms-1" th:if="${loan.overdue}">
+                                <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>En retard
+                            </span>
+                        </td>
+                        <td class="text-end">
+                            <button type="button" class="btn btn-sm btn-outline-warning"
+                                    sec:authorize="hasAuthority('BANK_LOAN_REPAYMENT')"
+                                    data-bs-toggle="modal"
+                                    th:attr="data-bs-target='#sessionRepayModal-' + ${loan.id}">
+                                <i class="bi bi-cash" aria-hidden="true"></i>Rembourser
+                            </button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ══ Modales Épargne (une par membre) ═════════════════ -->
+    <th:block th:each="m : ${bankMembers}">
+        <div class="modal fade" th:id="'sessionSavingModal-' + ${m.id}" tabindex="-1"
+             th:attr="aria-labelledby='sessionSavingTitle-' + ${m.id}" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <form th:action="@{/sessions/{id}/banque-annuelle/save(id=${sessionId})}"
+                          method="post" th:object="${savingForm}" novalidate>
+                        <input type="hidden" name="memberId" th:value="${m.id}">
+                        <div class="modal-header">
+                            <h2 class="modal-title" th:id="'sessionSavingTitle-' + ${m.id}">
+                                <i class="bi bi-piggy-bank" aria-hidden="true"></i>
+                                Épargne — <span th:text="${m.fullName}">Membre</span>
+                            </h2>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label class="form-label req" th:for="'sessionSavingAmount-' + ${m.id}">Montant</label>
+                                <div class="input-group">
+                                    <input type="number" th:id="'sessionSavingAmount-' + ${m.id}"
+                                           class="form-control num" th:field="*{amount}"
+                                           min="1" step="1" inputmode="numeric" required>
+                                    <span class="input-group-text">FCFA</span>
+                                </div>
+                                <div class="invalid-feedback" th:if="${#fields.hasErrors('amount')}" th:errors="*{amount}"></div>
+                            </div>
+                            <div>
+                                <label class="form-label" th:for="'sessionSavingDate-' + ${m.id}">Date de l'opération</label>
+                                <input type="date" th:id="'sessionSavingDate-' + ${m.id}"
+                                       class="form-control" th:field="*{operationDate}">
+                                <p class="form-text">Laissez vide pour la date du jour.</p>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Annuler</button>
+                            <button type="submit" class="btn btn-success">
+                                <i class="bi bi-check-lg" aria-hidden="true"></i>Enregistrer l'épargne
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </th:block>
+
+    <!-- ══ Modales Emprunt (uniquement pour les éligibles) ═══ -->
+    <th:block th:each="m : ${bankMembers}"
+              th:with="summary=${bankSummaries.get(m.id)}">
+        <div class="modal fade" th:if="${summary.eligibleForLoan}"
+             th:id="'sessionLoanModal-' + ${m.id}" tabindex="-1"
+             th:attr="aria-labelledby='sessionLoanTitle-' + ${m.id}" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <form th:action="@{/sessions/{id}/banque-annuelle/loan(id=${sessionId})}"
+                          method="post" th:object="${loanForm}" novalidate>
+                        <input type="hidden" name="memberId" th:value="${m.id}">
+                        <div class="modal-header">
+                            <h2 class="modal-title" th:id="'sessionLoanTitle-' + ${m.id}">
+                                <i class="bi bi-currency-exchange" aria-hidden="true"></i>
+                                Emprunt — <span th:text="${m.fullName}">Membre</span>
+                            </h2>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="alert alert-info" role="note">
+                                <i class="bi bi-info-circle-fill flex-shrink-0" aria-hidden="true"></i>
+                                <span>
+                                    Taux <strong>10 %</strong> · durée <strong>2 mois</strong>.
+                                    Épargne :
+                                    <strong th:text="${#numbers.formatInteger(summary.totalSavings,1,'WHITESPACE')} + ' FCFA'">0</strong>
+                                    · max emprunt :
+                                    <strong th:text="${#numbers.formatInteger(summary.totalSavings * 3,1,'WHITESPACE')} + ' FCFA'">0</strong>
+                                </span>
+                            </div>
+                            <label class="form-label req" th:for="'sessionLoanAmount-' + ${m.id}">Montant emprunté</label>
+                            <div class="input-group">
+                                <input type="number" th:id="'sessionLoanAmount-' + ${m.id}"
+                                       class="form-control num" th:field="*{amount}"
+                                       min="1" step="1" inputmode="numeric" required>
+                                <span class="input-group-text">FCFA</span>
+                            </div>
+                            <div class="invalid-feedback" th:if="${#fields.hasErrors('amount')}" th:errors="*{amount}"></div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Annuler</button>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-lg" aria-hidden="true"></i>Créer l'emprunt
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </th:block>
+
+    <!-- ══ Modales Remboursement (un par emprunt actif) ══════ -->
+    <th:block th:each="loan : ${activeBankLoans}">
+        <div class="modal fade" th:id="'sessionRepayModal-' + ${loan.id}" tabindex="-1"
+             th:attr="aria-labelledby='sessionRepayTitle-' + ${loan.id}" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <form th:action="@{/sessions/{id}/banque-annuelle/repay(id=${sessionId})}"
+                          method="post" th:object="${repaymentForm}" novalidate>
+                        <input type="hidden" name="loanId" th:value="${loan.id}">
+                        <div class="modal-header">
+                            <h2 class="modal-title" th:id="'sessionRepayTitle-' + ${loan.id}">
+                                <i class="bi bi-cash" aria-hidden="true"></i> Rembourser
+                            </h2>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+                        </div>
+                        <div class="modal-body">
+                            <dl class="detail-list mb-4">
+                                <dt>Membre</dt>
+                                <dd th:text="${bankMemberNames.get(loan.memberId) ?: '—'}">—</dd>
+                                <dt>Montant emprunté</dt>
+                                <dd class="money"
+                                    th:text="${#numbers.formatInteger(loan.amount,1,'WHITESPACE')} + ' FCFA'">0</dd>
+                                <dt>Total dû</dt>
+                                <dd class="money"
+                                    th:text="${#numbers.formatInteger(loan.totalDue,1,'WHITESPACE')} + ' FCFA'">0</dd>
+                                <dt>Reste à payer</dt>
+                                <dd class="money money-out"
+                                    th:text="${#numbers.formatInteger(remainingByLoan.get(loan.id),1,'WHITESPACE')} + ' FCFA'">0</dd>
+                            </dl>
+                            <label class="form-label req" th:for="'sessionRepayAmount-' + ${loan.id}">Montant du remboursement</label>
+                            <div class="input-group">
+                                <input type="number" th:id="'sessionRepayAmount-' + ${loan.id}"
+                                       class="form-control num" th:field="*{amount}"
+                                       min="1" step="1" inputmode="numeric" required>
+                                <span class="input-group-text">FCFA</span>
+                            </div>
+                            <p class="form-text">Un montant supérieur au solde restant dû est refusé.</p>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Annuler</button>
+                            <button type="submit" class="btn btn-warning">
+                                <i class="bi bi-check-lg" aria-hidden="true"></i>Enregistrer le remboursement
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </th:block>
+
+</th:block>
+
+</body>
+</html>

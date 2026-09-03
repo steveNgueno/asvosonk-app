@@ -139,6 +139,13 @@
         </div>
     </div>
 
+    <!-- ══ Banque Annuelle ═══════════════════════════════════ -->
+    <th:block th:if="${sessionReport != null}">
+        <div th:replace="~{sessions/_annual-bank :: annualBankRecap(
+                 ${sessionReport.banqueAnnuelleSavings}, ${sessionReport.banqueAnnuelleRepayments},
+                 ${sessionReport.banqueAnnuelleLoans}, true)}"></div>
+    </th:block>
+
     <!-- ══ Entrées et sorties du jour ════════════════════════ -->
     <div class="row g-4 mb-4">
         <div class="col-lg-7">

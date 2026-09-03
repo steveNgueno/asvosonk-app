@@ -91,17 +91,22 @@
                     <div class="money" th:text="${#numbers.formatInteger(loan.totalDue,1,'WHITESPACE')} + ' FCFA'">0</div>
                 </div>
                 <div class="col-6 col-lg-2">
+                    <span class="stat-label">Reste à payer</span>
+                    <div class="money money-out"
+                         th:text="${#numbers.formatInteger(remainingByLoan.get(loan.id),1,'WHITESPACE')} + ' FCFA'">0</div>
+                </div>
+                <div class="col-6 col-lg-2">
                     <span class="stat-label">Échéance</span>
                     <div th:text="${#temporals.format(loan.dueDate,'dd/MM/yyyy')}">date</div>
                 </div>
-                <div class="col-6 col-lg-2">
+                <div class="col-6 col-lg-1">
                     <span class="stat-label">Statut</span>
                     <div>
                         <span class="pill pill-danger" th:if="${loan.isOverdue()}">En retard</span>
                         <span class="pill pill-warning" th:unless="${loan.isOverdue()}">Actif</span>
                     </div>
                 </div>
-                <div class="col-lg-3"
+                <div class="col-lg-2"
                      th:with="pct=${summary.repaymentPercentByLoanId.get(loan.id) != null
                                     ? summary.repaymentPercentByLoanId.get(loan.id) : 0}">
                     <span class="stat-label">Remboursé — <span th:text="${pct}">0</span>%</span>
@@ -173,16 +178,61 @@
                     <thead>
                         <tr>
                             <th scope="col">Date</th>
+                            <th scope="col">Origine</th>
                             <th scope="col" class="num">Montant</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr th:each="s : ${savings}">
                             <th scope="row" th:text="${#temporals.format(s.operationDate,'dd/MM/yyyy')}">date</th>
+                            <td>
+                                <span class="pill pill-info" th:if="${s.sessionId != null}">
+                                    <i class="bi bi-calendar-week" aria-hidden="true"></i>Séance
+                                </span>
+                                <span class="pill pill-muted" th:if="${s.sessionId == null}">Hors séance</span>
+                            </td>
                             <td class="num money money-in"
                                 th:text="'+ ' + ${#numbers.formatInteger(s.amount,1,'WHITESPACE')} + ' FCFA'">0</td>
                         </tr>
-                        <tr th:replace="~{fragments/ui :: emptyRow(2, 'Aucune épargne enregistrée', ${savings == null or #lists.isEmpty(savings)})}"></tr>
+                        <tr th:replace="~{fragments/ui :: emptyRow(3, 'Aucune épargne enregistrée', ${savings == null or #lists.isEmpty(savings)})}"></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Journal des remboursements : sans lui, un remboursement enregistré
+         ne laissait aucune trace consultable sur cette page. -->
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-cash" aria-hidden="true"></i>Historique des remboursements
+            </div>
+            <div class="table-wrap">
+                <table class="table">
+                    <caption class="visually-hidden">Remboursements versés par le membre</caption>
+                    <thead>
+                        <tr>
+                            <th scope="col">Date</th>
+                            <th scope="col">Emprunt</th>
+                            <th scope="col">Origine</th>
+                            <th scope="col" class="num">Montant</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="r : ${repayments}">
+                            <th scope="row" th:text="${#temporals.format(r.paymentDate,'dd/MM/yyyy')}">date</th>
+                            <td th:text="'#' + ${r.loanId}">#0</td>
+                            <td>
+                                <span class="pill pill-info" th:if="${r.sessionId != null}">
+                                    <i class="bi bi-calendar-week" aria-hidden="true"></i>Séance
+                                </span>
+                                <span class="pill pill-muted" th:if="${r.sessionId == null}">Hors séance</span>
+                            </td>
+                            <td class="num money money-in"
+                                th:text="'+ ' + ${#numbers.formatInteger(r.amount,1,'WHITESPACE')} + ' FCFA'">0</td>
+                        </tr>
+                        <tr th:replace="~{fragments/ui :: emptyRow(4, 'Aucun remboursement enregistré', ${repayments == null or #lists.isEmpty(repayments)})}"></tr>
                     </tbody>
                 </table>
             </div>
@@ -290,6 +340,9 @@
                             <dd class="money" th:text="${#numbers.formatInteger(loan.totalDue,1,'WHITESPACE')} + ' FCFA'">0</dd>
                             <dt>Échéance</dt>
                             <dd th:text="${#temporals.format(loan.dueDate,'dd/MM/yyyy')}">date</dd>
+                            <dt>Reste à payer</dt>
+                            <dd class="money money-out"
+                                th:text="${#numbers.formatInteger(remainingByLoan.get(loan.id),1,'WHITESPACE')} + ' FCFA'">0</dd>
                         </dl>
                         <label class="form-label req" th:for="'repayAmount-' + ${loan.id}">Montant du remboursement</label>
                         <div class="input-group">

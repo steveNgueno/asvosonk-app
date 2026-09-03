@@ -12,6 +12,7 @@ public class LoanRepaymentMapper {
             entity.getLoanId(),
             entity.getPaymentDate(),
             entity.getAmount(),
+            entity.getSessionId(),
             entity.getCreatedAt()
         );
     }
@@ -23,6 +24,7 @@ public class LoanRepaymentMapper {
         entity.setLoanId(domain.getLoanId());
         entity.setPaymentDate(domain.getPaymentDate());
         entity.setAmount(domain.getAmount());
+        entity.setSessionId(domain.getSessionId());
         return entity;
     }
 }

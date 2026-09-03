@@ -15,6 +15,7 @@ import org.asvosonk.member.domain.model.Member;
 import org.asvosonk.member.domain.repository.MemberRepository;
 import org.asvosonk.member.infrastructure.persistence.entity.MemberEntity;
 import org.asvosonk.security.domain.model.AppUser;
+import org.asvosonk.session.infrastructure.persistence.entity.MeetingSessionEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,6 +35,12 @@ public class RecordLoanRepaymentUseCase {
 
     @Transactional
     public LoanRepayment execute(Long loanId, BigDecimal amount, AppUser user) {
+        return execute(loanId, amount, null, user);
+    }
+
+    @Transactional
+    public LoanRepayment execute(Long loanId, BigDecimal amount,
+                                 MeetingSessionEntity session, AppUser user) {
         if (amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new BusinessRuleException("Le montant du remboursement doit être positif.");
         }
@@ -60,9 +67,11 @@ public class RecordLoanRepaymentUseCase {
                 "Le remboursement dépasse le solde restant dû (" + remaining + " FCFA).");
         }
 
-        // Record repayment
+        // Record repayment. Le rattachement à la séance est porté par le
+        // remboursement lui-même : le rapport de séance se calcule dessus.
         LoanRepayment repayment = new LoanRepayment(
-            null, loanId, LocalDate.now(), amount, LocalDateTime.now());
+            null, loanId, LocalDate.now(), amount,
+            session != null ? session.getId() : null, LocalDateTime.now());
         LoanRepayment saved = repaymentRepository.save(repayment);
 
         // Check if fully repaid
@@ -80,7 +89,7 @@ public class RecordLoanRepaymentUseCase {
         // F-52 — trace the cashbox deposit back to the member and the repayment.
         String reason = "Remboursement emprunt #" + loanId + " — " + memberName;
         depositMoneyUseCase.execute(CashboxType.bank, amount, reason,
-            MovementOrigin.annual_bank, null,
+            MovementOrigin.annual_bank, session,
             entityManager.getReference(MemberEntity.class, loan.getMemberId()), saved.getId(), user);
 
         return saved;

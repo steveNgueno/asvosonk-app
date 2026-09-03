@@ -13,6 +13,7 @@ import org.asvosonk.member.domain.model.Member;
 import org.asvosonk.member.domain.repository.MemberRepository;
 import org.asvosonk.member.infrastructure.persistence.entity.MemberEntity;
 import org.asvosonk.security.domain.model.AppUser;
+import org.asvosonk.session.infrastructure.persistence.entity.MeetingSessionEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,6 +35,12 @@ public class CreateLoanUseCase {
 
     @Transactional
     public Loan execute(Long memberId, BigDecimal amount, AppUser user) {
+        return execute(memberId, amount, null, user);
+    }
+
+    @Transactional
+    public Loan execute(Long memberId, BigDecimal amount,
+                        MeetingSessionEntity session, AppUser user) {
         if (amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new BusinessRuleException("Le montant de l'emprunt doit être positif.");
         }
@@ -64,13 +71,15 @@ public class CreateLoanUseCase {
                 "Maximum 2 emprunts simultanés autorisés. (" + activeLoans + " en cours)");
         }
 
-        Loan loan = Loan.createNew(memberId, amount);
+        // Le rattachement à la séance est porté par l'emprunt lui-même : le
+        // rapport de séance chiffre dessus le montant décaissé.
+        Loan loan = Loan.createNew(memberId, amount, session != null ? session.getId() : null);
         Loan saved = loanRepository.save(loan);
 
         // F-52 — trace the cashbox withdrawal back to the member and the loan.
         String reason = "Emprunt membre " + member.getFullName();
         withdrawMoneyUseCase.execute(CashboxType.bank, amount, reason,
-            MovementOrigin.annual_bank, null,
+            MovementOrigin.annual_bank, session,
             entityManager.getReference(MemberEntity.class, memberId), saved.getId(), user);
 
         return saved;

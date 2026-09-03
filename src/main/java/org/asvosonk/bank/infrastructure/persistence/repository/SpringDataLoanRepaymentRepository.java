@@ -14,4 +14,9 @@ public interface SpringDataLoanRepaymentRepository extends JpaRepository<LoanRep
 
     @Query("SELECT SUM(r.amount) FROM LoanRepaymentEntity r WHERE r.loanId = :loanId")
     BigDecimal sumAmountByLoanId(Long loanId);
+
+    List<LoanRepaymentEntity> findBySessionIdOrderByIdAsc(Long sessionId);
+
+    @Query("SELECT SUM(r.amount) FROM LoanRepaymentEntity r WHERE r.sessionId = :sessionId")
+    BigDecimal sumAmountBySessionId(Long sessionId);
 }

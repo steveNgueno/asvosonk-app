@@ -3,6 +3,7 @@ package org.asvosonk.bank.domain.repository;
 import org.asvosonk.bank.domain.model.Loan;
 import org.asvosonk.bank.domain.valueobject.LoanStatus;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
@@ -29,4 +30,13 @@ public interface LoanRepository {
     List<Loan> findByMemberIdAndStatus(Long memberId, LoanStatus status);
 
     List<Loan> findAll();
+
+    /** Emprunts encore dus — actifs ou en retard — tous membres confondus. */
+    List<Loan> findOutstanding();
+
+    /** Emprunts accordés pendant une séance, dans leur ordre de saisie. */
+    List<Loan> findBySessionId(Long sessionId);
+
+    /** Total décaissé en emprunts pendant une séance ; zéro si aucun. */
+    BigDecimal getTotalLoanedBySessionId(Long sessionId);
 }

@@ -27,6 +27,10 @@ public class LoanRepaymentEntity {
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal amount;
 
+    /** Séance au cours de laquelle le remboursement a été encaissé, null si hors séance. */
+    @Column(name = "session_id")
+    private Long sessionId;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 

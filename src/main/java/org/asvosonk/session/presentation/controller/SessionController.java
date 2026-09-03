@@ -2,6 +2,17 @@ package org.asvosonk.session.presentation.controller;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.asvosonk.bank.application.usecase.CreateLoanUseCase;
+import org.asvosonk.bank.application.usecase.GetMemberBankSummaryUseCase;
+import org.asvosonk.bank.application.usecase.RecordLoanRepaymentUseCase;
+import org.asvosonk.bank.application.usecase.RecordSavingUseCase;
+import org.asvosonk.bank.presentation.request.LoanForm;
+import org.asvosonk.bank.presentation.request.RepaymentForm;
+import org.asvosonk.bank.presentation.request.SavingForm;
+import org.asvosonk.bank.domain.repository.LoanRepository;
+import org.asvosonk.bank.domain.repository.LoanRepaymentRepository;
+import org.asvosonk.bank.domain.repository.SavingRepository;
+import org.asvosonk.bank.domain.model.Loan;
 import org.asvosonk.cashbox.application.usecase.DepositMoneyUseCase;
 import org.asvosonk.cashbox.application.usecase.GenerateBalanceUseCase;
 import org.asvosonk.cashbox.application.usecase.WithdrawMoneyUseCase;
@@ -47,6 +58,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -71,6 +83,13 @@ public class SessionController {
     private final GetTourSummaryUseCase            getTourSummaryUseCase;
     private final RecordTontineContributionUseCase recordTontineContributionUseCase;
     private final MembershipFeePaymentRepository   membershipFeePaymentRepository;
+    private final RecordSavingUseCase              recordSavingUseCase;
+    private final CreateLoanUseCase                createLoanUseCase;
+    private final RecordLoanRepaymentUseCase       recordLoanRepaymentUseCase;
+    private final GetMemberBankSummaryUseCase      getMemberBankSummaryUseCase;
+    private final LoanRepository                   loanRepository;
+    private final LoanRepaymentRepository          loanRepaymentRepository;
+    private final SavingRepository                 savingRepository;
 
     // ── List ─────────────────────────────────────────────────
 
@@ -181,6 +200,47 @@ public class SessionController {
                     .filter(c -> !c.isPaid()).count());
                 model.addAttribute("tontineMemberNames", namesOfContributions(contributions));
             }
+        }
+
+        // ── Banque Annuelle : saisie en cours ────────────────
+        if (step == SessionStep.BANQUE_ANNUELLE_OPEN) {
+            // Seuls les membres actifs : épargner et emprunter leur sont réservés
+            // (RecordSavingUseCase / CreateLoanUseCase rejettent les autres), inutile
+            // de leur proposer un bouton qui n'aboutira jamais.
+            List<Member> bankMembers = searchMemberUseCase.findAllActive();
+            Map<Long, GetMemberBankSummaryUseCase.MemberBankSummary> bankSummaries = new HashMap<>();
+            for (Member m : bankMembers) {
+                bankSummaries.put(m.getId(), getMemberBankSummaryUseCase.execute(m.getId()));
+            }
+            model.addAttribute("bankMembers", bankMembers);
+            model.addAttribute("bankSummaries", bankSummaries);
+            model.addAttribute("savingForm", new SavingForm());
+            model.addAttribute("loanForm", new LoanForm());
+            model.addAttribute("repaymentForm", new RepaymentForm());
+
+            // Emprunts remboursables : tout emprunt encore dû, en retard compris.
+            // Filtrer sur le seul statut « actif » rendait un emprunt en retard
+            // irremboursable en séance, alors que la page Banque Annuelle et
+            // RecordLoanRepaymentUseCase l'acceptent tous deux.
+            List<Loan> outstandingLoans = loanRepository.findOutstanding();
+            model.addAttribute("activeBankLoans", outstandingLoans);
+            Map<Long, BigDecimal> remainingByLoan = new HashMap<>();
+            for (Loan loan : outstandingLoans) {
+                BigDecimal repaid = loanRepaymentRepository.getTotalRepaidByLoanId(loan.getId());
+                remainingByLoan.put(loan.getId(), loan.getRemainingBalance(repaid));
+            }
+            model.addAttribute("remainingByLoan", remainingByLoan);
+
+            // Les emprunts peuvent appartenir à un membre devenu inactif : leurs
+            // noms sont résolus à part, sinon la ligne s'afficherait sans membre.
+            List<Long> nameIds = new ArrayList<>(bankMembers.stream().map(Member::getId).toList());
+            outstandingLoans.forEach(l -> nameIds.add(l.getMemberId()));
+            model.addAttribute("bankMemberNames", searchMemberUseCase.findNamesByIds(nameIds));
+
+            // Chiffres courants de la rubrique : ce sont eux que la clôture figera.
+            model.addAttribute("bankSessionSavings", savingRepository.getTotalSavingsBySessionId(id));
+            model.addAttribute("bankSessionRepayments", loanRepaymentRepository.getTotalRepaidBySessionId(id));
+            model.addAttribute("bankSessionLoans", loanRepository.getTotalLoanedBySessionId(id));
         }
 
         // ── Entrées et sorties diverses de la séance ─────────
@@ -525,6 +585,120 @@ public class SessionController {
             ra.addFlashAttribute("successMessage",
                 saved > 0 ? saved + " cotisation(s) enregistrée(s)."
                           : "Aucune ligne à enregistrer : tous les montants étaient vides.");
+        }
+        return "redirect:/sessions/" + id;
+    }
+
+    // ── Banque Annuelle : opérations de séance ──────────────
+
+    /**
+     * Séance ouverte à la saisie Banque Annuelle, ou null si la rubrique n'est
+     * pas (ou plus) en cours.
+     *
+     * <p>La clôture de l'étape fige les épargnes, remboursements et emprunts de
+     * la séance dans le rapport. Accepter une opération après coup rattacherait
+     * de l'argent à une rubrique déjà arrêtée : les totaux figés ne
+     * correspondraient plus aux lignes réellement enregistrées.</p>
+     */
+    private MeetingSessionEntity requireBanqueAnnuelleOpen(Long id, RedirectAttributes ra) {
+        MeetingSessionEntity session = sessionService.findById(id);
+        if (!session.isStepExactly(SessionStep.BANQUE_ANNUELLE_OPEN)) {
+            ra.addFlashAttribute("errorMessage",
+                "La Banque Annuelle de cette séance n'est pas ouverte à la saisie (étape courante : "
+                    + session.getCurrentStepEnum().label() + ").");
+            return null;
+        }
+        return session;
+    }
+
+    /** Premier message de validation du formulaire, pour ne pas le perdre au redirect. */
+    private String firstError(BindingResult result, String fallback) {
+        return result.getFieldError() != null && result.getFieldError().getDefaultMessage() != null
+            ? result.getFieldError().getDefaultMessage()
+            : fallback;
+    }
+
+    @PostMapping("/{id}/banque-annuelle/save")
+    @PreAuthorize("hasAuthority('BANK_SAVING_RECORD')")
+    public String recordSessionSaving(@PathVariable Long id,
+                                      @RequestParam Long memberId,
+                                      @Valid @ModelAttribute("savingForm") SavingForm form,
+                                      BindingResult result,
+                                      @AuthenticationPrincipal UserDetailsImpl principal,
+                                      RedirectAttributes ra) {
+        if (result.hasErrors()) {
+            ra.addFlashAttribute("errorMessage",
+                "Épargne non enregistrée : " + firstError(result, "montant invalide."));
+            return "redirect:/sessions/" + id;
+        }
+        MeetingSessionEntity session = requireBanqueAnnuelleOpen(id, ra);
+        if (session == null) {
+            return "redirect:/sessions/" + id;
+        }
+        try {
+            LocalDate date = form.getOperationDate() != null ? form.getOperationDate() : LocalDate.now();
+            recordSavingUseCase.execute(memberId, form.getAmount(), date,
+                session, principal.getAppUser());
+            ra.addFlashAttribute("successMessage",
+                "Épargne de " + form.getAmount() + " FCFA enregistrée.");
+        } catch (BusinessRuleException e) {
+            ra.addFlashAttribute("errorMessage", e.getMessage());
+        }
+        return "redirect:/sessions/" + id;
+    }
+
+    @PostMapping("/{id}/banque-annuelle/loan")
+    @PreAuthorize("hasAuthority('BANK_LOAN_CREATE')")
+    public String recordSessionLoan(@PathVariable Long id,
+                                    @RequestParam Long memberId,
+                                    @Valid @ModelAttribute("loanForm") LoanForm form,
+                                    BindingResult result,
+                                    @AuthenticationPrincipal UserDetailsImpl principal,
+                                    RedirectAttributes ra) {
+        if (result.hasErrors()) {
+            ra.addFlashAttribute("errorMessage",
+                "Emprunt non enregistré : " + firstError(result, "montant invalide."));
+            return "redirect:/sessions/" + id;
+        }
+        MeetingSessionEntity session = requireBanqueAnnuelleOpen(id, ra);
+        if (session == null) {
+            return "redirect:/sessions/" + id;
+        }
+        try {
+            Loan loan = createLoanUseCase.execute(memberId, form.getAmount(),
+                session, principal.getAppUser());
+            ra.addFlashAttribute("successMessage",
+                "Emprunt de " + form.getAmount() + " FCFA créé (total dû : " + loan.getTotalDue() + " FCFA).");
+        } catch (BusinessRuleException e) {
+            ra.addFlashAttribute("errorMessage", e.getMessage());
+        }
+        return "redirect:/sessions/" + id;
+    }
+
+    @PostMapping("/{id}/banque-annuelle/repay")
+    @PreAuthorize("hasAuthority('BANK_LOAN_REPAYMENT')")
+    public String recordSessionRepayment(@PathVariable Long id,
+                                         @RequestParam Long loanId,
+                                         @Valid @ModelAttribute("repaymentForm") RepaymentForm form,
+                                         BindingResult result,
+                                         @AuthenticationPrincipal UserDetailsImpl principal,
+                                         RedirectAttributes ra) {
+        if (result.hasErrors()) {
+            ra.addFlashAttribute("errorMessage",
+                "Remboursement non enregistré : " + firstError(result, "montant invalide."));
+            return "redirect:/sessions/" + id;
+        }
+        MeetingSessionEntity session = requireBanqueAnnuelleOpen(id, ra);
+        if (session == null) {
+            return "redirect:/sessions/" + id;
+        }
+        try {
+            recordLoanRepaymentUseCase.execute(loanId, form.getAmount(),
+                session, principal.getAppUser());
+            ra.addFlashAttribute("successMessage",
+                "Remboursement de " + form.getAmount() + " FCFA enregistré.");
+        } catch (BusinessRuleException | ResourceNotFoundException e) {
+            ra.addFlashAttribute("errorMessage", e.getMessage());
         }
         return "redirect:/sessions/" + id;
     }

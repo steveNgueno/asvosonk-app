@@ -14,4 +14,9 @@ public interface SpringDataSavingRepository extends JpaRepository<SavingEntity, 
 
     @Query("SELECT SUM(s.amount) FROM SavingEntity s WHERE s.memberId = :memberId")
     BigDecimal sumAmountByMemberId(Long memberId);
+
+    List<SavingEntity> findBySessionIdOrderByIdAsc(Long sessionId);
+
+    @Query("SELECT SUM(s.amount) FROM SavingEntity s WHERE s.sessionId = :sessionId")
+    BigDecimal sumAmountBySessionId(Long sessionId);
 }

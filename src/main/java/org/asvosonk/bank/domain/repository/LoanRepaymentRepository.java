@@ -12,4 +12,10 @@ public interface LoanRepaymentRepository {
     List<LoanRepayment> findByLoanId(Long loanId);
 
     BigDecimal getTotalRepaidByLoanId(Long loanId);
+
+    /** Remboursements encaissés pendant une séance, dans leur ordre de saisie. */
+    List<LoanRepayment> findBySessionId(Long sessionId);
+
+    /** Total des remboursements encaissés pendant une séance ; zéro si aucun. */
+    BigDecimal getTotalRepaidBySessionId(Long sessionId);
 }

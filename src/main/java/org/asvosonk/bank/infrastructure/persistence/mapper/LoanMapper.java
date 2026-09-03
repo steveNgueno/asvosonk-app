@@ -17,6 +17,7 @@ public class LoanMapper {
             entity.getDueDate(),
             entity.getTotalDue(),
             entity.getStatus(),
+            entity.getSessionId(),
             entity.getCreatedAt(),
             entity.getUpdatedAt()
         );
@@ -34,6 +35,10 @@ public class LoanMapper {
         entity.setDueDate(domain.getDueDate());
         entity.setTotalDue(domain.getTotalDue());
         entity.setStatus(domain.getStatus());
+        // Le rattachement à la séance doit survivre à une réécriture : sans lui,
+        // marquer l'emprunt « remboursé » repasserait par toEntity et effacerait
+        // silencieusement la séance d'octroi.
+        entity.setSessionId(domain.getSessionId());
         return entity;
     }
 }

@@ -90,16 +90,23 @@ public class SessionReportEntity {
     @Column(name = "tontine_net_paid", nullable = false, precision = 12, scale = 2)
     private BigDecimal tontineNetPaid = BigDecimal.ZERO;
 
-    // ── Banques (saisie non encore implémentée) ──────────────
+    // ── Banques ──────────────────────────────────────────────
 
+    /** Banque Projet : saisie en séance non encore implémentée. */
     @Column(name = "banque_projet_collected", nullable = false, precision = 12, scale = 2)
     private BigDecimal banqueProjetCollected = BigDecimal.ZERO;
 
+    /** Épargnes collectées pendant la séance : entrée de la caisse Banque. */
     @Column(name = "banque_annuelle_savings", nullable = false, precision = 12, scale = 2)
     private BigDecimal banqueAnnuelleSavings = BigDecimal.ZERO;
 
+    /** Remboursements d'emprunts encaissés pendant la séance. */
     @Column(name = "banque_annuelle_repayments", nullable = false, precision = 12, scale = 2)
     private BigDecimal banqueAnnuelleRepayments = BigDecimal.ZERO;
+
+    /** Emprunts décaissés pendant la séance : sortie de la caisse Banque. */
+    @Column(name = "banque_annuelle_loans", nullable = false, precision = 12, scale = 2)
+    private BigDecimal banqueAnnuelleLoans = BigDecimal.ZERO;
 
     // ── Entrées et sorties de caisse de la séance ────────────
 

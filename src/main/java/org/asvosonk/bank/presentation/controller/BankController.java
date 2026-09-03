@@ -32,6 +32,8 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -68,12 +70,16 @@ public class BankController {
         Map<Long, String> memberNames = searchMemberUseCase.findNamesByIds(
             activeAndOverdueLoans.stream().map(Loan::getMemberId).distinct().toList());
         Map<Long, BigDecimal> remainingBalances = new HashMap<>();
+        BigDecimal totalOutstanding = BigDecimal.ZERO;
         for (Loan loan : activeAndOverdueLoans) {
             BigDecimal totalRepaid = repaymentRepository.getTotalRepaidByLoanId(loan.getId());
-            remainingBalances.put(loan.getId(), loan.getRemainingBalance(totalRepaid));
+            BigDecimal remaining = loan.getRemainingBalance(totalRepaid);
+            remainingBalances.put(loan.getId(), remaining);
+            totalOutstanding = totalOutstanding.add(remaining);
         }
 
         model.addAttribute("totalBankSavings", totalBankSavings);
+        model.addAttribute("totalOutstanding", totalOutstanding);
         model.addAttribute("activeLoans", activeAndOverdueLoans);
         model.addAttribute("memberNames", memberNames);
         model.addAttribute("remainingBalances", remainingBalances);
@@ -94,14 +100,38 @@ public class BankController {
         // Add savings history
         List<Saving> savings = savingRepository.findByMemberIdOrderByOperationDateDesc(id);
 
+        // Solde restant dû par emprunt en cours, et journal complet des
+        // remboursements du membre : un remboursement enregistré ne laissait
+        // aucune trace consultable, seule la barre de progression bougeait.
+        Map<Long, BigDecimal> remainingByLoan = new HashMap<>();
+        for (Loan loan : summary.getActiveLoans()) {
+            remainingByLoan.put(loan.getId(),
+                loan.getRemainingBalance(repaymentRepository.getTotalRepaidByLoanId(loan.getId())));
+        }
+        List<LoanRepayment> repayments = new ArrayList<>();
+        for (Loan loan : summary.getLoanHistory()) {
+            repayments.addAll(repaymentRepository.findByLoanId(loan.getId()));
+        }
+        repayments.sort(Comparator.comparing(LoanRepayment::getPaymentDate).reversed()
+            .thenComparing(Comparator.comparing(LoanRepayment::getId).reversed()));
+
         model.addAttribute("member", member);
         model.addAttribute("summary", summary);
         model.addAttribute("savings", savings);
+        model.addAttribute("remainingByLoan", remainingByLoan);
+        model.addAttribute("repayments", repayments);
         model.addAttribute("savingForm", new SavingForm());
         model.addAttribute("loanForm", new LoanForm());
         model.addAttribute("repaymentForm", new RepaymentForm());
         model.addAttribute("pageTitle", "Compte bancaire — " + member.getFullName());
         return "bank/member-account";
+    }
+
+    /** Premier message de validation du formulaire, pour ne pas le perdre au redirect. */
+    private String firstError(BindingResult result, String fallback) {
+        return result.getFieldError() != null && result.getFieldError().getDefaultMessage() != null
+            ? result.getFieldError().getDefaultMessage()
+            : fallback;
     }
 
     // ── Record saving ────────────────────────────────────────
@@ -112,17 +142,14 @@ public class BankController {
                                @Valid @ModelAttribute("savingForm") SavingForm form,
                                BindingResult result,
                                @AuthenticationPrincipal UserDetailsImpl principal,
-                               Model model,
                                RedirectAttributes ra) {
+        // Redirection plutôt que re-rendu : la page consomme désormais plusieurs
+        // collections (historiques, soldes restants) qu'un re-rendu partiel
+        // laissait absentes du modèle.
         if (result.hasErrors()) {
-            Member member = searchMemberUseCase.findById(id);
-            GetMemberBankSummaryUseCase.MemberBankSummary summary = getMemberBankSummaryUseCase.execute(id);
-            model.addAttribute("member", member);
-            model.addAttribute("summary", summary);
-            model.addAttribute("loanForm", new LoanForm());
-            model.addAttribute("repaymentForm", new RepaymentForm());
-            model.addAttribute("pageTitle", "Compte bancaire — " + member.getFullName());
-            return "bank/member-account";
+            ra.addFlashAttribute("errorMessage",
+                "Épargne non enregistrée : " + firstError(result, "montant invalide."));
+            return "redirect:/bank/members/" + id;
         }
 
         try {
@@ -144,17 +171,11 @@ public class BankController {
                              @Valid @ModelAttribute("loanForm") LoanForm form,
                              BindingResult result,
                              @AuthenticationPrincipal UserDetailsImpl principal,
-                             Model model,
                              RedirectAttributes ra) {
         if (result.hasErrors()) {
-            Member member = searchMemberUseCase.findById(id);
-            GetMemberBankSummaryUseCase.MemberBankSummary summary = getMemberBankSummaryUseCase.execute(id);
-            model.addAttribute("member", member);
-            model.addAttribute("summary", summary);
-            model.addAttribute("savingForm", new SavingForm());
-            model.addAttribute("repaymentForm", new RepaymentForm());
-            model.addAttribute("pageTitle", "Compte bancaire — " + member.getFullName());
-            return "bank/member-account";
+            ra.addFlashAttribute("errorMessage",
+                "Emprunt non enregistré : " + firstError(result, "montant invalide."));
+            return "redirect:/bank/members/" + id;
         }
 
         try {
@@ -177,7 +198,8 @@ public class BankController {
                             @AuthenticationPrincipal UserDetailsImpl principal,
                             RedirectAttributes ra) {
         if (result.hasErrors()) {
-            ra.addFlashAttribute("errorMessage", "Montant de remboursement invalide.");
+            ra.addFlashAttribute("errorMessage",
+                "Remboursement non enregistré : " + firstError(result, "montant invalide."));
             Loan loan = loanRepository.findById(id).orElse(null);
             if (loan != null) {
                 return "redirect:/bank/members/" + loan.getMemberId();
