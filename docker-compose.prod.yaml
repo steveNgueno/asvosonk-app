@@ -1,0 +1,46 @@
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: asvosonk_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       asvosonk
+      POSTGRES_USER:     asvosonk_app
+      POSTGRES_PASSWORD: AsvosonkDb@2024      # a remplacer par un vrai secret (etape 7)
+      PGDATA:            /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U asvosonk_app -d asvosonk"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - asvosonk_network
+
+  app:
+    image: ghcr.io/TON-COMPTE/TON-REPO:latest
+    container_name: asvosonk_app
+    restart: unless-stopped
+    environment:
+      SERVER_ADDRESS:       0.0.0.0
+      ASVOSONK_DB_URL:      jdbc:postgresql://postgres:5432/asvosonk
+      ASVOSONK_DB_USERNAME: asvosonk_app
+      ASVOSONK_DB_PASSWORD: AsvosonkDb@2024
+    ports:
+      - "127.0.0.1:8085:8085"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - asvosonk_network
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  asvosonk_network:
+    driver: bridge
