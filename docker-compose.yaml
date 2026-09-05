@@ -1,15 +1,7 @@
-version: '3.9'
-
-# =============================================================
-# ASVOSONK — Docker Compose (Lot 1)
-# Services : PostgreSQL 16 + pgAdmin 4
-#
-# Utilisation :
-#   Démarrer  : docker-compose up -d
-#   Arrêter   : docker-compose down
-#   Logs      : docker-compose logs -f
-#   Reset BDD : docker-compose down -v   (⚠️ supprime les données)
-# =============================================================
+  # =============================================================
+  # ASVOSONK — Docker Compose (Lot 1)
+  # Services : PostgreSQL 16 + pgAdmin 4
+  # =============================================================
 
 services:
 
@@ -24,10 +16,8 @@ services:
       POSTGRES_PASSWORD: AsvosonkDb@2024       # ← changer en production
       PGDATA:            /var/lib/postgresql/data/pgdata
     ports:
-      # Exposé uniquement sur localhost — pas accessible depuis l'extérieur
       - "127.0.0.1:5433:5432"
     volumes:
-      # Données persistantes — survivent aux redémarrages du conteneur
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U asvosonk_app -d asvosonk"]
@@ -35,6 +25,26 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
+    networks:
+      - asvosonk_network
+
+  # ── Application Spring Boot (ASVOSONK) ────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: asvosonk_app
+    restart: unless-stopped
+    environment:
+      SERVER_ADDRESS: 0.0.0.0
+      ASVOSONK_DB_URL: jdbc:postgresql://postgres:5432/asvosonk
+      ASVOSONK_DB_USERNAME: asvosonk_app
+      ASVOSONK_DB_PASSWORD: AsvosonkDb@2024
+    ports:
+      - "127.0.0.1:8085:8085"
+    depends_on:
+      postgres:
+        condition: service_healthy
     networks:
       - asvosonk_network
 
@@ -49,7 +59,6 @@ services:
       PGADMIN_CONFIG_SERVER_MODE: 'False'           # mode desktop (pas de multi-user)
       PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: 'False'
     ports:
-      # Accessible sur http://localhost:5050
       - "127.0.0.1:5050:80"
     volumes:
       - pgadmin_data:/var/lib/pgadmin
