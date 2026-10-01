@@ -21,7 +21,7 @@ services:
       - asvosonk_network
 
   app:
-    image: ghcr.io/TON-COMPTE/TON-REPO:latest
+    image: ghcr.io/stevengueno/asvosonk-app:latest
     container_name: asvosonk_app
     restart: unless-stopped
     environment:

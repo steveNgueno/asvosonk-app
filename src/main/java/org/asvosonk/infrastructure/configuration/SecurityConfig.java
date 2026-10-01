@@ -47,6 +47,7 @@ public class SecurityConfig {
                 // page would be redirected away from its own stylesheet.
                 .requestMatchers("/login", "/css/**", "/js/**", "/images/**",
                                  "/vendor/**", "/favicon.ico", "/favicon.svg").permitAll()
+                    .requestMatchers("/actuator/prometheus").permitAll()
                 // Everything else requires authentication
                 .anyRequest().authenticated()
             )
