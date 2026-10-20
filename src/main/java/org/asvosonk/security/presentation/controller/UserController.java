@@ -2,7 +2,9 @@ package org.asvosonk.security.presentation.controller;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.asvosonk.common.domain.exception.BusinessRuleException;
 import org.asvosonk.member.application.usecase.SearchMemberUseCase;
+import org.asvosonk.security.application.service.UserAdministrationPolicy;
 import org.asvosonk.security.application.service.UserDetailsImpl;
 import org.asvosonk.security.application.usecase.AssignRoleUseCase;
 import org.asvosonk.security.application.usecase.CreateUserUseCase;
@@ -32,6 +34,7 @@ public class UserController {
     private final AppUserRepository   appUserRepository;
     private final RoleRepository      roleRepository;
     private final SearchMemberUseCase searchMemberUseCase;
+    private final UserAdministrationPolicy userAdministrationPolicy;
 
     @GetMapping
     @PreAuthorize("hasAuthority('USER_VIEW')")
@@ -56,6 +59,7 @@ public class UserController {
     @PreAuthorize("hasAuthority('USER_CREATE')")
     public String create(@Valid @ModelAttribute("form") UserForm form,
                          BindingResult result,
+                         @AuthenticationPrincipal UserDetailsImpl principal,
                          Model model,
                          RedirectAttributes ra) {
         if (!form.isPasswordMatching()) {
@@ -70,6 +74,7 @@ public class UserController {
         }
 
         try {
+            userAdministrationPolicy.requireCanCreate(principal.getAppUser().getId(), form.getRoleName());
             AppUser user = createUserUseCase.createUser(
                 form.getLogin(), form.getPassword(), form.getRoleName(), form.getMemberId());
             ra.addFlashAttribute("successMessage",
@@ -111,6 +116,7 @@ public class UserController {
     public String update(@PathVariable Long id,
                          @Valid @ModelAttribute("form") UserForm form,
                          BindingResult result,
+                         @AuthenticationPrincipal UserDetailsImpl principal,
                          Model model,
                          RedirectAttributes ra) {
         if (result.hasErrors()) {
@@ -129,6 +135,8 @@ public class UserController {
         }
 
         try {
+            userAdministrationPolicy.requireCanAssignRole(
+                principal.getAppUser().getId(), id, form.getRoleName());
             assignRoleUseCase.assignRole(id, form.getRoleName());
             ra.addFlashAttribute("successMessage", "Rôle mis à jour.");
         } catch (Exception e) {
@@ -144,11 +152,13 @@ public class UserController {
                                  @RequestParam String confirmPassword,
                                  @AuthenticationPrincipal UserDetailsImpl principal,
                                  RedirectAttributes ra) {
-        // Only PRESIDENT or the user themselves can change password
-        boolean isPresident = principal.getAppUser().hasPermission("USER_DEACTIVATE");
-        boolean isOwnAccount = principal.getAppUser().getId().equals(id);
-        if (!isPresident && !isOwnAccount) {
-            ra.addFlashAttribute("errorMessage", "Seul le PRESIDENT peut changer le mot de passe d'un autre utilisateur");
+        // Seul le PRESIDENT, ou l'utilisateur lui-même, change un mot de passe.
+        // Le contrôle porte sur le rôle : la permission USER_DEACTIVATE testée
+        // auparavant est aussi détenue par SECRETARY et TREASURER.
+        try {
+            userAdministrationPolicy.requireCanChangePassword(principal.getAppUser().getId(), id);
+        } catch (BusinessRuleException e) {
+            ra.addFlashAttribute("errorMessage", e.getMessage());
             return "redirect:/users";
         }
 
@@ -172,21 +182,12 @@ public class UserController {
 
     @PostMapping("/{id}/deactivate")
     @PreAuthorize("hasAuthority('USER_DEACTIVATE')")
-    public String deactivate(@PathVariable Long id, RedirectAttributes ra) {
+    public String deactivate(@PathVariable Long id,
+                             @AuthenticationPrincipal UserDetailsImpl principal,
+                             RedirectAttributes ra) {
         try {
-            // Prevent deactivating the last active PRESIDENT
-            AppUser target = appUserRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Utilisateur introuvable"));
-            if ("PRESIDENT".equals(target.getRole().getName())) {
-                long activePresidents = appUserRepository.findAll().stream()
-                    .filter(u -> u.isActive() && "PRESIDENT".equals(u.getRole().getName()))
-                    .count();
-                if (activePresidents <= 1) {
-                    ra.addFlashAttribute("errorMessage",
-                        "Impossible de désactiver le dernier compte PRESIDENT actif");
-                    return "redirect:/users";
-                }
-            }
+            // Compte PRESIDENT : réservé à un PRESIDENT, jamais le dernier actif.
+            userAdministrationPolicy.requireCanDeactivate(principal.getAppUser().getId(), id);
             lockUserUseCase.deactivateUser(id);
             ra.addFlashAttribute("successMessage", "Utilisateur désactivé.");
         } catch (Exception e) {

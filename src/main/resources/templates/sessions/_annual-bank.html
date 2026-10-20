@@ -261,7 +261,7 @@
                                     Épargne :
                                     <strong th:text="${#numbers.formatInteger(summary.totalSavings,1,'WHITESPACE')} + ' FCFA'">0</strong>
                                     · max emprunt :
-                                    <strong th:text="${#numbers.formatInteger(summary.totalSavings * 3,1,'WHITESPACE')} + ' FCFA'">0</strong>
+                                    <strong th:text="${#numbers.formatInteger(summary.loanCapacity,1,'WHITESPACE')} + ' FCFA'">0</strong>
                                 </span>
                             </div>
                             <label class="form-label req" th:for="'sessionLoanAmount-' + ${m.id}">Montant emprunté</label>

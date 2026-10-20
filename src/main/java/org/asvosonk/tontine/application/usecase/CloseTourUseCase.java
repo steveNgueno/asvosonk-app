@@ -22,6 +22,7 @@ public class CloseTourUseCase {
     private final TontineTourRepository tourRepository;
     private final TontineParticipantRepository participantRepository;
     private final TontineDebtRepository debtRepository;
+    private final RecordTontineContributionUseCase recordContribution;
 
     /**
      * Close a tontine tour. All participants must have benefited and no
@@ -49,6 +50,11 @@ public class CloseTourUseCase {
         if (hasOpenDebts) {
             throw new BusinessRuleException(
                 "Des dettes entre participants sont encore ouvertes ; elles doivent être soldées avant de clôturer le tour.");
+        }
+
+        if (recordContribution.hasUnrecoveredFailures(tourId)) {
+            throw new BusinessRuleException(
+                "Des échecs de cotisation restent à recouvrir ; ils doivent l'être avant de clôturer le tour.");
         }
 
         tour.close(LocalDate.now());

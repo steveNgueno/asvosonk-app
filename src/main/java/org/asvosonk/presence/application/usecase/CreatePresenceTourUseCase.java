@@ -52,6 +52,22 @@ public class CreatePresenceTourUseCase {
                 "Un tour de présence est déjà en cours. Clôturez-le avant d'en créer un nouveau.");
         }
 
+        // Le tour démarre au plus tard aujourd'hui, et pas avant la fin du tour
+        // précédent : un début futur, ou chevauchant le tour d'avant, produisait
+        // des périodes incohérentes (fin antérieure au début).
+        if (startDate.isAfter(LocalDate.now())) {
+            throw new BusinessRuleException("Un tour de présence ne peut pas démarrer dans le futur.");
+        }
+        tourRepository.findByStatusOrderByStartDateDesc(PresenceTourStatus.closed).stream()
+            .map(PresenceTour::getEndDate)
+            .filter(Objects::nonNull)
+            .max(LocalDate::compareTo)
+            .filter(previousEnd -> startDate.isBefore(previousEnd))
+            .ifPresent(previousEnd -> {
+                throw new BusinessRuleException(
+                    "Le tour ne peut pas démarrer avant la fin du tour précédent (" + previousEnd + ").");
+            });
+
         List<Member> members = memberRepository.findAllActive();
         if (members.size() < 2) {
             throw new BusinessRuleException(

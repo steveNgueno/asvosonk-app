@@ -4,12 +4,17 @@ import lombok.RequiredArgsConstructor;
 import org.asvosonk.common.domain.exception.BusinessRuleException;
 import org.asvosonk.common.domain.exception.ResourceNotFoundException;
 import org.asvosonk.presence.domain.model.PresenceTour;
+import org.asvosonk.presence.domain.model.PresenceTourParticipant;
 import org.asvosonk.presence.domain.repository.PresenceTourParticipantRepository;
 import org.asvosonk.presence.domain.repository.PresenceTourRepository;
+import org.asvosonk.session.infrastructure.persistence.entity.MeetingSessionEntity;
+import org.asvosonk.session.infrastructure.persistence.repository.SpringDataMeetingSessionRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.Objects;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -17,6 +22,7 @@ public class ClosePresenceTourUseCase {
 
     private final PresenceTourRepository tourRepository;
     private final PresenceTourParticipantRepository participantRepository;
+    private final SpringDataMeetingSessionRepository sessionRepository;
 
     /**
      * Close a presence tour once every participant has benefited.
@@ -44,7 +50,25 @@ public class ClosePresenceTourUseCase {
               + benefited + "/" + total + ").");
         }
 
-        tour.close(LocalDate.now());
+        tour.close(lastServedSessionDate(tourId));
         return tourRepository.save(tour);
+    }
+
+    /**
+     * Le tour s'achève à la séance où son dernier bénéficiaire a été servi, et
+     * non le jour où l'on clôture : sinon une clôture tardive (ou un début de
+     * tour daté dans le futur) produisait une date de fin sans rapport avec le
+     * déroulé, voire antérieure au début. Faute de séance connue, la date du jour.
+     */
+    private LocalDate lastServedSessionDate(Long tourId) {
+        return participantRepository.findByTourId(tourId).stream()
+            .map(PresenceTourParticipant::getSessionId)
+            .filter(Objects::nonNull)
+            .distinct()
+            .map(sessionRepository::findById)
+            .flatMap(Optional::stream)
+            .map(MeetingSessionEntity::getSessionDate)
+            .max(LocalDate::compareTo)
+            .orElse(LocalDate.now());
     }
 }

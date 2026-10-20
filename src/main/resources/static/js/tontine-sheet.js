@@ -9,7 +9,9 @@
        du jour lui avait cotisé (« montant imposé ») ;
      · les autres donnent librement, au minimum 5 000 FCFA et par
        multiples de 5 000 ;
-     · 0 est un échec de cotisation ; une case vide n'est pas enregistrée.
+     · 0 est un échec de cotisation ; une case vide n'est pas enregistrée ;
+     · un échec passé se recouvre d'abord (montant imposé, ou multiple de
+       5 000) : sans cela, la cotisation du jour est refusée.
    ============================================================= */
 (function () {
   'use strict';
@@ -22,49 +24,86 @@
 
   function rows() {
     return Array.prototype.slice.call(document.querySelectorAll('#tontineSheet tr.js-tontine-row'))
-      .filter(function (row) { return row.querySelector('.js-tontine-amount'); });
+      .filter(function (row) {
+        return row.querySelector('.js-tontine-amount') || row.querySelector('.js-tontine-recovery');
+      });
   }
 
-  function imposedOf(row) {
-    return parseInt(row.getAttribute('data-imposed'), 10) || 0;
+  function recoveries(row) {
+    return Array.prototype.slice.call(row.querySelectorAll('.js-tontine-recovery'));
+  }
+
+  function imposedOf(element) {
+    return parseInt(element.getAttribute('data-imposed'), 10) || 0;
+  }
+
+  function setPill(pill, label, variant) {
+    pill.textContent = label;
+    pill.className = 'pill ' + variant + ' js-tontine-status';
+  }
+
+  /** Contrôle d'un recouvrement : renvoie un message d'erreur, ou null. */
+  function recoveryError(input) {
+    var raw = input.value.trim();
+    if (raw === '') return null;
+    var value = parseInt(raw, 10);
+    var imposed = imposedOf(input);
+    if (isNaN(value) || value < 0) return 'Recouvrement invalide';
+    if (value === 0) return null;
+    if (imposed > 0 && value !== imposed) return 'Recouvrement : ' + money(imposed);
+    if (imposed === 0 && value % STEP !== 0) return 'Recouvrement : multiple de 5 000';
+    return null;
   }
 
   function describe(row) {
-    var input = row.querySelector('.js-tontine-amount');
     var pill = row.querySelector('.js-tontine-status');
-    if (!pill) return 0;
+    var input = row.querySelector('.js-tontine-amount');
+    var recoveryInputs = recoveries(row);
 
-    var raw = input.value.trim();
-    if (raw === '') {
-      pill.textContent = 'Non saisi';
-      pill.className = 'pill pill-muted js-tontine-status';
-      return 0;
+    var recovered = 0;
+    var missingRecovery = false;
+    var error = null;
+    recoveryInputs.forEach(function (r) {
+      var value = parseInt(r.value.trim(), 10);
+      if (r.value.trim() === '' || value === 0) {
+        missingRecovery = true;
+      } else if (!isNaN(value) && value > 0) {
+        recovered += value;
+      }
+      error = error || recoveryError(r);
+    });
+
+    var raw = input ? input.value.trim() : '';
+    var value = raw === '' ? null : parseInt(raw, 10);
+    var total = recovered + (value !== null && !isNaN(value) && value > 0 ? value : 0);
+    if (!pill) return total;
+
+    if (error) { setPill(pill, error, 'pill-danger'); return total; }
+    if (value === null) {
+      if (recovered > 0) setPill(pill, 'Échec recouvert', 'pill-success');
+      else setPill(pill, 'Non saisi', 'pill-muted');
+      return total;
     }
 
-    var value = parseInt(raw, 10);
-    var imposed = imposedOf(row);
-    var label, variant;
-
+    var imposed = input ? imposedOf(row) : 0;
     if (isNaN(value) || value < 0) {
-      label = 'Montant invalide'; variant = 'pill-danger';
-      value = 0;
+      setPill(pill, 'Montant invalide', 'pill-danger');
     } else if (value === 0) {
-      label = 'Échec de cotisation'; variant = 'pill-danger';
+      setPill(pill, 'Échec de cotisation', 'pill-danger');
+    } else if (missingRecovery) {
+      setPill(pill, 'Recouvrez d\'abord l\'échec', 'pill-danger');
     } else if (imposed > 0 && value !== imposed) {
-      label = 'Doit être ' + money(imposed); variant = 'pill-danger';
+      setPill(pill, 'Doit être ' + money(imposed), 'pill-danger');
     } else if (imposed > 0) {
-      label = 'Dette remboursée'; variant = 'pill-success';
+      setPill(pill, 'Dette remboursée', 'pill-success');
     } else if (value < STEP) {
-      label = 'Minimum 5 000'; variant = 'pill-danger';
+      setPill(pill, 'Minimum 5 000', 'pill-danger');
     } else if (value % STEP !== 0) {
-      label = 'Multiple de 5 000'; variant = 'pill-danger';
+      setPill(pill, 'Multiple de 5 000', 'pill-danger');
     } else {
-      label = 'Cotisation'; variant = 'pill-success';
+      setPill(pill, recovered > 0 ? 'Échec recouvert + cotisation' : 'Cotisation', 'pill-success');
     }
-
-    pill.textContent = label;
-    pill.className = 'pill ' + variant + ' js-tontine-status';
-    return value;
+    return total;
   }
 
   function recalc() {
@@ -82,13 +121,19 @@
     table.addEventListener('change', recalc);
 
     // Pré-remplit les montants imposés — les seuls qui ne se discutent pas —
-    // et propose le minimum aux autres, à ajuster.
+    // et propose le minimum aux autres, à ajuster. Les échecs à recouvrir
+    // passent en premier : ils conditionnent la cotisation du jour.
     var fill = document.querySelector('[data-tontine-fill]');
     if (fill) {
       fill.addEventListener('click', function () {
         rows().forEach(function (row) {
+          recoveries(row).forEach(function (r) {
+            if (r.value.trim() !== '') return;
+            var imposedRecovery = imposedOf(r);
+            r.value = imposedRecovery > 0 ? imposedRecovery : STEP;
+          });
           var input = row.querySelector('.js-tontine-amount');
-          if (input.value.trim() !== '') return;
+          if (!input || input.value.trim() !== '') return;
           var imposed = imposedOf(row);
           input.value = imposed > 0 ? imposed : STEP;
         });
@@ -99,7 +144,11 @@
     var clear = document.querySelector('[data-tontine-clear]');
     if (clear) {
       clear.addEventListener('click', function () {
-        rows().forEach(function (row) { row.querySelector('.js-tontine-amount').value = ''; });
+        rows().forEach(function (row) {
+          var input = row.querySelector('.js-tontine-amount');
+          if (input) input.value = '';
+          recoveries(row).forEach(function (r) { r.value = ''; });
+        });
         recalc();
       });
     }

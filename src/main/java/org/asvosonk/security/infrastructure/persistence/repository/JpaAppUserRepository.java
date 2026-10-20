@@ -28,7 +28,8 @@ public class JpaAppUserRepository implements AppUserRepository {
 
     @Override
     public Optional<AppUser> findByLogin(String login) {
-        return springData.findByLoginWithPermissions(login).map(UserEntityMapper::toDomain);
+        // Espaces de bord ignorés, casse ignorée : voir SpringDataAppUserRepository.
+        return springData.findByLoginWithPermissions(normalize(login)).map(UserEntityMapper::toDomain);
     }
 
     @Override
@@ -40,7 +41,11 @@ public class JpaAppUserRepository implements AppUserRepository {
 
     @Override
     public boolean existsByLogin(String login) {
-        return springData.existsByLogin(login);
+        return springData.existsByLoginIgnoreCase(normalize(login));
+    }
+
+    private static String normalize(String login) {
+        return login == null ? null : login.trim();
     }
 
     @Override

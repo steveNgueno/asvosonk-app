@@ -1,12 +1,14 @@
 package org.asvosonk.security.application.service;
 
 import lombok.Getter;
+import org.asvosonk.member.domain.valueobject.MemberStatus;
 import org.asvosonk.security.domain.model.AppUser;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.Collection;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 /**
@@ -61,8 +63,40 @@ public class UserDetailsImpl implements UserDetails {
         return true;
     }
 
+    /**
+     * Compte désactivé, ou rattaché à un membre qui a quitté l'association
+     * (démissionnaire ou décédé) : la connexion est refusée. Un membre suspendu
+     * garde son accès, la suspension étant temporaire.
+     */
     @Override
     public boolean isEnabled() {
-        return appUser.isActive();
+        if (!appUser.isActive()) {
+            return false;
+        }
+        MemberStatus memberStatus = appUser.getMember() != null ? appUser.getMember().getStatus() : null;
+        return memberStatus != MemberStatus.resigned && memberStatus != MemberStatus.deceased;
+    }
+
+    /**
+     * Égalité sur le login (insensible à la casse, comme la connexion).
+     *
+     * <p>Indispensable à la limite d'une session par utilisateur
+     * ({@code maximumSessions(1)}) : le registre des sessions indexe les sessions
+     * par principal. Sans {@code equals}/{@code hashCode}, chaque connexion
+     * produisait un principal « différent » et la limite n'était jamais
+     * appliquée.</p>
+     */
+    @Override
+    public boolean equals(Object other) {
+        return other instanceof UserDetailsImpl that && loginKey().equals(that.loginKey());
+    }
+
+    @Override
+    public int hashCode() {
+        return loginKey().hashCode();
+    }
+
+    private String loginKey() {
+        return getUsername() == null ? "" : getUsername().trim().toLowerCase(Locale.ROOT);
     }
 }

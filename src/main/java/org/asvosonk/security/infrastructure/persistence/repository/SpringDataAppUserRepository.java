@@ -12,10 +12,12 @@ import java.util.Optional;
 public interface SpringDataAppUserRepository extends JpaRepository<AppUserEntity, Long> {
     Optional<AppUserEntity> findByLogin(String login);
 
+    // Login insensible à la casse : « Tresorier » et « tresorier » désignent le
+    // même compte (unicité garantie en base par ux_app_user_login_lower, V6).
     // Le membre lié est chargé lui aussi : le mapper vers le modèle de domaine le
     // lit systématiquement, et sans ce fetch il n'est exploitable que dans une
     // transaction ouverte (open-in-view étant désactivé).
-    @Query("SELECT u FROM AppUserEntity u LEFT JOIN FETCH u.member JOIN FETCH u.role r JOIN FETCH r.permissions WHERE u.login = :login")
+    @Query("SELECT u FROM AppUserEntity u LEFT JOIN FETCH u.member JOIN FETCH u.role r JOIN FETCH r.permissions WHERE LOWER(u.login) = LOWER(:login)")
     Optional<AppUserEntity> findByLoginWithPermissions(String login);
 
     @Query("SELECT DISTINCT u FROM AppUserEntity u LEFT JOIN FETCH u.member LEFT JOIN FETCH u.role r LEFT JOIN FETCH r.permissions")
@@ -33,5 +35,5 @@ public interface SpringDataAppUserRepository extends JpaRepository<AppUserEntity
     @Query("SELECT u FROM AppUserEntity u LEFT JOIN FETCH u.member LEFT JOIN FETCH u.role r LEFT JOIN FETCH r.permissions WHERE u.id = :id")
     Optional<AppUserEntity> findByIdWithMemberAndRole(Long id);
 
-    boolean existsByLogin(String login);
+    boolean existsByLoginIgnoreCase(String login);
 }

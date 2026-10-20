@@ -62,12 +62,9 @@
                 <label class="form-check-label" for="resident">Résident à Nkou-Assi</label>
             </div>
 
-            <div class="mb-4" th:if="${editMode}">
-                <label class="form-label" for="status">Statut</label>
-                <select id="status" class="form-select" th:field="*{status}">
-                    <option th:each="s : ${statuses}" th:value="${s}" th:text="${s.name()}"></option>
-                </select>
-            </div>
+            <p class="form-text mb-4" th:if="${editMode}">
+                Le statut (actif, suspendu, démissionné, décédé) se change depuis la fiche du membre.
+            </p>
 
             <div class="form-actions">
                 <button type="submit" class="btn btn-primary">

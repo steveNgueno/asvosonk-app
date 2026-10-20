@@ -42,7 +42,9 @@ public class CreateMemberUseCase {
             request.getPhone() != null ? request.getPhone().trim() : null,
             request.getJoinDate(),
             request.isResident(),
-            request.getStatus() != null ? request.getStatus() : MemberStatus.active,
+            // Toujours actif à l'adhésion : le statut ne change ensuite que par
+            // l'action dédiée de la fiche (permission MEMBER_CHANGE_STATUS).
+            MemberStatus.active,
             now,
             now
         );

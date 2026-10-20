@@ -1,5 +1,7 @@
 package org.asvosonk.aid.presentation.controller;
 
+import org.asvosonk.common.presentation.validation.FcfaAmounts;
+
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.asvosonk.aid.application.usecase.CreateAidUseCase;
@@ -120,6 +122,7 @@ public class AidController {
     public String newForm(Model model) {
         model.addAttribute("form", new AidForm());
         model.addAttribute("members", searchMemberUseCase.findAllActive());
+        model.addAttribute("deceasedMembers", deceasedMembers());
         model.addAttribute("types", AidType.values());
         model.addAttribute("defaultAmounts", defaultAmountsByType());
         model.addAttribute("pageTitle", "Nouvelle aide");
@@ -135,6 +138,7 @@ public class AidController {
                          RedirectAttributes ra) {
         if (result.hasErrors()) {
             model.addAttribute("members", searchMemberUseCase.findAllActive());
+            model.addAttribute("deceasedMembers", deceasedMembers());
             model.addAttribute("types", AidType.values());
             model.addAttribute("defaultAmounts", defaultAmountsByType());
             model.addAttribute("pageTitle", "Nouvelle aide");
@@ -157,6 +161,7 @@ public class AidController {
         } catch (BusinessRuleException | IllegalArgumentException e) {
             model.addAttribute("errorMessage", e.getMessage());
             model.addAttribute("members", searchMemberUseCase.findAllActive());
+            model.addAttribute("deceasedMembers", deceasedMembers());
             model.addAttribute("types", AidType.values());
             model.addAttribute("defaultAmounts", defaultAmountsByType());
             model.addAttribute("pageTitle", "Nouvelle aide");
@@ -183,6 +188,13 @@ public class AidController {
 
     // ── Recouvrement direct ─────────────────────────────────
 
+    /** Membres décédés : leur famille peut recevoir l'aide « décès d'un membre ». */
+    private java.util.List<org.asvosonk.member.domain.model.Member> deceasedMembers() {
+        return searchMemberUseCase.findAll().stream()
+            .filter(m -> m.getStatus() == org.asvosonk.member.domain.valueobject.MemberStatus.deceased)
+            .toList();
+    }
+
     /**
      * Un membre verse lui-même sa part, en séance. Le versement partiel est
      * accepté ; la part reste due pour le solde.
@@ -194,6 +206,7 @@ public class AidController {
                           @AuthenticationPrincipal UserDetailsImpl principal,
                           RedirectAttributes ra) {
         try {
+            FcfaAmounts.requireValid(amount);
             AidContribution contribution =
                 recordAidRecoveryUseCase.execute(contributionId, amount, principal.getAppUser());
             ra.addFlashAttribute("successMessage", "Recouvrement enregistré.");

@@ -22,6 +22,7 @@ public class GetMemberBankSummaryUseCase {
     private final LoanRepository loanRepository;
     private final LoanRepaymentRepository loanRepaymentRepository;
     private final MemberRepository memberRepository;
+    private final CreateLoanUseCase loanRules;
 
     public MemberBankSummary execute(Long memberId) {
         BigDecimal totalSavings = savingRepository.getTotalSavingsByMemberId(memberId);
@@ -35,8 +36,13 @@ public class GetMemberBankSummaryUseCase {
         boolean isActive = memberRepository.findById(memberId)
             .map(org.asvosonk.member.domain.model.Member::isActive)
             .orElse(false);
+        // Capacité restante : même règle que CreateLoanUseCase (3 × l'épargne,
+        // moins le capital encore dû), pour que l'écran n'annonce pas un montant
+        // que l'emprunt refuserait ensuite.
+        BigDecimal loanCapacity = loanRules.loanCapacity(memberId);
         boolean eligibleForLoan = isActive
             && totalSavings.compareTo(BigDecimal.ZERO) > 0
+            && loanCapacity.signum() > 0
             && activeLoans.size() < 2;
 
         // F-55 — the progress bar needs the real repayment ratio per loan, not
@@ -53,13 +59,16 @@ public class GetMemberBankSummaryUseCase {
             repaymentPercentByLoanId.put(loan.getId(), pct);
         }
 
-        return new MemberBankSummary(totalSavings, activeLoans, allLoans, eligibleForLoan, repaymentPercentByLoanId);
+        return new MemberBankSummary(totalSavings, loanCapacity, activeLoans, allLoans,
+            eligibleForLoan, repaymentPercentByLoanId);
     }
 
     @Getter
     @RequiredArgsConstructor
     public static class MemberBankSummary {
         private final BigDecimal totalSavings;
+        /** Montant encore empruntable : 3 × l'épargne − capital encore dû. */
+        private final BigDecimal loanCapacity;
         private final List<Loan> activeLoans;
         private final List<Loan> loanHistory;
         private final boolean eligibleForLoan;
