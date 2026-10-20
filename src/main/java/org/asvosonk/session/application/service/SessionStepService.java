@@ -31,7 +31,9 @@ import org.asvosonk.session.infrastructure.persistence.entity.SessionAttendanceE
 import org.asvosonk.session.infrastructure.persistence.entity.SessionReportEntity;
 import org.asvosonk.session.infrastructure.persistence.repository.SessionReportRepository;
 import org.asvosonk.tontine.domain.model.TontineContribution;
+import org.asvosonk.tontine.domain.model.TontineParticipant;
 import org.asvosonk.tontine.domain.model.TontineTour;
+import org.asvosonk.tontine.application.usecase.RecordTontineContributionUseCase;
 import org.asvosonk.tontine.domain.repository.TontineContributionRepository;
 import org.asvosonk.tontine.domain.repository.TontineDebtRepository;
 import org.asvosonk.tontine.domain.repository.TontineParticipantRepository;
@@ -46,6 +48,8 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Déroulé d'une séance, étape par étape.
@@ -77,6 +81,7 @@ public class SessionStepService {
     private final TontineContributionRepository   tontineContributionRepository;
     private final TontineParticipantRepository    tontineParticipantRepository;
     private final TontineTourRepository            tontineTourRepository;
+    private final RecordTontineContributionUseCase recordTontineContributionUseCase;
     private final TontineDebtRepository            tontineDebtRepository;
     private final MembershipFeePaymentRepository  membershipFeePaymentRepository;
     private final SavingRepository                savingRepository;
@@ -300,11 +305,52 @@ public class SessionStepService {
 
     // ── TONTINE_CLOSED ────────────────────────────────────────
 
+    /**
+     * Chaque participant du tour doit avoir sa ligne avant la clôture.
+     *
+     * <p>Seules les cotisations enregistrées étaient totalisées : un participant
+     * oublié sur la feuille échappait à l'échec, à sa sanction et au recul dans
+     * l'ordre de passage. La clôture est donc refusée tant qu'il manque des
+     * lignes ; un échec se saisit explicitement (montant 0), pour qu'une simple
+     * omission ne déclenche jamais de sanction à elle seule. Le bénéficiaire du
+     * jour n'est pas tenu de cotiser à sa propre tontine.</p>
+     */
+    private void requireEveryParticipantRecorded(Long sessionId, List<TontineContribution> contributions) {
+        Long tourId = contributions.isEmpty()
+            ? tontineTourRepository.findCurrentOpenTour().map(TontineTour::getId).orElse(null)
+            : contributions.get(0).getTourId();
+        if (tourId == null) {
+            return;
+        }
+        Long beneficiaryId = recordTontineContributionUseCase.expectedBeneficiary(tourId, sessionId);
+        if (beneficiaryId == null) {
+            // Tous les participants ont déjà bénéficié : rien à collecter.
+            return;
+        }
+
+        Set<Long> recorded = contributions.stream()
+            .map(TontineContribution::getContributorId)
+            .collect(Collectors.toSet());
+        List<Long> missing = tontineParticipantRepository.findByTourId(tourId).stream()
+            .map(TontineParticipant::getMemberId)
+            .filter(memberId -> !memberId.equals(beneficiaryId) && !recorded.contains(memberId))
+            .toList();
+        if (!missing.isEmpty()) {
+            Map<Long, String> names = memberRepository.findFullNamesByIds(missing);
+            throw new BusinessRuleException(
+                "Clôture impossible : la feuille de grande tontine est incomplète. Saisissez une ligne "
+              + "pour " + missing.stream().map(id -> names.getOrDefault(id, "membre #" + id))
+                    .sorted().collect(Collectors.joining(", "))
+              + " — le montant versé, ou 0 pour un échec de cotisation.");
+        }
+    }
+
     private void closeTontine(MeetingSessionEntity session, AppUser user) {
         Long sessionId = session.getId();
 
         List<TontineContribution> contributions =
             tontineContributionRepository.findBySessionId(sessionId);
+        requireEveryParticipantRecorded(sessionId, contributions);
 
         BigDecimal gross = BigDecimal.ZERO;
         Long beneficiaryId = null;
@@ -332,44 +378,45 @@ public class SessionStepService {
         }
         BigDecimal net = gross.subtract(deductions).subtract(aidDeductions).max(BigDecimal.ZERO);
 
-        // Le bénéficiaire n'est marqué comme servi qu'à la clôture de l'étape,
-        // une fois toutes les cotisations de la séance saisies.
-        if (beneficiaryId != null) {
-            Long finalBeneficiaryId = beneficiaryId;
-            tontineContributionRepository.findBySessionId(sessionId).stream()
-                .findFirst()
-                .ifPresent(c -> tontineParticipantRepository
-                    .findByTourIdAndMemberId(c.getTourId(), finalBeneficiaryId)
+        // Tour concerné : celui des cotisations de la séance, ou le tour en cours
+        // si la séance n'a servi qu'à recouvrir des échecs.
+        Long tourId = !contributions.isEmpty()
+            ? contributions.get(0).getTourId()
+            : tontineTourRepository.findCurrentOpenTour().map(TontineTour::getId).orElse(null);
+
+        if (tourId != null) {
+            // Conséquences des échecs définitifs (sanction, recul dans l'ordre),
+            // appliquées maintenant seulement : une erreur corrigée avant la
+            // clôture n'en a aucune. Avant le marquage du bénéficiaire, dont
+            // dépend le montant de la sanction.
+            recordTontineContributionUseCase.applyDefaultConsequences(tourId, sessionId, session.getSessionDate());
+
+            // Le bénéficiaire n'est marqué comme servi qu'à la clôture de l'étape,
+            // une fois toutes les cotisations de la séance saisies.
+            if (beneficiaryId != null) {
+                tontineParticipantRepository.findByTourIdAndMemberId(tourId, beneficiaryId)
                     .ifPresent(participant -> {
                         if (!participant.isHasBenefited()) {
                             participant.markAsBenefited();
                             tontineParticipantRepository.save(participant);
                         }
-                    }));
+                    });
+            }
 
-            // ── Auto-close tour si tous les participants ont bénéficié et
-            //    aucune dette inter-membres n'est encore ouverte.
-            tontineContributionRepository.findBySessionId(sessionId).stream()
-                .findFirst()
-                .ifPresent(c -> {
-                    Long tourId = c.getTourId();
-                    List<org.asvosonk.tontine.domain.model.TontineParticipant> participants =
-                        tontineParticipantRepository.findByTourId(tourId);
-                    boolean allBenefited = participants.stream()
-                        .allMatch(org.asvosonk.tontine.domain.model.TontineParticipant::isHasBenefited);
-                    if (allBenefited) {
-                        boolean hasOpenDebts = !tontineDebtRepository
-                            .findByTourIdAndStatus(tourId, DebtStatus.owed).isEmpty();
-                        if (!hasOpenDebts) {
-                            tontineTourRepository.findById(tourId).ifPresent(tour -> {
-                                tour.close(LocalDate.now());
-                                tontineTourRepository.save(tour);
-                                log.info("Tour de grande tontine {} clôturé automatiquement "
-                                    + "(tous les participants ont bénéficié, dettes soldées).", tourId);
-                            });
-                        }
-                    }
+            // ── Clôture automatique du tour : tous les participants ont bénéficié,
+            //    aucune dette inter-membres ni aucun échec ne reste à solder.
+            boolean allBenefited = tontineParticipantRepository.findByTourId(tourId).stream()
+                .allMatch(TontineParticipant::isHasBenefited);
+            boolean hasOpenDebts = !tontineDebtRepository.findByTourIdAndStatus(tourId, DebtStatus.owed).isEmpty();
+            if (allBenefited && !hasOpenDebts && !recordTontineContributionUseCase.hasUnrecoveredFailures(tourId)) {
+                Long closedTourId = tourId;
+                tontineTourRepository.findById(tourId).ifPresent(tour -> {
+                    tour.close(session.getSessionDate());
+                    tontineTourRepository.save(tour);
+                    log.info("Tour de grande tontine {} clôturé automatiquement "
+                        + "(tous les participants ont bénéficié, dettes et échecs soldés).", closedTourId);
                 });
+            }
         }
 
         SessionReportEntity report = sessionReportRepository.findBySessionId(sessionId)

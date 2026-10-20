@@ -188,7 +188,7 @@
         <div th:replace="~{sessions/_rubric-details :: presenceDetail}"></div>
         <div th:replace="~{sessions/_rubric-details :: recoveryDetail}"></div>
 
-        <div class="callout" sec:authorize="hasAuthority('TONTINE_VIEW')">
+        <div class="callout" sec:authorize="hasAuthority('TONTINE_CONTRIBUTION_RECORD')">
             <i class="bi bi-cash-stack callout-icon" style="color:var(--c-brand-500)" aria-hidden="true"></i>
             <div class="callout-body">
                 <p class="mb-0 fw-semibold">Passer à la Grande Tontine</p>
@@ -244,7 +244,8 @@
             </div>
 
             <!-- Saisie — les lignes déjà enregistrées figurent dans la feuille -->
-            <div class="card mb-4" th:if="${tontineNextBeneficiary != null}"
+            <div class="card mb-4"
+                 th:if="${tontineNextBeneficiary != null or (tontinePendingFailures != null and !tontinePendingFailures.isEmpty())}"
                  sec:authorize="hasAuthority('TONTINE_CONTRIBUTION_RECORD')">
                 <div class="card-header">
                     <i class="bi bi-cash-coin" aria-hidden="true"></i>Feuille de cotisation
@@ -262,7 +263,8 @@
                 <form th:action="@{/sessions/{id}/tontine/sheet(id=${meetingSession.id})}" method="post"
                       id="tontineSheetForm">
                     <input type="hidden" name="tourId" th:value="${tontineTour.id}">
-                    <input type="hidden" name="beneficiaryId" th:value="${tontineNextBeneficiary.memberId}">
+                    <input type="hidden" name="beneficiaryId" th:if="${tontineNextBeneficiary != null}"
+                           th:value="${tontineNextBeneficiary.memberId}">
 
                     <p class="form-text mx-4 mt-4 mb-0">
                         Les membres ayant déjà bénéficié rendent <strong>exactement</strong> ce que le
@@ -270,6 +272,18 @@
                         donnent le montant de leur choix, au minimum 5 000 FCFA et par multiples de
                         5 000. Le bénéficiaire cotise lui aussi. <strong>0</strong> enregistre un échec ;
                         une case laissée vide n'est pas enregistrée et pourra l'être plus tard.
+                        Un échec n'est sanctionné qu'à la clôture de la rubrique : une erreur corrigée
+                        avant n'a aucune conséquence.
+                    </p>
+                    <p class="form-text mx-4 mt-2 mb-0"
+                       th:if="${tontinePendingFailures != null and !tontinePendingFailures.isEmpty()}">
+                        <strong>Échec à recouvrir d'abord</strong> : un membre qui a fait un échec à une séance
+                        précédente verse d'abord au bénéficiaire de cette séance-là (montant imposé s'il lui
+                        devait de l'argent, sinon un multiple de 5 000 de son choix) ; il ne peut cotiser au
+                        bénéficiaire du jour qu'une fois cet échec recouvert.
+                    </p>
+                    <p class="form-text mx-4 mt-2 mb-0" th:if="${tontineNextBeneficiary == null}">
+                        Tous les participants ont bénéficié : la feuille ne sert plus qu'à recouvrir les échecs.
                     </p>
 
                     <div class="table-wrap">
@@ -281,6 +295,8 @@
                                 <tr>
                                     <th scope="col" style="width:4rem">Ordre</th>
                                     <th scope="col" style="min-width:12rem">Membre</th>
+                                    <th scope="col" style="min-width:14rem"
+                                        th:if="${tontinePendingFailures != null and !tontinePendingFailures.isEmpty()}">Échec à recouvrir d'abord</th>
                                     <th scope="col" class="num" style="width:9rem">Montant imposé</th>
                                     <th scope="col" style="width:12rem">Versé</th>
                                     <th scope="col" style="width:10rem">Effet estimé</th>
@@ -289,25 +305,53 @@
                             <tbody>
                                 <tr th:each="p, it : ${tontineParticipants}" class="js-tontine-row"
                                     th:with="owed=${tontineDebts != null ? tontineDebts.get(p.memberId) : null},
-                                             done=${tontineRecordedBy != null ? tontineRecordedBy.get(p.memberId) : null}"
+                                             done=${tontineRecordedBy != null ? tontineRecordedBy.get(p.memberId) : null},
+                                             pending=${tontinePendingFailures != null ? tontinePendingFailures.get(p.memberId) : null},
+                                             isBeneficiary=${tontineNextBeneficiary != null and p.memberId == tontineNextBeneficiary.memberId}"
                                     th:attr="data-imposed=${owed != null ? owed : ''}">
                                     <td th:text="${p.drawOrder}">1</td>
                                     <th scope="row" class="fw-semibold">
                                         <span th:text="${tontineMemberNames.get(p.memberId) ?: '—'}">Nom</span>
-                                        <span class="pill pill-accent ms-1"
-                                              th:if="${p.memberId == tontineNextBeneficiary.memberId}">bénéficiaire</span>
+                                        <span class="pill pill-accent ms-1" th:if="${isBeneficiary}">bénéficiaire</span>
                                         <span class="pill pill-muted ms-1"
-                                              th:if="${p.hasBenefited and p.memberId != tontineNextBeneficiary.memberId}">déjà bénéficié</span>
+                                              th:if="${p.hasBenefited and !isBeneficiary}">déjà bénéficié</span>
                                         <input type="hidden" th:name="'entries[' + ${it.index} + '].contributorId'"
                                                th:value="${p.memberId}">
                                     </th>
+                                    <td th:if="${tontinePendingFailures != null and !tontinePendingFailures.isEmpty()}">
+                                        <th:block th:if="${pending != null}">
+                                        <div class="mb-2" th:each="f, fj : ${pending}">
+                                            <div class="small text-muted">
+                                                Échec du <span th:text="${#temporals.format(f.failedSessionDate,'dd/MM/yyyy')}">date</span>
+                                                → <span th:text="${tontineMemberNames.get(f.beneficiaryId) ?: '—'}">Nom</span> ·
+                                                <span th:text="${f.imposedAmount != null}
+                                                               ? 'imposé ' + ${#numbers.formatInteger(f.imposedAmount,1,'WHITESPACE')}
+                                                               : 'multiple de 5 000'">montant</span>
+                                            </div>
+                                            <input type="hidden"
+                                                   th:name="'entries[' + ${it.index} + '].recoveries[' + ${fj.index} + '].failedContributionId'"
+                                                   th:value="${f.failedContributionId}">
+                                            <div class="input-group input-group-sm">
+                                                <input type="number" class="form-control num js-tontine-recovery"
+                                                       th:name="'entries[' + ${it.index} + '].recoveries[' + ${fj.index} + '].amount'"
+                                                       min="0" step="1" inputmode="numeric"
+                                                       th:value="${f.recordedAmount != null} ? ${f.recordedAmount.toBigInteger()} : ''"
+                                                       th:attr="data-imposed=${f.imposedAmount != null ? f.imposedAmount.toBigInteger() : ''},
+                                                                aria-label=${'Recouvrement par ' + tontineMemberNames.get(p.memberId)}">
+                                                <span class="input-group-text">FCFA</span>
+                                            </div>
+                                        </div>
+                                        </th:block>
+                                        <span class="text-muted" th:if="${pending == null or pending.isEmpty()}">—</span>
+                                    </td>
                                     <td class="num">
                                         <span class="money" th:if="${owed != null}"
                                               th:text="${#numbers.formatInteger(owed,1,'WHITESPACE')}">0</span>
                                         <span class="text-muted" th:if="${owed == null}">libre</span>
                                     </td>
                                     <td>
-                                        <div class="input-group input-group-sm">
+                                        <span class="text-muted" th:if="${tontineNextBeneficiary == null}">—</span>
+                                        <div class="input-group input-group-sm" th:if="${tontineNextBeneficiary != null}">
                                             <input type="number" class="form-control num js-tontine-amount"
                                                    th:name="'entries[' + ${it.index} + '].amount'"
                                                    min="0" step="1" inputmode="numeric"
@@ -326,7 +370,8 @@
                             </tbody>
                             <tfoot>
                                 <tr>
-                                    <th scope="row" colspan="3">Total saisi</th>
+                                    <th scope="row" colspan="3"
+                                        th:attr="colspan=${tontinePendingFailures != null and !tontinePendingFailures.isEmpty() ? 4 : 3}">Total saisi</th>
                                     <td class="num money money-in">
                                         <span id="tontineSheetTotal">0</span> FCFA
                                     </td>
@@ -428,7 +473,9 @@
             </div>
         </div>
 
-        <div class="callout">
+        <div th:replace="~{sessions/_rubric-details :: tontineRecoveryDetail}"></div>
+
+        <div class="callout" sec:authorize="hasAuthority('SESSION_CLOSE')">
             <i class="bi bi-briefcase callout-icon" style="color:var(--c-brand-500)" aria-hidden="true"></i>
             <div class="callout-body">
                 <p class="mb-0 fw-semibold">Passer à la Banque Projet</p>
@@ -458,7 +505,7 @@
                 <p class="mb-0 small text-muted">La saisie de cette rubrique sera implémentée ultérieurement.</p>
             </div>
         </div>
-        <div class="callout">
+        <div class="callout" sec:authorize="hasAuthority('SESSION_CLOSE')">
             <i class="bi bi-bank callout-icon" style="color:var(--c-brand-500)" aria-hidden="true"></i>
             <div class="callout-body">
                 <p class="mb-0 fw-semibold">Passer à la Banque Annuelle</p>

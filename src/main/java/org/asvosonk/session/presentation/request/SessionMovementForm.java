@@ -1,5 +1,7 @@
 package org.asvosonk.session.presentation.request;
 
+import org.asvosonk.common.presentation.validation.FcfaAmount;
+
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -31,6 +33,7 @@ public class SessionMovementForm {
 
     @NotNull(message = "Le montant est obligatoire.")
     @DecimalMin(value = "1", message = "Le montant doit être supérieur à 0.")
+    @FcfaAmount
     private BigDecimal amount;
 
     @NotBlank(message = "Le motif est obligatoire.")

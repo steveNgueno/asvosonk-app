@@ -1,5 +1,7 @@
 package org.asvosonk.session.presentation.request;
 
+import org.asvosonk.common.presentation.validation.FcfaAmount;
+
 import jakarta.validation.constraints.*;
 import lombok.*;
 
@@ -15,5 +17,6 @@ public class AttendanceEntryForm {
     private boolean present;
 
     @DecimalMin(value = "0", message = "Le montant ne peut pas être négatif")
+    @FcfaAmount
     private BigDecimal amountPaid = BigDecimal.ZERO;
 }

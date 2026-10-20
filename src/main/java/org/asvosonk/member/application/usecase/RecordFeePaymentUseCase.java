@@ -3,6 +3,8 @@ package org.asvosonk.member.application.usecase;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.asvosonk.common.domain.exception.BusinessRuleException;
+import org.asvosonk.member.domain.model.Member;
+import org.asvosonk.member.domain.repository.MemberRepository;
 import org.asvosonk.member.domain.valueobject.FeeType;
 import org.asvosonk.member.infrastructure.persistence.entity.MemberEntity;
 import org.asvosonk.member.infrastructure.persistence.entity.MembershipFee;
@@ -35,6 +37,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class RecordFeePaymentUseCase {
 
+    private final MemberRepository               memberRepository;
     private final MembershipFeeRepository        feeRepository;
     private final MembershipFeePaymentRepository paymentRepository;
     private final RequireOpenSessionUseCase      requireOpenSession;
@@ -52,6 +55,17 @@ public class RecordFeePaymentUseCase {
     @Transactional
     public MembershipFee execute(Long memberId, FeeType feeType, BigDecimal amount, AppUser recordedBy) {
         MeetingSessionEntity session = requireOpenSession.require("un frais d'adhésion");
+
+        // Les frais d'adhésion ne concernent que les membres actifs
+        // (Member#canPayMembership) : un membre suspendu est d'abord réintégré.
+        Member member = memberRepository.findById(memberId)
+            .orElseThrow(() -> new BusinessRuleException("Membre introuvable : " + memberId + "."));
+        if (!member.canPayMembership()) {
+            throw new BusinessRuleException(
+                "Paiement refusé : " + member.getFullName() + " n'est pas un membre actif ("
+              + member.getStatusLabel() + ").");
+        }
+
         MembershipFee saved = apply(memberId, feeType, amount);
 
         MembershipFeePayment payment = new MembershipFeePayment();

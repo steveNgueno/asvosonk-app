@@ -187,7 +187,7 @@ public class TontineController {
                 throw new IllegalArgumentException(
                     "La séance de référence est obligatoire pour enregistrer une cotisation.");
             }
-            TontineContribution contribution = recordContributionUseCase.execute(
+            TontineContribution contribution = recordContributionUseCase.recordInSession(
                 id, actualSessionId, form.getContributorId(),
                 form.getBeneficiaryId(), form.getAmount());
             if (contribution.isPaid()) {

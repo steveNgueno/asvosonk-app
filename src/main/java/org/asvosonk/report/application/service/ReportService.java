@@ -48,6 +48,14 @@ public class ReportService {
     public Path generateReport(String type, LocalDate from, LocalDate to)
             throws IOException, InterruptedException {
 
+        // Exécutable absent (ex. conteneur Linux avec le chemin Windows par
+        // défaut) : on le dit clairement au lieu d'échouer au lancement du process.
+        if (!Files.isRegularFile(Paths.get(exePath))) {
+            log.error("Générateur de rapports introuvable : {} (propriété asvosonk.reports.exe-path, "
+                + "variable ASVOSONK_REPORTS_EXE_PATH)", exePath);
+            throw new ReportModuleUnavailableException();
+        }
+
         // Ensure output directory exists
         Path outputDirPath = Paths.get(outputDir);
         Files.createDirectories(outputDirPath);

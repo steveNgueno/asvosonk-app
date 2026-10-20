@@ -22,6 +22,10 @@
                         th:classappend="${#fields.hasErrors('beneficiaryId')} ? 'is-invalid'">
                     <option value="">— Choisir un membre actif —</option>
                     <option th:each="m : ${members}" th:value="${m.id}" th:text="${m.fullName}"></option>
+                    <optgroup label="Membres décédés — aide « décès d'un membre » à la famille"
+                              th:if="${deceasedMembers != null and !#lists.isEmpty(deceasedMembers)}">
+                        <option th:each="m : ${deceasedMembers}" th:value="${m.id}" th:text="${m.fullName}"></option>
+                    </optgroup>
                 </select>
                 <div class="invalid-feedback" th:errors="*{beneficiaryId}"></div>
             </div>

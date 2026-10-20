@@ -38,6 +38,11 @@ public class CreateTourUseCase {
                 "Clôturez-le avant d'en créer un nouveau.");
         }
 
+        // Un tour démarre au plus tard aujourd'hui.
+        if (startDate != null && startDate.isAfter(LocalDate.now())) {
+            throw new BusinessRuleException("Un tour de grande tontine ne peut pas démarrer dans le futur.");
+        }
+
         // Precondition: at least 2 members
         if (memberIds == null || memberIds.size() < 2) {
             throw new BusinessRuleException("Le tour doit comporter au moins 2 participants.");

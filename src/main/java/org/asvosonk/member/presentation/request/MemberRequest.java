@@ -2,7 +2,6 @@ package org.asvosonk.member.presentation.request;
 
 import jakarta.validation.constraints.*;
 import lombok.*;
-import org.asvosonk.member.domain.valueobject.MemberStatus;
 
 import java.time.LocalDate;
 
@@ -22,6 +21,4 @@ public class MemberRequest {
     private LocalDate joinDate;
 
     private boolean resident = true;
-
-    private MemberStatus status = MemberStatus.active;
 }

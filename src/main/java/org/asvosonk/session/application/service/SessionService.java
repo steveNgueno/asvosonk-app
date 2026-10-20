@@ -25,6 +25,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -186,6 +187,21 @@ public class SessionService {
                 "Une séance existe déjà pour le " + form.getSessionDate());
         }
 
+        // Une séance se crée le jour où elle se tient, après la précédente : les
+        // dettes, rattrapages et tours de présence s'enchaînent dans l'ordre des
+        // dates. Une séance future ou intercalée avant la dernière faussait cet ordre.
+        if (form.getSessionDate().isAfter(LocalDate.now())) {
+            throw new IllegalArgumentException(
+                "Une séance ne peut pas être datée dans le futur : elle se crée le jour où elle se tient.");
+        }
+        LocalDate lastSessionDate = entityManager.createQuery(
+                "SELECT MAX(s.sessionDate) FROM MeetingSessionEntity s", LocalDate.class)
+            .getSingleResult();
+        if (lastSessionDate != null && !form.getSessionDate().isAfter(lastSessionDate)) {
+            throw new IllegalArgumentException(
+                "La séance doit être datée après la dernière séance enregistrée (" + lastSessionDate + ").");
+        }
+
         // Une seule séance à la fois : la réunion suivante ne s'ouvre qu'une fois
         // la précédente menée jusqu'à son rapport. Sans quoi deux séances se
         // disputeraient les mêmes encaissements.
@@ -225,10 +241,17 @@ public class SessionService {
 
     // ── Set beneficiary ──────────────────────────────────────
 
+    /**
+     * Désigne le bénéficiaire tiré au sort.
+     *
+     * <p>Uniquement pendant la saisie de présence : la clôture calcule la tontine
+     * du bénéficiaire, le marque servi dans le tour et fige le rapport. Le changer
+     * ensuite désignait une autre personne que celle réellement payée.</p>
+     */
     @Transactional
     public void setBeneficiary(Long sessionId, Long memberId) {
-        MeetingSessionEntity session = findById(sessionId);
-        if (session.isClosed()) throw new IllegalStateException("Séance déjà clôturée");
+        MeetingSessionEntity session = findByIdForUpdate(sessionId);
+        requirePresenceOpen(session, "le bénéficiaire de la tontine de présence ne peut plus être désigné");
         Member beneficiary = memberRepository.findById(memberId)
             .orElseThrow(() -> new IllegalArgumentException("Membre introuvable"));
         session.setPresenceBeneficiary(entityManager.getReference(MemberEntity.class, beneficiary.getId()));
@@ -259,10 +282,20 @@ public class SessionService {
         return saved;
     }
 
+    /**
+     * Enregistre une ligne de la feuille de présence.
+     *
+     * <p>Uniquement pendant la saisie de présence : après la clôture, les montants
+     * ont déjà été répartis (tontine, boisson, développement, fond) et figés dans le
+     * rapport ; une modification tardive n'aurait plus aucun effet financier et
+     * rendrait la feuille fausse. La séance est verrouillée comme pour une
+     * transition d'étape, pour qu'un enregistrement ne puisse pas croiser la
+     * clôture.</p>
+     */
     @Transactional
     public void saveAttendanceEntry(Long sessionId, AttendanceEntryForm form) {
-        MeetingSessionEntity session = findById(sessionId);
-        if (session.isClosed()) throw new IllegalStateException("Séance déjà clôturée");
+        MeetingSessionEntity session = findByIdForUpdate(sessionId);
+        requirePresenceOpen(session, "la feuille de présence n'est plus modifiable");
 
         TypedQuery<SessionAttendanceEntity> query = entityManager.createQuery(
                 "SELECT a FROM SessionAttendanceEntity a WHERE a.session.id = :sessionId AND a.member.id = :memberId",
@@ -274,10 +307,21 @@ public class SessionService {
         try {
             att = query.getSingleResult();
         } catch (jakarta.persistence.NoResultException e) {
+            // La feuille est alignée sur les membres actifs à chaque affichage :
+            // une ligne absente ne peut venir que d'un envoi forgé. On n'en crée
+            // une que pour un membre actif — sinon un membre suspendu, démissionné
+            // ou décédé serait compté dans la clôture.
+            Member member = memberRepository.findById(form.getMemberId())
+                .orElseThrow(() -> new BusinessRuleException(
+                    "Membre introuvable : " + form.getMemberId() + "."));
+            if (!member.isActive()) {
+                throw new BusinessRuleException(
+                    member.getFullName() + " n'est pas un membre actif ("
+                  + member.getStatusLabel() + ") : il ne figure pas sur la feuille de présence.");
+            }
             att = new SessionAttendanceEntity();
             att.setSession(session);
-            att.setMember(entityManager.getReference(MemberEntity.class,
-                memberRepository.findById(form.getMemberId()).orElseThrow().getId()));
+            att.setMember(entityManager.getReference(MemberEntity.class, member.getId()));
         }
 
         BigDecimal paid = form.getAmountPaid() != null ? form.getAmountPaid() : BigDecimal.ZERO;
@@ -332,6 +376,14 @@ public class SessionService {
             debts = debts.add(debt.amount());
         }
         return due.add(debts);
+    }
+
+    private static void requirePresenceOpen(MeetingSessionEntity session, String what) {
+        if (!session.isStepExactly(SessionStep.PRESENCE_OPEN)) {
+            throw new BusinessRuleException(
+                "La saisie de présence n'est pas ouverte (étape courante : "
+              + session.getCurrentStepEnum().label() + ") : " + what + ".");
+        }
     }
 
     private String memberName(Long memberId) {

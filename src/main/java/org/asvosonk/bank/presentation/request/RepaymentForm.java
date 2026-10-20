@@ -1,5 +1,7 @@
 package org.asvosonk.bank.presentation.request;
 
+import org.asvosonk.common.presentation.validation.FcfaAmount;
+
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
@@ -12,5 +14,6 @@ public class RepaymentForm {
 
     @NotNull(message = "Le montant est obligatoire.")
     @DecimalMin(value = "1", message = "Le montant minimum est de 1 FCFA.")
+    @FcfaAmount
     private BigDecimal amount;
 }

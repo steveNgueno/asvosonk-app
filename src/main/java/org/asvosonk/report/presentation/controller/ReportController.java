@@ -2,6 +2,7 @@ package org.asvosonk.report.presentation.controller;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.asvosonk.report.application.service.ReportModuleUnavailableException;
 import org.asvosonk.report.application.service.ReportService;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
@@ -13,10 +14,12 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.nio.file.Path;
 import java.time.LocalDate;
@@ -102,6 +105,8 @@ public class ReportController {
 
         } catch (ReportGenerationException e) {
             throw e;
+        } catch (ReportModuleUnavailableException e) {
+            throw new ReportGenerationException(e.getMessage());
         } catch (Exception e) {
             // F-13: never reflect e.getMessage() into an HTML response (XSS +
             // info leak). Log the detail server-side, surface a safe message.
@@ -117,10 +122,25 @@ public class ReportController {
             .anyMatch(authority::equals);
     }
 
+    /**
+     * Échec de génération : retour à la page Rapports avec le message prévu pour
+     * l'utilisateur. Sans ce gestionnaire, l'exception aboutissait à la page
+     * d'erreur 500 générique et ce message n'était jamais affiché.
+     */
+    @ExceptionHandler(ReportGenerationException.class)
+    public String handleGenerationFailure(ReportGenerationException e, RedirectAttributes ra) {
+        ra.addFlashAttribute("errorMessage", e.getMessage());
+        return "redirect:/reports";
+    }
+
     /** Thrown when report generation fails; carries a safe, user-facing message. */
     static class ReportGenerationException extends RuntimeException {
         ReportGenerationException() {
-            super("La génération du rapport a échoué. Réessayez ou contactez l'administrateur.");
+            this("La génération du rapport a échoué. Réessayez ou contactez l'administrateur.");
+        }
+
+        ReportGenerationException(String safeMessage) {
+            super(safeMessage);
         }
     }
 }

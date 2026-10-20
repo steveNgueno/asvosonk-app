@@ -31,5 +31,26 @@ public class TontineSheetForm {
         private Long contributorId;
         /** Montant versé ; {@code null} = ligne non saisie, ignorée. */
         private BigDecimal amount;
+        /** Recouvrements des échecs passés, versés avant la cotisation du jour. */
+        private List<Recovery> recoveries = new ArrayList<>();
+
+        /** Montants de recouvrement saisis, par échec ; les cases vides sont ignorées. */
+        public java.util.Map<Long, BigDecimal> enteredRecoveries() {
+            java.util.Map<Long, BigDecimal> entered = new java.util.LinkedHashMap<>();
+            for (Recovery recovery : recoveries) {
+                if (recovery != null && recovery.getFailedContributionId() != null && recovery.getAmount() != null) {
+                    entered.put(recovery.getFailedContributionId(), recovery.getAmount());
+                }
+            }
+            return entered;
+        }
+    }
+
+    @Getter
+    @Setter
+    public static class Recovery {
+        private Long failedContributionId;
+        /** Montant versé au bénéficiaire de la séance de l'échec ; {@code null} = non saisi. */
+        private BigDecimal amount;
     }
 }

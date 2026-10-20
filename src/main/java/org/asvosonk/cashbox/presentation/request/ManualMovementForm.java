@@ -1,5 +1,7 @@
 package org.asvosonk.cashbox.presentation.request;
 
+import org.asvosonk.common.presentation.validation.FcfaAmount;
+
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -18,5 +20,6 @@ public class ManualMovementForm {
 
     @NotNull(message = "Le montant est obligatoire")
     @DecimalMin(value = "1", message = "Le montant doit être supérieur à 0")
+    @FcfaAmount
     private BigDecimal amount;
 }

@@ -10,6 +10,7 @@ import org.asvosonk.aid.domain.valueobject.AidType;
 import org.asvosonk.common.domain.exception.BusinessRuleException;
 import org.asvosonk.member.domain.model.Member;
 import org.asvosonk.member.domain.repository.MemberRepository;
+import org.asvosonk.member.domain.valueobject.MemberStatus;
 import org.asvosonk.security.domain.model.AppUser;
 import org.asvosonk.session.application.usecase.RequireOpenSessionUseCase;
 import org.asvosonk.session.infrastructure.persistence.entity.MeetingSessionEntity;
@@ -55,10 +56,27 @@ public class CreateAidUseCase {
         }
         Member beneficiary = memberRepository.findById(beneficiaryId).orElseThrow(
             () -> new BusinessRuleException("Membre introuvable : " + beneficiaryId));
-        if (!beneficiary.isActive()) {
+        // Au décès d'un membre, c'est sa famille qui reçoit l'aide : le membre
+        // concerné peut déjà figurer comme décédé dans l'association.
+        boolean deceasedMemberAid = type == AidType.deces_membre
+            && beneficiary.getStatus() == MemberStatus.deceased;
+        if (!beneficiary.isActive() && !deceasedMemberAid) {
             throw new BusinessRuleException(
                 "L'aide ne concerne que les membres actifs : "
               + beneficiary.getFullName() + " est " + beneficiary.getStatusLabel() + ".");
+        }
+
+        LocalDate effectiveDate = aidDate != null ? aidDate : LocalDate.now();
+        if (effectiveDate.isAfter(LocalDate.now())) {
+            throw new BusinessRuleException("La date de l'aide ne peut pas être dans le futur.");
+        }
+        AidType effectiveType = type != null ? type : AidType.autre;
+        boolean duplicate = aidRepository.findByBeneficiaryId(beneficiaryId).stream()
+            .anyMatch(a -> a.getType() == effectiveType && effectiveDate.equals(a.getAidDate()));
+        if (duplicate) {
+            throw new BusinessRuleException(
+                "Une aide « " + effectiveType.label() + " » est déjà enregistrée pour "
+              + beneficiary.getFullName() + " à la date du " + effectiveDate + ".");
         }
         if (totalAmount == null || totalAmount.signum() <= 0) {
             throw new BusinessRuleException("La somme de l'aide doit être strictement positive.");
@@ -70,7 +88,7 @@ public class CreateAidUseCase {
         }
 
         List<Member> concerned = memberRepository.findAllActive();
-        if (concerned.stream().noneMatch(m -> m.getId().equals(beneficiaryId))) {
+        if (!deceasedMemberAid && concerned.stream().noneMatch(m -> m.getId().equals(beneficiaryId))) {
             // déjà couvert par le filtre ci-dessus, garde-fou explicite :
             throw new BusinessRuleException(
                 "Le membre concerné doit être un membre actif de l'association.");
@@ -81,8 +99,8 @@ public class CreateAidUseCase {
         }
 
         Aid aid = new Aid(null, beneficiaryId,
-            type != null ? type : AidType.autre,
-            aidDate != null ? aidDate : LocalDate.now(),
+            effectiveType,
+            effectiveDate,
             description, totalAmount, sharePerMember,
             null, session.getId(), null, null);
         Aid saved = aidRepository.save(aid);

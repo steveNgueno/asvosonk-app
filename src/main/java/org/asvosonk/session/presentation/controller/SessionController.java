@@ -183,11 +183,16 @@ public class SessionController {
                 Map<Long, BigDecimal> recordedBy = new HashMap<>();
                 recorded.forEach(c -> recordedBy.put(c.getContributorId(), c.getAmount()));
                 model.addAttribute("tontineRecordedBy", recordedBy);
+
+                // Échecs passés à recouvrir avant la cotisation du jour, par membre.
+                model.addAttribute("tontinePendingFailures",
+                    recordTontineContributionUseCase.pendingFailuresByMember(tontineTour.getId(), id));
             }
         }
 
         // ── Grande tontine : récapitulatif après clôture ─────
         if (session.isStepAtLeast(SessionStep.TONTINE_CLOSED)) {
+            addTontineRecoveries(id, model);
             List<TontineContribution> contributions =
                 getTourSummaryUseCase.findContributionsBySessionId(id);
             if (!contributions.isEmpty()) {
@@ -313,7 +318,12 @@ public class SessionController {
             return "redirect:/sessions/" + id;
         }
 
-        sessionService.setBeneficiary(id, memberId);
+        try {
+            sessionService.setBeneficiary(id, memberId);
+        } catch (BusinessRuleException e) {
+            ra.addFlashAttribute("errorMessage", e.getMessage());
+            return "redirect:/sessions/" + id;
+        }
         ra.addFlashAttribute("successMessage",
             "Bénéficiaire de la tontine de présence : "
                 + searchMemberUseCase.findById(memberId).getFullName() + ".");
@@ -404,9 +414,16 @@ public class SessionController {
                                       @Valid @ModelAttribute("sheetForm") AttendanceSheetForm sheetForm,
                                       BindingResult result,
                                       RedirectAttributes ra) {
+        // Hors saisie de présence, la page de saisie renvoie elle-même vers la
+        // séance : on y redirige directement pour que le message ne se perde pas.
+        if (!sessionService.findById(id).isStepExactly(SessionStep.PRESENCE_OPEN)) {
+            ra.addFlashAttribute("errorMessage",
+                "Feuille non enregistrée : la saisie de présence de cette séance n'est pas ouverte.");
+            return "redirect:/sessions/" + id;
+        }
         if (result.hasErrors()) {
             ra.addFlashAttribute("errorMessage",
-                "Feuille non enregistrée : un montant saisi est invalide (il doit être positif ou nul).");
+                "Feuille non enregistrée : un montant saisi est invalide (nombre entier de FCFA, positif ou nul).");
             return "redirect:/sessions/" + id + "/attendance";
         }
 
@@ -458,7 +475,10 @@ public class SessionController {
     }
 
     @PostMapping("/{id}/tontine/open")
-    @PreAuthorize("hasAuthority('TONTINE_VIEW')")
+    // Faire avancer la séance est une écriture : une permission de simple
+    // consultation (TONTINE_VIEW, SESSION_VIEW) laissait le rôle AUDITOR, en
+    // lecture seule, ouvrir les rubriques de n'importe quelle séance.
+    @PreAuthorize("hasAuthority('TONTINE_CONTRIBUTION_RECORD')")
     public String openTontine(@PathVariable Long id,
                               @AuthenticationPrincipal UserDetailsImpl user,
                               RedirectAttributes ra) {
@@ -476,7 +496,7 @@ public class SessionController {
     }
 
     @PostMapping("/{id}/banque-projet/open")
-    @PreAuthorize("hasAuthority('SESSION_VIEW')")
+    @PreAuthorize("hasAuthority('SESSION_CLOSE')")
     public String openBanqueProjet(@PathVariable Long id,
                                    @AuthenticationPrincipal UserDetailsImpl user,
                                    RedirectAttributes ra) {
@@ -494,7 +514,7 @@ public class SessionController {
     }
 
     @PostMapping("/{id}/banque-annuelle/open")
-    @PreAuthorize("hasAuthority('SESSION_VIEW')")
+    @PreAuthorize("hasAuthority('SESSION_CLOSE')")
     public String openBanqueAnnuelle(@PathVariable Long id,
                                      @AuthenticationPrincipal UserDetailsImpl user,
                                      RedirectAttributes ra) {
@@ -531,7 +551,7 @@ public class SessionController {
                                           @RequestParam BigDecimal amount,
                                           RedirectAttributes ra) {
         try {
-            TontineContribution contrib = recordTontineContributionUseCase.execute(
+            TontineContribution contrib = recordTontineContributionUseCase.recordInSession(
                 tourId, id, contributorId, beneficiaryId, amount);
             ra.addFlashAttribute("successMessage", contrib.isPaid()
                 ? "Cotisation de " + amount + " FCFA enregistrée."
@@ -555,35 +575,59 @@ public class SessionController {
     public String saveTontineSheet(@PathVariable Long id,
                                    @ModelAttribute("tontineSheetForm") TontineSheetForm sheetForm,
                                    RedirectAttributes ra) {
-        if (sheetForm.getTourId() == null || sheetForm.getBeneficiaryId() == null) {
-            ra.addFlashAttribute("errorMessage",
-                "Feuille non enregistrée : tour ou bénéficiaire manquant.");
+        if (sheetForm.getTourId() == null) {
+            ra.addFlashAttribute("errorMessage", "Feuille non enregistrée : tour manquant.");
             return "redirect:/sessions/" + id;
         }
 
+        // Contrôles propres à la séance, faits une fois pour toute la feuille
+        // plutôt que répétés ligne à ligne ; le use case les refait de toute
+        // façon, sous verrou, pour chaque ligne enregistrée.
+        MeetingSessionEntity session = sessionService.findById(id);
+        if (!session.isStepExactly(SessionStep.TONTINE_OPEN)) {
+            ra.addFlashAttribute("errorMessage",
+                "Feuille non enregistrée : la Grande Tontine de cette séance n'est pas ouverte à la saisie "
+                    + "(étape courante : " + session.getCurrentStepEnum().label() + ").");
+            return "redirect:/sessions/" + id;
+        }
+        // Sans bénéficiaire (tous servis), la feuille ne sert qu'aux recouvrements.
+        if (sheetForm.getBeneficiaryId() != null && !sheetForm.getBeneficiaryId().equals(
+                recordTontineContributionUseCase.expectedBeneficiary(sheetForm.getTourId(), id))) {
+            ra.addFlashAttribute("errorMessage",
+                "Feuille non enregistrée : le bénéficiaire indiqué n'est pas celui de la séance.");
+            return "redirect:/sessions/" + id;
+        }
+
+        // Une ligne = les recouvrements des échecs passés du membre, puis sa
+        // cotisation du jour ; enregistrée d'un bloc, ou refusée en entier.
         int saved = 0;
         List<String> refused = new ArrayList<>();
         for (TontineSheetForm.Entry entry : sheetForm.getEntries()) {
-            if (entry == null || entry.getContributorId() == null || entry.getAmount() == null) {
+            if (entry == null || entry.getContributorId() == null) {
+                continue;
+            }
+            Map<Long, BigDecimal> recoveries = entry.enteredRecoveries();
+            if (entry.getAmount() == null && recoveries.isEmpty()) {
                 continue;
             }
             try {
-                recordTontineContributionUseCase.replaceContribution(sheetForm.getTourId(), id,
-                    entry.getContributorId(), sheetForm.getBeneficiaryId(), entry.getAmount());
+                recordTontineContributionUseCase.recordSheetLine(sheetForm.getTourId(), id,
+                    entry.getContributorId(), sheetForm.getBeneficiaryId(), entry.getAmount(), recoveries);
                 saved++;
             } catch (BusinessRuleException | ResourceNotFoundException | IllegalArgumentException e) {
-                refused.add(searchMemberUseCase.findById(entry.getContributorId()).getFullName()
+                refused.add(searchMemberUseCase.findNamesByIds(List.of(entry.getContributorId()))
+                        .getOrDefault(entry.getContributorId(), "Membre #" + entry.getContributorId())
                     + " : " + e.getMessage());
             }
         }
 
         if (!refused.isEmpty()) {
             ra.addFlashAttribute("errorMessage",
-                (saved > 0 ? saved + " cotisation(s) enregistrée(s). " : "")
+                (saved > 0 ? saved + " ligne(s) enregistrée(s). " : "")
                     + "Ligne(s) refusée(s) — " + String.join(" · ", refused));
         } else {
             ra.addFlashAttribute("successMessage",
-                saved > 0 ? saved + " cotisation(s) enregistrée(s)."
+                saved > 0 ? saved + " ligne(s) enregistrée(s)."
                           : "Aucune ligne à enregistrer : tous les montants étaient vides.");
         }
         return "redirect:/sessions/" + id;
@@ -747,6 +791,26 @@ public class SessionController {
         return "redirect:/sessions/" + id;
     }
 
+    /**
+     * Recouvrements d'échecs de grande tontine versés pendant la séance : ils vont
+     * au bénéficiaire de la séance de l'échec (remis en espèces, ou conservés par
+     * le trésorier s'il est absent), pas au bénéficiaire du jour.
+     */
+    private void addTontineRecoveries(Long sessionId, Model model) {
+        var lines = recordTontineContributionUseCase.recoveriesDuring(sessionId);
+        if (lines.isEmpty()) {
+            return;
+        }
+        model.addAttribute("tontineRecoveries", lines);
+        model.addAttribute("tontineRecoveryTotal", lines.stream()
+            .map(RecordTontineContributionUseCase.RecoveryLine::amount)
+            .reduce(BigDecimal.ZERO, BigDecimal::add));
+        model.addAttribute("tontineRecoveryNames", searchMemberUseCase.findNamesByIds(lines.stream()
+            .flatMap(l -> java.util.stream.Stream.of(l.contributorId(), l.beneficiaryId()))
+            .distinct()
+            .toList()));
+    }
+
     // ── Rapport ──────────────────────────────────────────────
 
     @GetMapping("/{id}/report")
@@ -781,6 +845,8 @@ public class SessionController {
                 .reduce(BigDecimal.ZERO, BigDecimal::add));
             model.addAttribute("tontineMemberNames", namesOfContributions(contributions));
         }
+
+        addTontineRecoveries(id, model);
 
         // Rattrapages d'échecs recouverts pendant cette séance
         var recoveries = sessionService.findRecoveriesDuring(id);

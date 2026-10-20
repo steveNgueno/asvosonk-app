@@ -1,5 +1,7 @@
 package org.asvosonk.bank.presentation.request;
 
+import org.asvosonk.common.presentation.validation.FcfaAmount;
+
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PastOrPresent;
@@ -15,6 +17,7 @@ public class SavingForm {
 
     @NotNull(message = "Le montant est obligatoire.")
     @DecimalMin(value = "1", message = "Le montant minimum est de 1 FCFA.")
+    @FcfaAmount
     private BigDecimal amount;
 
     @PastOrPresent(message = "La date de l'opération ne peut pas être dans le futur.")

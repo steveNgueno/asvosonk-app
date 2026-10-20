@@ -1,5 +1,7 @@
 package org.asvosonk.tontine.presentation.request;
 
+import org.asvosonk.common.presentation.validation.FcfaAmount;
+
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
@@ -16,6 +18,7 @@ public class ContributionForm {
     private Long beneficiaryId;
 
     @NotNull(message = "Le montant est obligatoire (0 pour échec).")
+    @FcfaAmount
     private BigDecimal amount;
 
     private Long sessionId;

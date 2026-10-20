@@ -126,6 +126,47 @@
     </div>
 </div>
 
+<!-- ══ Grande tontine : recouvrements d'échecs ═══════════════ -->
+<div th:fragment="tontineRecoveryDetail" class="card mb-4"
+     th:if="${tontineRecoveries != null and !#lists.isEmpty(tontineRecoveries)}">
+    <div class="card-header">
+        <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>Recouvrements d'échecs de grande tontine
+    </div>
+    <div class="table-wrap">
+        <table class="table">
+            <caption class="visually-hidden">Échecs de grande tontine recouverts pendant la séance</caption>
+            <thead>
+                <tr>
+                    <th scope="col">Membre</th>
+                    <th scope="col">Échec du</th>
+                    <th scope="col">Remis à</th>
+                    <th scope="col" class="num">Montant</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="r : ${tontineRecoveries}">
+                    <th scope="row" th:text="${tontineRecoveryNames.get(r.contributorId) ?: '—'}">Nom</th>
+                    <td th:text="${r.failedSessionDate != null ? #temporals.format(r.failedSessionDate,'dd/MM/yyyy') : '—'}">date</td>
+                    <td th:text="${tontineRecoveryNames.get(r.beneficiaryId) ?: '—'}">Nom</td>
+                    <td class="num money" th:text="${#numbers.formatInteger(r.amount,1,'WHITESPACE')}">0</td>
+                </tr>
+            </tbody>
+            <tfoot>
+                <tr>
+                    <th scope="row" colspan="3">Total recouvré</th>
+                    <td class="num money money-in"
+                        th:text="${#numbers.formatInteger(tontineRecoveryTotal,1,'WHITESPACE')}">0</td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+    <div class="card-footer text-muted small">
+        Ces sommes reviennent au bénéficiaire de la séance de l'échec, et non à celui du jour :
+        elles lui sont remises en espèces, ou conservées par le trésorier s'il est absent.
+        Elles ne passent par aucune caisse.
+    </div>
+</div>
+
 <!-- ══ Entrées et sorties du jour ════════════════════════════ -->
 <div th:fragment="dayFlows" class="row g-4 mb-4">
     <div class="col-lg-7">

@@ -340,6 +340,7 @@
          la même façon pendant la réunion et dans le rapport. -->
     <div th:replace="~{sessions/_rubric-details :: presenceDetail}"></div>
     <div th:replace="~{sessions/_rubric-details :: tontineDetail(${tontineContribs})}"></div>
+    <div th:replace="~{sessions/_rubric-details :: tontineRecoveryDetail}"></div>
 
     <p class="text-muted small" th:if="${sessionReport != null}">
         Rapport généré le

@@ -85,6 +85,14 @@ public class Loan {
         return totalDue.subtract(totalRepaid).max(BigDecimal.ZERO);
     }
 
+    /**
+     * Capital encore dû, hors intérêts : les remboursements s'imputent d'abord
+     * sur le capital emprunté. Sert au plafond d'endettement (3 × l'épargne).
+     */
+    public BigDecimal getOutstandingCapital(BigDecimal totalRepaid) {
+        return isRepaid() ? BigDecimal.ZERO : amount.subtract(totalRepaid).max(BigDecimal.ZERO);
+    }
+
     public void markAsOverdue() {
         this.status = LoanStatus.overdue;
         this.updatedAt = LocalDateTime.now();

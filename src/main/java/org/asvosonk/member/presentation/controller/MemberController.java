@@ -97,7 +97,6 @@ public class MemberController {
     @PreAuthorize("hasAuthority('MEMBER_CREATE')")
     public String newForm(Model model) {
         model.addAttribute("memberRequest", new MemberRequest());
-        model.addAttribute("statuses", MemberStatus.values());
         model.addAttribute("pageTitle", "Nouveau membre");
         model.addAttribute("editMode", false);
         return "members/form";
@@ -110,7 +109,6 @@ public class MemberController {
                          Model model,
                          RedirectAttributes ra) {
         if (result.hasErrors()) {
-            model.addAttribute("statuses", MemberStatus.values());
             model.addAttribute("editMode", false);
             model.addAttribute("pageTitle", "Nouveau membre");
             return "members/form";
@@ -132,10 +130,8 @@ public class MemberController {
         request.setPhone(member.getPhone());
         request.setJoinDate(member.getJoinDate());
         request.setResident(member.isResident());
-        request.setStatus(member.getStatus());
         model.addAttribute("memberRequest", request);
         model.addAttribute("memberId", id);
-        model.addAttribute("statuses", MemberStatus.values());
         model.addAttribute("pageTitle", "Modifier — " + member.getFullName());
         model.addAttribute("editMode", true);
         return "members/form";
@@ -149,7 +145,6 @@ public class MemberController {
                          Model model,
                          RedirectAttributes ra) {
         if (result.hasErrors()) {
-            model.addAttribute("statuses", MemberStatus.values());
             model.addAttribute("editMode", true);
             model.addAttribute("memberId", id);
             model.addAttribute("pageTitle", "Modifier le membre");
@@ -182,7 +177,9 @@ public class MemberController {
                             @AuthenticationPrincipal UserDetailsImpl principal,
                             RedirectAttributes ra) {
         if (result.hasErrors()) {
-            ra.addFlashAttribute("errorMessage", "Données invalides pour le paiement.");
+            ra.addFlashAttribute("errorMessage", "Paiement non enregistré : "
+                + (result.getFieldError() != null && result.getFieldError().getDefaultMessage() != null
+                    ? result.getFieldError().getDefaultMessage() : "données invalides."));
             return "redirect:/members/" + id;
         }
         feePaymentForm.setMemberId(id);
